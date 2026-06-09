@@ -89,6 +89,14 @@ def generate(
             console.print(f"  [yellow]identity[/]: {fix}")
         if qa["skills_dropped"]:
             console.print(f"  [yellow]dropped invented skills/certs[/]: {', '.join(qa['skills_dropped'])}")
+        for ef in qa.get("experience_fixed", []):
+            console.print(f"  [yellow]experience[/] ({ef['company']}): {'; '.join(ef['changes'])}")
+        for um in qa.get("unmatched_experience", []):
+            console.print(f"  [red]UNMATCHED experience[/]: {um['role']} @ {um['company']} "
+                          f"— could not tie to your profile; review manually.")
+        for ub in qa.get("ungrounded_in_bullets", []):
+            console.print(f"  [red]ungrounded term[/] ({ub['company']}): {', '.join(ub['terms'])} "
+                          f"— \"{ub['bullet'][:70]}…\"")
         for fab in qa["fabricated_numbers"]:
             console.print(f"  [yellow]fabricated number[/] ({fab['company']}): "
                           f"{', '.join(fab['numbers'])} — \"{fab['bullet'][:70]}…\"")
