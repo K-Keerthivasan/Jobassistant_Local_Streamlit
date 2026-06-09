@@ -1,0 +1,8 @@
+{
+  "company": "Ontario Power Generation",
+  "title": "Junior Full-Stack Developer",
+  "location": "Toronto, ON",
+  "apply_url": "",
+  "contact_email": "",
+  "description": "OPG is seeking a Junior Full-Stack Developer to help build and maintain internal web applications supporting our clean-energy operations. Responsibilities: develop and maintain features across the stack using JavaScript/TypeScript and a .NET/C# backend; design and query SQL databases; integrate REST APIs between services; collaborate with QA on validation and release; follow GitOps workflows and write clear documentation. Requirements: experience with JavaScript/TypeScript and at least one backend language (C#/.NET a plus); SQL database design and queries; REST API integration; Git version control; strong communication and documentation skills. Nice to have: cloud experience, automation tooling, and a degree in computer science or related field."
+}

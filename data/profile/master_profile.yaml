@@ -1,0 +1,166 @@
+# =============================================================================
+# MASTER PROFILE — single source of truth (CANDIDATE_PROFILE)
+# The generator may ONLY use facts present here. It must never invent or inflate
+# employers, dates, titles, degrees, certs, metrics, or skills.
+# Keep this complete and factual; tailoring/selection happens at generation time.
+# =============================================================================
+
+full_name: "Keerthivasan"
+preferred_name: "Keerthi"
+
+contact:
+  email: "kkvasan99@gmail.com"
+  phone: "226-977-6398"
+  location: "London, ON, Canada"
+  links:
+    - label: "LinkedIn"
+      url: "https://linkedin.com/in/kkvasan/"
+    - label: "Portfolio"
+      url: "https://dev.kkvasan.ca/"
+    - label: "GitHub"
+      url: "https://github.com/K-Keerthivasan"
+    - label: "K2 Digital Media"
+      url: "https://k2digitalmedia.ca/"
+
+# A neutral, factual summary of who the candidate is. The generator rewrites a
+# role-targeted version from this — it does not copy it verbatim.
+summary_base: >
+  Backend and integration-focused developer with experience building APIs,
+  connecting complex systems, and creating automation pipelines across Node.js,
+  Python, C++, C#, Unity, Firebase, and Supabase. Background spans full-stack web
+  development, data integration, machine-learning research, and high-volume
+  records/CRM work. Fast learner with strong written and verbal communication.
+
+# Full skill inventory. The generator SELECTS and ORDERS from this list by
+# relevance to the target role; it must not add skills not present here.
+skills:
+  languages: [Python, JavaScript, TypeScript, "C++", "C#", SQL]
+  backend_cloud: [Node.js, "REST APIs", Firebase, Supabase, PostgreSQL, "SQL Server", MongoDB]
+  frontend_ui: [React.js, Next.js, HTML, CSS, "Material UI", "Tailwind CSS"]
+  ai_automation:
+    - "LLM-powered automation (GPT, Gemini, Ollama)"
+    - "AI agents & tool-calling"
+    - "Prompt engineering"
+    - "Structured output / JSON schemas"
+    - "n8n automation"
+    - "API orchestration for AI pipelines"
+    - "Python web scraping"
+    - "scikit-learn"
+  game_dev: ["Unreal Engine", OpenGL, Unity, "CHAI 3D"]
+  tools_other: [Git, Docker, Postman, Figma, WordPress, Asana, Jira, Excel, Word, Slack, Illustrator]
+
+experience:
+  - company: "Bill Gosling Outsourcing"
+    role: "Collections Agent"
+    location: "London, ON"
+    start: "May 2025"
+    end: "Present"
+    # Facts the generator can draw bullets from (truthful, reusable).
+    facts:
+      - "Document every customer interaction in CRM systems with accuracy, keeping account records clean and audit-ready across a high volume of daily contacts."
+      - "Coordinate follow-ups, payment schedules, and account updates while navigating several software systems and screens at once."
+      - "Meet daily targets consistently while following company policy and compliance requirements."
+      - "Maintain professional, calm communication with a wide range of customers, often in difficult conversations."
+      - "Onboarded onto new platforms and workflows quickly and adapted as processes changed."
+    tags: [crm, records, data-entry, customer-service, compliance, communication]
+
+  - company: "K2 Digital Media"
+    role: "Freelance Web Developer / Operations & Project Coordinator"
+    location: "Remote"
+    start: "2023"
+    end: "Present"
+    facts:
+      - "Created and deployed custom, responsive websites using Next.js, TypeScript, and Tailwind CSS."
+      - "Developed full-stack applications with Node.js backends, integrating Firebase/Supabase for database, authentication, and storage."
+      - "Built scalable WordPress websites with custom themes and client-specific plugins, optimizing for SEO and performance."
+      - "Embedded third-party APIs and applications (Stripe, YouTube, Google Maps)."
+      - "Designed and managed databases on PostgreSQL, Supabase, and Firebase covering structure, queries, and data integrity."
+      - "Built LLM-assisted automation workflows in n8n with structured outputs to reduce repetitive data handling."
+      - "Managed multiple client accounts in parallel, each with its own deliverables, timelines, and points of contact."
+      - "Ran projects end to end: requirements gathering, scoping, scheduling, deliverable tracking, client communication, and sign-off."
+      - "Translated technical ideas for non-technical customers, defining requirements, scope, and delivery schedules."
+      - "Provided post-launch website maintenance, updates, and performance checks."
+    tags: [fullstack, web, nodejs, nextjs, databases, apis, automation, n8n, project-management, client-facing]
+
+  - company: "Certify Technologies"
+    role: "Associate Developer"
+    location: "Chennai, India"
+    start: "Nov 2021"
+    end: "Jul 2023"
+    facts:
+      - "Built data integration pipelines connecting frontend dashboards to backend services through REST APIs, handling ingestion, transformation, and validation."
+      - "Worked across SQL Server, MongoDB, and Firebase: schema design, queries, and troubleshooting data integration into production systems."
+      - "Collaborated with product and QA on requirements, workflow mapping, validation criteria, and release sign-off."
+      - "Supported production releases through log analysis, integration issue fixes, and validation."
+      - "Built responsive UI components using React, TypeScript, JavaScript, Tailwind, HTML, and CSS."
+      - "Maintained codebases using Git for version control and team collaboration."
+    tags: [data-integration, apis, databases, backend, frontend, qa, git]
+
+  - company: "Materia Bioworks (via Fanshawe College)"
+    role: "Research Assistant (Machine Learning and Data)"
+    location: "London, ON"
+    start: "Aug 2024"
+    end: "Nov 2024"
+    facts:
+      - "Built a Python web scraper to automate material-science data collection, replacing manual gathering with a repeatable pipeline."
+      - "Cleaned, structured, and validated collected data, then applied scikit-learn techniques to investigate biopolymer property combinations."
+      - "Authored a clear write-up on data quality, model performance, and findings, and communicated results to non-technical research stakeholders."
+      - "Managed Git workflow and experimented with various data training types."
+    tags: [python, scraping, machine-learning, data, scikit-learn, research, git]
+
+  - company: "Haply Robotics (via Fanshawe College)"
+    role: "Research Assistant"
+    location: "London, ON"
+    start: "Aug 2024"
+    end: "Dec 2024"
+    facts:
+      - "Developed a Unity haptic feedback system by integrating the CHAI 3D library."
+      - "Authored interop code bridging Unity (C#) and CHAI 3D (C++) for real-time, bidirectional haptics data transmission."
+      - "Developed Unity scripts and native plugins to provide CHAI 3D force feedback into the Unity runtime."
+      - "Developed multi-physics engine environments to enhance simulation effectiveness."
+      - "Contributed to a complex GitHub repository, managing C++ applications and parsers for cross-language correspondence."
+    tags: [unity, csharp, cpp, interop, haptics, game-dev, git]
+
+  - company: "Best Buy"
+    role: "Sales Associate, Computing"
+    location: "London, ON"
+    start: "2023"
+    end: "2024"
+    facts:
+      - "Delivered front-line customer service on a fast-paced retail floor, handling inquiries, recommendations, and resolutions."
+      - "Processed cash, credit, and debit transactions accurately with a secure checkout flow."
+      - "Handled merchandising and inventory tasks using barcode systems and kept product information current."
+    tags: [customer-service, retail, sales]
+
+projects:
+  - name: "Blog Website"
+    stack: [TypeScript, Firebase, Firestore]
+    url: "https://blog.kkvasan.ca"
+    description: "Full blog platform where users log in and write/edit posts live with a rich text editor (images + formatting), built with clean collections and SEO in mind."
+    tags: [fullstack, web, firebase]
+  - name: "VFX & Editing Portfolio"
+    stack: [React, Firebase, "Material UI"]
+    url: "https://film.kkvasan.ca"
+    description: "Portfolio site with a secure admin panel to add/update film & VFX projects, with categories, video embeds, and a mobile-friendly layout."
+    tags: [fullstack, web, firebase]
+  - name: "Custom Game Engine"
+    stack: ["C++", OpenGL]
+    url: ""
+    description: "Small game engine built from scratch with shaders, textures, a rendering pipeline, animation, physics basics, and collision detection."
+    tags: [cpp, opengl, game-dev]
+
+education:
+  - institution: "Fanshawe College, London, ON, Canada"
+    credential: "Visual Effects and Editing for Contemporary Media"
+    year: "2024-2025"
+  - institution: "Fanshawe College, London, ON, Canada"
+    credential: "Game Development – Advanced Programming"
+    year: "2023-2024"
+  - institution: "College of Engineering Guindy, Anna University, Chennai, India"
+    credential: "Master of Computer Applications (MCA)"
+    year: "2020-2022"
+  - institution: "Ramakrishna Mission Vivekananda College, Chennai, India"
+    credential: "Bachelor of Commerce (B.Com)"
+    year: "2017-2020"
+
+certifications: []

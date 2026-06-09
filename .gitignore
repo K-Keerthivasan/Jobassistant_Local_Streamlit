@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+
+# Env / secrets
+.env
+*.local
+
+# Generated output (resumes, cover letters, emails)
+output/*
+!output/.gitkeep
+
+# Incoming job descriptions (may contain scraped data)
+data/jobs/*
+!data/jobs/.gitkeep
+!data/jobs/*_sample.json
+
+# OS
+Thumbs.db
+.DS_Store
+
+# IDE
+.idea/
+.vscode/

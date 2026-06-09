@@ -1,0 +1,23 @@
+# Core
+pydantic>=2.6
+pyyaml>=6.0
+python-dotenv>=1.0
+
+# LLM (Ollama)
+httpx>=0.27
+
+# Rendering
+python-docx>=1.1
+docx2pdf>=0.1.8 ; platform_system == "Windows"
+
+# API (so n8n / other devices can call the engine)
+fastapi>=0.110
+uvicorn[standard]>=0.29
+
+# Automation (apply / scraping) — used in later phases
+selenium>=4.20
+beautifulsoup4>=4.12
+
+# CLI niceties
+typer>=0.12
+rich>=13.7

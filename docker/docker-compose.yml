@@ -1,0 +1,54 @@
+# Self-hosted stack. Ollama runs on the HOST (GPU access); containers reach it
+# via host.docker.internal. n8n orchestrates; Tailscale exposes it to your other
+# devices. Bring up with:  docker compose -f docker/docker-compose.yml up -d
+services:
+  resume-api:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: resume-gen-api:latest
+    container_name: resume-api
+    restart: unless-stopped
+    ports:
+      - "8088:8088"
+    environment:
+      OLLAMA_HOST: http://host.docker.internal:11434
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen3:8b}
+      PDF_ENGINE: libreoffice
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ../data/profile:/app/data/profile:ro
+      - ../output:/app/output
+
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: n8n
+    restart: unless-stopped
+    ports:
+      - "5678:5678"
+    environment:
+      N8N_HOST: 0.0.0.0
+      N8N_PORT: 5678
+      # resume-api is reachable from n8n at http://resume-api:8088
+      GENERIC_TIMEZONE: America/Toronto
+    volumes:
+      - n8n_data:/home/node/.n8n
+
+  # Optional: expose the stack to your other devices over Tailscale.
+  # Add your auth key to .env (TS_AUTHKEY) and uncomment.
+  # tailscale:
+  #   image: tailscale/tailscale:latest
+  #   container_name: ts-resume
+  #   hostname: resume-gen
+  #   environment:
+  #     TS_AUTHKEY: ${TS_AUTHKEY}
+  #     TS_STATE_DIR: /var/lib/tailscale
+  #   volumes:
+  #     - ts_state:/var/lib/tailscale
+  #   cap_add: [NET_ADMIN, SYS_MODULE]
+  #   restart: unless-stopped
+
+volumes:
+  n8n_data:
+  # ts_state:
