@@ -72,12 +72,39 @@ def _best_experience_match(gen, prof_exp: list[dict]) -> dict | None:
     return best if (company_match or role_match) else None
 
 
+def _word_in(needle: str, haystack: str) -> bool:
+    """Whole-token containment with boundaries = non-alphanumeric / string ends.
+    Handles tech tokens with symbols ('c#', 'node.js', 'n8n')."""
+    if not needle:
+        return False
+    return re.search(rf"(?<![a-z0-9]){re.escape(needle)}(?![a-z0-9])", haystack) is not None
+
+
+# filler words that must not, on their own, ground a skill
+_SKILL_STOPWORDS = {
+    "integration", "design", "management", "development", "control", "version",
+    "systems", "system", "tools", "tool", "framework", "frameworks", "programming",
+    "software", "services", "service", "modern", "responsive", "scalable", "and",
+    "with", "the", "of", "for", "based", "stack", "full", "end",
+}
+
+
 def _grounded(atom: str, skill_text: str) -> bool:
-    """True if a single skill atom appears in the profile's skill inventory."""
+    """True if a skill atom is supported by the profile's skill inventory.
+
+    Direct substring first (handles 'n8n' in 'n8n automation'); otherwise require
+    a shared, meaningful token (so 'Git version control' grounds via 'git', but
+    '.NET' / 'Scrum' / 'Database design' do not)."""
     t = atom.lower().split("(")[0].strip()
     if not t:
         return False
-    return t in skill_text or t.rstrip("s") in skill_text or t + "." in skill_text
+    # whole-token match (symbol-aware boundaries so 'java' != 'javascript',
+    # but 'c#' and 'node.js' still match)
+    if _word_in(t, skill_text) or _word_in(t.rstrip("s"), skill_text):
+        return True
+    profile_tokens = set(re.findall(r"[a-z0-9#.+]+", skill_text)) - _SKILL_STOPWORDS
+    atom_tokens = {w for w in re.findall(r"[a-z0-9#.+]+", t) if len(w) >= 2} - _SKILL_STOPWORDS
+    return bool(atom_tokens & profile_tokens)
 
 
 # --------------------------------------------------------------------------- #
@@ -218,5 +245,7 @@ def _strip_metrics(bullet: str) -> str:
 
 
 def has_violations(report: dict) -> bool:
-    return bool(report["skills_dropped"] or report["fabricated_numbers"]
-               or report["identity_fixed"])
+    return any(report.get(k) for k in (
+        "skills_dropped", "fabricated_numbers", "identity_fixed",
+        "experience_fixed", "unmatched_experience", "ungrounded_in_bullets",
+    ))
