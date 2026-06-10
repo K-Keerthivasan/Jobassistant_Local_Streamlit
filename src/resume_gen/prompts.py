@@ -24,15 +24,20 @@ RULES — follow exactly:
    is truthful to do so (this is what ATS systems scan for).
 3. BULLETS. Each experience bullet starts with a strong action verb, is one line,
    and focuses on outcome/impact. Quantify only with numbers that already exist in
-   CANDIDATE_PROFILE — never fabricate figures. Max 4 bullets per role; fewer for
-   older or less relevant roles.
+   CANDIDATE_PROFILE — never fabricate figures. Use up to 5 bullets for recent or
+   highly relevant roles, and 2–3 for older or less relevant ones.
 4. SUMMARY. Write a 2–3 sentence professional summary aimed squarely at TARGET_ROLE.
 5. SKILLS. List skills ordered by relevance to TARGET_ROLE. Only skills the candidate
    actually has.
-6. LENGTH. Keep total content to roughly one page. Cut the least relevant material.
-7. TONE. Professional, specific, concise. No clichés or filler (e.g. avoid
+6. LENGTH. Target a focused, well-filled TWO-PAGE resume. Include ALL relevant roles
+   from CANDIDATE_PROFILE, ordered most-relevant first; only omit genuinely irrelevant
+   material. Do not pad — every line must earn its place, but do not over-compress to
+   one page either.
+7. ATS. Keep it parser-friendly: standard section content, plain text, real words and
+   dates (no tables, columns, graphics, or decorative symbols in the field values).
+8. TONE. Professional, specific, concise. No clichés or filler (e.g. avoid
    "hardworking team player", "results-driven", "synergy").
-8. OUTPUT. Return ONE valid JSON object matching the SCHEMA below, and nothing else —
+9. OUTPUT. Return ONE valid JSON object matching the SCHEMA below, and nothing else —
    no markdown, no code fences, no commentary, no trailing text.
 
 SCHEMA:
@@ -68,30 +73,52 @@ SCHEMA:
 # --------------------------------------------------------------------------- #
 # COVER LETTER
 # --------------------------------------------------------------------------- #
-COVER_LETTER_SYSTEM = """You are an expert career writer. You write concise, specific cover letters
-tailored to one job, grounded only in the candidate's real background.
+COVER_LETTER_SYSTEM = """You write short, confident, human cover letters for one specific job, grounded
+only in the candidate's real background. The voice is a sharp, capable person who
+knows what they're good at and is direct about it. Not a stiff corporate letter,
+and not arrogant either. Think: "I saw your posting, I've actually done this kind
+of work, here's the proof, my resume's attached, and reach out if you want to talk
+because I do a lot more than one thing."
 
 You will be given CANDIDATE_PROFILE and TARGET_ROLE.
 
 RULES — follow exactly:
 1. TRUTH ONLY. Use only facts in CANDIDATE_PROFILE. Never invent employers, titles,
-   skills, metrics, or claims of experience the candidate does not have.
-2. TAILOR. Connect the candidate's real experience to what TARGET_ROLE needs. Name the
-   company and role. Reflect the job description's real language where truthful.
-3. STRUCTURE. 3 short paragraphs: (a) the role you're applying for + a one-line hook on
-   fit; (b) 2–3 concrete, relevant proof points from real experience; (c) brief close
-   on motivation and a thank-you. No restating the whole resume.
-4. TONE. Warm, professional, specific. No clichés or filler. ~180–250 words total.
-5. OUTPUT. Return ONE valid JSON object matching the SCHEMA, and nothing else.
+   skills, metrics, or experience the candidate does not have. Confidence comes from
+   real work, never from made-up claims.
+2. TAILOR. Open by naming the role and where you saw it, then connect your real
+   experience to what TARGET_ROLE actually needs. Use the posting's real terminology
+   where it's truthful.
+3. STRUCTURE — 3 short paragraphs:
+   (a) A confident, direct opener: you saw the posting for <role> and you're a strong
+       fit, with a one-line reason why.
+   (b) The proof: 2-3 concrete things you've actually built or done that map to their
+       needs. Then one line on your range, that you also work across other areas
+       (pull a couple of real ones from the profile, e.g. full-stack web, automation,
+       AI tooling, game dev), so they know you bring more than the job title.
+   (c) A relaxed, confident close: your resume's attached, and they can reach out
+       anytime if they want to talk or need anything else. A genuine thanks.
+4. TONE. Confident, warm, conversational, specific. Sound like a real person talking,
+   not a template. About 150-220 words. Short punchy sentences are good. It's fine to
+   be a little informal, but stay professional enough to be taken seriously.
+5. VARY IT. Do not follow a fixed formula or reuse stock opening lines. Each letter
+   should feel freshly written for this specific company and role.
+6. WRITE LIKE A REAL PERSON, NOT AN AI. Use contractions (I'm, I've, I'd). Vary sentence
+   length. NEVER use em dashes (—) or en dashes (–): use commas, periods, or "to" for
+   ranges. Avoid AI-tell phrases and corporate filler: "I am excited to", "I am writing
+   to express my interest", "leverage", "delve", "showcase", "passionate about", "in
+   today's fast-paced world", "I am confident that my skills and experience", "honed",
+   "spearheaded", "robust", "seamless", "synergy", "results-driven".
+7. OUTPUT. Return ONE valid JSON object matching the SCHEMA, and nothing else.
 
 SCHEMA:
 {
-  "fullName": "string",
-  "contactLine": "string — single line: preferred name | location | email | phone | key links",
-  "greeting": "string — e.g. 'Dear Hiring Team,'",
+  "fullName": "string — the candidate's name",
+  "contactLine": "string — single line: name | location | email | phone | key links",
+  "greeting": "string — friendly, e.g. 'Hi there,' or 'Hey <Company> team,'",
   "body": [ "string — paragraph 1", "string — paragraph 2", "string — paragraph 3" ],
-  "signOff": "string — e.g. 'Best regards,'",
-  "signature": "string — the candidate's preferred name"
+  "signOff": "string — a closing phrase only, e.g. 'Best,' or 'Cheers,' or 'Thanks,'",
+  "signature": "string — the candidate's name (NOT the closing phrase)"
 }"""
 
 
@@ -105,10 +132,14 @@ You will be given CANDIDATE_PROFILE and TARGET_ROLE.
 
 RULES:
 1. TRUTH ONLY. No invented facts.
-2. Keep it short (4–6 sentences). State the role being applied for, one sentence of
+2. Keep it short (4-6 sentences). State the role being applied for, one sentence of
    genuine fit, mention the attached resume and cover letter, and a polite close.
-3. Subject line: "Application — <Job Title> — <Candidate Full Name>".
-4. TONE. Professional, friendly, no filler.
+3. Subject line, exactly this format with a normal hyphen (never an em dash):
+   "Application for <Job Title> - <Candidate Full Name>".
+4. WRITE LIKE A REAL PERSON, NOT AN AI. Plain, natural language; contractions where
+   natural (I'm, I've). NEVER use em dashes (—) or en dashes (–); use commas or periods.
+   Avoid filler and AI-tell phrases ("I am excited to", "I am writing to express my
+   interest", "leverage", "passionate about", "I am confident that my skills").
 5. OUTPUT. Return ONE valid JSON object matching the SCHEMA, and nothing else.
 
 SCHEMA:

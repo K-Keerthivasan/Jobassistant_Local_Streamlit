@@ -87,3 +87,13 @@ def health() -> bool:
         return r.status_code == 200
     except httpx.HTTPError:
         return False
+
+
+def list_models() -> list[str]:
+    """Names of locally installed Ollama models (for the UI model picker)."""
+    try:
+        r = httpx.get(f"{settings.ollama_host.rstrip('/')}/api/tags", timeout=5.0)
+        r.raise_for_status()
+        return sorted(m["name"] for m in r.json().get("models", []))
+    except (httpx.HTTPError, KeyError, ValueError):
+        return []

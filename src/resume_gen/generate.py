@@ -3,6 +3,7 @@ letter / email objects, via Ollama."""
 
 from __future__ import annotations
 
+from .humanize import humanize_cover_letter, humanize_email
 from .llm.ollama_client import chat_structured
 from .models import ApplicationEmail, CoverLetter, Resume, TargetRole
 from .profile import load_profile, profile_to_prompt_block
@@ -26,12 +27,16 @@ def generate_resume(target: TargetRole, profile: dict | None = None, **kw) -> Re
 
 def generate_cover_letter(target: TargetRole, profile: dict | None = None, **kw) -> CoverLetter:
     user = _context(profile, target)
-    return chat_structured(COVER_LETTER_SYSTEM, user, CoverLetter, **kw)
+    # A touch more warmth/variation than the resume, so letters don't feel templated.
+    kw.setdefault("temperature", 0.7)
+    cl = chat_structured(COVER_LETTER_SYSTEM, user, CoverLetter, **kw)
+    return humanize_cover_letter(cl)
 
 
 def generate_email(target: TargetRole, profile: dict | None = None, **kw) -> ApplicationEmail:
     user = _context(profile, target)
-    return chat_structured(EMAIL_SYSTEM, user, ApplicationEmail, **kw)
+    email = chat_structured(EMAIL_SYSTEM, user, ApplicationEmail, **kw)
+    return humanize_email(email)
 
 
 def generate_all(target: TargetRole, profile: dict | None = None, **kw):

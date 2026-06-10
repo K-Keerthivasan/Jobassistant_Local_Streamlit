@@ -43,6 +43,10 @@ class Settings:
     output_dir: Path = field(
         default_factory=lambda: _path(os.getenv("OUTPUT_DIR", "output"))
     )
+    # Scraper intake: source config + dedup store + job queue live here.
+    intake_dir: Path = field(
+        default_factory=lambda: _path(os.getenv("INTAKE_DIR", "data/intake"))
+    )
 
     # PDF export
     pdf_engine: str = os.getenv("PDF_ENGINE", "auto")  # auto | docx2pdf | libreoffice

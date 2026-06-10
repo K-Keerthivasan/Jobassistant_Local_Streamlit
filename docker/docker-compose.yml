@@ -1,6 +1,8 @@
-# Self-hosted stack. Ollama runs on the HOST (GPU access); containers reach it
-# via host.docker.internal. n8n orchestrates; Tailscale exposes it to your other
-# devices. Bring up with:  docker compose -f docker/docker-compose.yml up -d
+# Only the resume-api runs in Docker.
+# Ollama and n8n are ALREADY installed on the host — we do NOT containerize them.
+#   - resume-api -> host Ollama  via  http://host.docker.internal:11434
+#   - host n8n   -> resume-api   via  http://localhost:8088  (published port below)
+# Bring up with:  docker compose -f docker/docker-compose.yml up -d --build
 services:
   resume-api:
     build:
@@ -12,31 +14,24 @@ services:
     ports:
       - "8088:8088"
     environment:
+      # Host-installed Ollama (GPU on the host); reached via host-gateway alias.
       OLLAMA_HOST: http://host.docker.internal:11434
       OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen3:8b}
+      OLLAMA_TEMPERATURE: ${OLLAMA_TEMPERATURE:-0.3}
       PDF_ENGINE: libreoffice
+      # Apify token for scraper sources (set APIFY_TOKEN in your .env).
+      APIFY_TOKEN: ${APIFY_TOKEN:-}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
-      - ../data/profile:/app/data/profile:ro
+      # Whole data dir (profile, sources.yaml, scraped intake queue) shared with
+      # the host so CLI and API/UI see the same jobs; output for generated files.
+      - ../data:/app/data
       - ../output:/app/output
 
-  n8n:
-    image: n8nio/n8n:latest
-    container_name: n8n
-    restart: unless-stopped
-    ports:
-      - "5678:5678"
-    environment:
-      N8N_HOST: 0.0.0.0
-      N8N_PORT: 5678
-      # resume-api is reachable from n8n at http://resume-api:8088
-      GENERIC_TIMEZONE: America/Toronto
-    volumes:
-      - n8n_data:/home/node/.n8n
-
-  # Optional: expose the stack to your other devices over Tailscale.
-  # Add your auth key to .env (TS_AUTHKEY) and uncomment.
+  # Optional: expose resume-api to your other devices over Tailscale.
+  # Your n8n is already on the host, so it does NOT need this. Uncomment only
+  # if you want remote devices to hit the API directly. Add TS_AUTHKEY to .env.
   # tailscale:
   #   image: tailscale/tailscale:latest
   #   container_name: ts-resume
@@ -49,6 +44,5 @@ services:
   #   cap_add: [NET_ADMIN, SYS_MODULE]
   #   restart: unless-stopped
 
-volumes:
-  n8n_data:
-  # ts_state:
+# volumes:
+#   ts_state:

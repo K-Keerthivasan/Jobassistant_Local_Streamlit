@@ -10,10 +10,19 @@ Examples:
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 
 import typer
 from rich.console import Console
+
+# Legacy Windows consoles default to cp1252 and choke on job titles / names with
+# non-Latin-1 characters. Make stdout/stderr tolerant so display never crashes.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, ValueError):
+        pass
 
 from .config import settings
 from .llm import ollama_client
@@ -107,6 +116,45 @@ def generate(
 
     if result["keywordsMatched"]:
         console.print(f"\n[dim]Keywords matched (QA):[/] {', '.join(result['keywordsMatched'])}")
+
+
+@app.command()
+def intake(
+    dry_run: bool = typer.Option(False, "--dry-run", help="Fetch + filter but don't queue."),
+):
+    """Scrape configured job sources, dedup, and queue new postings for review."""
+    from .intake.run import run_intake
+
+    res = run_intake(commit_new=not dry_run)
+    console.print(f"Fetched [bold]{res['fetched']}[/], matched [bold]{res['matched']}[/], "
+                  f"new [green]{res['new']}[/]"
+                  + ("" if dry_run else f", queued [green]{res['committed']}[/]"))
+    for j in res["new_jobs"]:
+        em = f"  [cyan]{j['email']}[/]" if j["email"] else ""
+        console.print(f"  [green]+[/] {j['title']}  @ [bold]{j['company']}[/]"
+                      f"  ({j['location'] or 'n/a'}) [{j['source']}]{em}")
+        console.print(f"      [dim]{j['apply_url']}[/]")
+    for e in res["errors"]:
+        console.print(f"  [red]![/] source failed: {e['source']} — {e['error']}")
+    if dry_run:
+        console.print("[dim]Dry run — nothing queued. Drop --dry-run to save.[/]")
+
+
+@app.command()
+def queue(
+    status: str = typer.Option(None, help="Filter by status (new/generated/approved/sent)."),
+):
+    """List jobs currently in the review queue."""
+    from .intake.store import list_queue
+
+    jobs = list_queue(status=status)
+    if not jobs:
+        console.print("[dim]Queue is empty.[/]")
+        return
+    for q in jobs:
+        em = f"  [cyan]{q.contact_email}[/]" if q.contact_email else ""
+        console.print(f"  [{q.status}] {q.title} @ [bold]{q.company}[/] "
+                      f"({q.location or 'n/a'}) [dim]{q.key_id}[/]{em}")
 
 
 if __name__ == "__main__":

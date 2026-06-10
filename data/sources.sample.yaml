@@ -1,0 +1,59 @@
+# Job sources the scraper pulls from.
+# Copy this to  data/sources.yaml  and edit (data/sources.yaml is gitignored).
+#
+# Find the identifiers:
+#   greenhouse -> the token in  boards.greenhouse.io/<token>  (or job-boards.greenhouse.io/<token>)
+#   lever      -> the slug in   jobs.lever.co/<slug>
+#   workday    -> the full public careers URL, e.g.
+#                 https://acme.wd5.myworkdayjobs.com/en-US/AcmeCareers
+#   generic    -> any career page URL (best-effort text scrape; fragile)
+
+sources:
+  - type: greenhouse
+    company: "examplehq"        # boards.greenhouse.io/examplehq
+
+  - type: lever
+    company: "example"          # jobs.lever.co/example
+
+  - type: workday
+    url: "https://acme.wd5.myworkdayjobs.com/en-US/AcmeCareers"
+    limit: 20
+
+  - type: generic
+    company: "Some Company"
+    url: "https://somecompany.com/careers/job-123"
+
+  # Apify: run a job-scraping actor (Indeed, LinkedIn, etc.) and read its output.
+  # Put your token in .env as APIFY_TOKEN=apify_api_...  (never commit it).
+  - type: apify
+    actor: "misceres/indeed-scraper"   # actor id (the run-sync API is used)
+    # token_env: "APIFY_TOKEN"          # env var holding the token (this is the default)
+    input:                              # actor-specific input; see the actor's docs
+      position: "full stack developer"
+      location: "London, ON"
+      country: "CA"
+      maxItems: 25
+    # field_map:                        # override field mapping if the actor differs
+    #   title: "positionName"
+    #   company: "company"
+    #   apply_url: "url"
+    #   contact_email: "email"
+
+  # Or read an existing Apify dataset by id (fast, no run):
+  # - type: apify
+  #   dataset_id: "abc123XYZ"
+
+filters:
+  # Keep only postings whose title contains one of these (case-insensitive).
+  # Leave empty [] to keep everything.
+  title_keywords:
+    - "developer"
+    - "engineer"
+    - "full-stack"
+    - "full stack"
+    - "software"
+    - "backend"
+    - "frontend"
+    - "web"
+  # Set true to keep only jobs that expose a contact/HR email (for the email path).
+  require_email: false

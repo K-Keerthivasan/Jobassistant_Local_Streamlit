@@ -27,14 +27,18 @@ FONT = "Calibri"
 def _base_styles(doc: Document) -> None:
     style = doc.styles["Normal"]
     style.font.name = FONT
-    style.font.size = Pt(10.5)
+    style.font.size = Pt(11)
     style.font.color.rgb = DARK
     pf = style.paragraph_format
-    pf.space_after = Pt(2)
-    pf.line_spacing = 1.06
+    pf.space_after = Pt(3)
+    pf.line_spacing = 1.12
+    pf.widow_control = True  # no single orphaned line across a page break
+
+    # 0.75" margins: comfortable, ATS-safe, and lets content breathe over two pages.
+    from docx.shared import Inches
 
     for m in ("top_margin", "bottom_margin", "left_margin", "right_margin"):
-        setattr(doc.sections[0], m, Pt(40))
+        setattr(doc.sections[0], m, Inches(0.75))
 
 
 def _bottom_border(paragraph) -> None:
@@ -51,7 +55,7 @@ def _bottom_border(paragraph) -> None:
     pPr.append(pbdr)
 
 
-def _run(paragraph, text, *, bold=False, size=10.5, color=DARK, italic=False):
+def _run(paragraph, text, *, bold=False, size=11, color=DARK, italic=False):
     r = paragraph.add_run(text)
     r.bold = bold
     r.italic = italic
@@ -63,17 +67,19 @@ def _run(paragraph, text, *, bold=False, size=10.5, color=DARK, italic=False):
 
 def _heading(doc: Document, text: str):
     p = doc.add_paragraph()
-    p.paragraph_format.space_before = Pt(9)
-    p.paragraph_format.space_after = Pt(3)
-    _run(p, text.upper(), bold=True, size=11, color=ACCENT)
+    p.paragraph_format.space_before = Pt(12)
+    p.paragraph_format.space_after = Pt(4)
+    p.paragraph_format.keep_with_next = True  # heading never sits alone at page bottom
+    _run(p, text.upper(), bold=True, size=11.5, color=ACCENT)
     _bottom_border(p)
     return p
 
 
 def _bullet(doc: Document, text: str):
     p = doc.add_paragraph(style="List Bullet")
-    p.paragraph_format.space_after = Pt(1)
+    p.paragraph_format.space_after = Pt(3)
     p.paragraph_format.left_indent = Pt(14)
+    p.paragraph_format.line_spacing = 1.1
     _run(p, text)
     return p
 
@@ -133,18 +139,20 @@ def render_resume(resume: Resume, out_path: Path) -> Path:
         _heading(doc, "Experience")
         for e in resume.experience:
             head = doc.add_paragraph()
-            head.paragraph_format.space_before = Pt(4)
+            head.paragraph_format.space_before = Pt(7)
             head.paragraph_format.space_after = Pt(0)
+            head.paragraph_format.keep_with_next = True
             _tab_right(head)
-            _run(head, e.role, bold=True, size=10.5)
+            _run(head, e.role, bold=True, size=11)
             if e.company:
-                _run(head, f"  |  {e.company}", size=10.5)
+                _run(head, f"  |  {e.company}", size=11)
             dates = f"{e.start} – {e.end}".strip(" –")
-            _run(head, f"\t{dates}", size=9.5, color=ACCENT)
+            _run(head, f"\t{dates}", size=10, color=ACCENT)
             if e.location:
                 loc = doc.add_paragraph()
-                loc.paragraph_format.space_after = Pt(1)
-                _run(loc, e.location, size=9, italic=True)
+                loc.paragraph_format.space_after = Pt(2)
+                loc.paragraph_format.keep_with_next = True
+                _run(loc, e.location, size=9.5, italic=True)
             for b in e.bullets:
                 _bullet(doc, b)
 
@@ -157,7 +165,7 @@ def render_resume(resume: Resume, out_path: Path) -> Path:
             _run(p, ed.credential, bold=True)
             _run(p, f"  |  {ed.institution}")
             if ed.year:
-                _run(p, f"\t{ed.year}", size=9.5, color=ACCENT)
+                _run(p, f"\t{ed.year}", size=10, color=ACCENT)
 
     if resume.certifications:
         _heading(doc, "Certifications")

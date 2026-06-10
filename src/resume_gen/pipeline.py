@@ -18,7 +18,7 @@ from pathlib import Path
 
 from .config import settings
 from .generate import generate_all
-from .guard import enforce, has_violations
+from .guard import enforce, enforce_cover_letter, enforce_email, has_violations
 from .models import TargetRole
 from .profile import load_profile
 from .render.docx_renderer import render_cover_letter, render_resume
@@ -42,6 +42,9 @@ def run(
 
     # Truth-guard: repair identity/education/skills, flag fabricated metrics.
     resume, qa = enforce(resume, profile, strict=strict)
+    # Same identity discipline for the cover letter + email (name, sign-off order).
+    cover, _ = enforce_cover_letter(cover, profile)
+    email, _ = enforce_email(email, profile)
 
     folder = settings.output_dir / f"{_slug(target.company)}_{_slug(target.title)}_{date.today():%Y%m%d}"
     folder.mkdir(parents=True, exist_ok=True)
@@ -53,6 +56,10 @@ def run(
     )
     (folder / "resume.json").write_text(resume.model_dump_json(indent=2), encoding="utf-8")
     paths["resume_json"] = str(folder / "resume.json")
+
+    # Structured cover letter too, so the UI / a re-render can read it back.
+    (folder / "cover_letter.json").write_text(cover.model_dump_json(indent=2), encoding="utf-8")
+    paths["cover_letter_json"] = str(folder / "cover_letter.json")
 
     (folder / "qa_report.json").write_text(json.dumps(qa, indent=2), encoding="utf-8")
     paths["qa_report"] = str(folder / "qa_report.json")
@@ -77,9 +84,15 @@ def run(
 
     return {
         "folder": str(folder),
+        "folder_name": folder.name,
         "paths": paths,
         "keywordsMatched": resume.keywordsMatched,
         "email_subject": email.subject,
         "qa": qa,
         "qa_has_violations": has_violations(qa),
+        # Full generated content, so the UI can preview without re-reading files.
+        "resume": resume.model_dump(),
+        "cover_letter": cover.model_dump(),
+        "email": email.model_dump(),
+        "target": target.model_dump(),
     }

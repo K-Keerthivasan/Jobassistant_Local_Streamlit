@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import re
 
-from .models import Contact, EducationItem, Link, Resume
+from .models import ApplicationEmail, Contact, CoverLetter, EducationItem, Link, Resume
 
 _NUMBER_RE = re.compile(r"\d+(?:[.,]\d+)?\s*(?:%|\+|x|years?|yrs?|k|months?)?", re.I)
 
@@ -242,6 +242,75 @@ def _strip_metrics(bullet: str) -> str:
     if b and not b.endswith("."):
         b += "."
     return b
+
+
+# --------------------------------------------------------------------------- #
+# Identity enforcement for cover letter + email (the resume guard above never
+# touches these). Local models mangle the candidate's name (split it, use a
+# nickname) and swap the sign-off with the signature; fix both deterministically.
+# --------------------------------------------------------------------------- #
+_SIGNOFFS = {
+    "best", "best regards", "regards", "kind regards", "warm regards",
+    "sincerely", "cheers", "thanks", "thank you", "many thanks", "all the best",
+}
+
+
+def _is_signoff(s: str) -> bool:
+    return (s or "").strip().rstrip(",.").lower() in _SIGNOFFS
+
+
+def _fix_name_in_text(text: str, profile: dict) -> str:
+    """Replace mangled forms of the candidate's name with the canonical one.
+    Handles nickname use and space-split names (e.g. 'Keerthi Vasan')."""
+    full = profile.get("full_name", "")
+    if not text or not full:
+        return text
+    pref = profile.get("preferred_name", "") or ""
+    t = text
+    # Space-split version of the full name: 'Keerthivasan' -> 'Keerthi vasan'.
+    if pref and full.lower().startswith(pref.lower()) and len(full) > len(pref):
+        rest = re.escape(full[len(pref):])
+        t = re.sub(rf"\b{re.escape(pref)}\s+{rest}\b", full, t, flags=re.I)
+    # Bare nickname -> full name (only when it isn't already the full name).
+    if pref and pref.lower() != full.lower():
+        t = re.sub(rf"\b{re.escape(pref)}\b(?!{re.escape(full[len(pref):])})", full, t, flags=re.I)
+    return t
+
+
+def enforce_cover_letter(cl: CoverLetter, profile: dict) -> tuple[CoverLetter, dict]:
+    report: dict = {"name_fixed": False, "signoff_fixed": False}
+    name = profile.get("full_name", cl.fullName)
+
+    if cl.fullName.strip() != name:
+        report["name_fixed"] = True
+    cl.fullName = name
+    cl.contactLine = _fix_name_in_text(cl.contactLine, profile)
+    cl.greeting = _fix_name_in_text(cl.greeting, profile)
+    cl.body = [_fix_name_in_text(p, profile) for p in cl.body]
+
+    # The model often swaps these two. The signature must be the name; the
+    # sign-off must be a closing phrase.
+    if _is_signoff(cl.signature) and not _is_signoff(cl.signOff):
+        cl.signOff, cl.signature = cl.signature, cl.signOff
+        report["signoff_fixed"] = True
+    if not _is_signoff(cl.signOff):
+        cl.signOff = "Best,"
+        report["signoff_fixed"] = True
+    if cl.signature.strip() != name:
+        report["name_fixed"] = True
+    cl.signature = name
+
+    return cl, report
+
+
+def enforce_email(email: ApplicationEmail, profile: dict) -> tuple[ApplicationEmail, dict]:
+    report: dict = {"name_fixed": False}
+    before = (email.subject, email.body)
+    email.subject = _fix_name_in_text(email.subject, profile)
+    email.body = _fix_name_in_text(email.body, profile)
+    if (email.subject, email.body) != before:
+        report["name_fixed"] = True
+    return email, report
 
 
 def has_violations(report: dict) -> bool:
