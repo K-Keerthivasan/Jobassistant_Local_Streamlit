@@ -54,6 +54,15 @@ _TELLS: list[tuple[re.Pattern, str]] = [
     (re.compile(r"\bleveraging\b", re.I), "using"),
     (re.compile(r"\bpassionate about\b", re.I), "genuinely interested in"),
     (re.compile(r"\bin today's fast-paced (?:world|environment|industry)\b", re.I), ""),
+    (re.compile(r"\bseamlessly\b", re.I), "smoothly"),
+    (re.compile(r"\bseamless\b", re.I), "smooth"),
+    (re.compile(r"\bstreamline\b", re.I), "simplify"),
+    (re.compile(r"\bstreamlining\b", re.I), "simplifying"),
+    (re.compile(r"\bthrive in (?:a )?(?:dynamic|fast-paced)\s+(?:environments?|settings?)\b", re.I),
+     "work well in busy settings"),
+    (re.compile(r"\bthrive\b", re.I), "do well"),
+    (re.compile(r"\bdynamic environments?\b", re.I), "busy settings"),
+    (re.compile(r"\bdetail-oriented\b", re.I), "careful"),
 ]
 
 
@@ -86,3 +95,9 @@ def humanize_email(email: ApplicationEmail) -> ApplicationEmail:
     email.subject = dedash(email.subject)
     email.body = _clean(email.body)
     return email
+
+
+def humanize_answer(text: str) -> str:
+    """Clean a screening-question answer: strip em/en dashes and AI-tell phrases.
+    Local models keep emitting them no matter what the prompt says."""
+    return _clean(text)

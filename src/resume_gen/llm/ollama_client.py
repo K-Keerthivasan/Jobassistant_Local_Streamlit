@@ -36,7 +36,7 @@ def chat_structured(
     *,
     model: str | None = None,
     temperature: float | None = None,
-    timeout: float = 180.0,
+    timeout: float | None = None,
     retries: int = 2,
 ) -> T:
     """Call Ollama and return a validated instance of `schema`.
@@ -45,6 +45,7 @@ def chat_structured(
     schema constraint; we retry a couple of times before giving up."""
     model = model or settings.ollama_model
     temperature = settings.ollama_temperature if temperature is None else temperature
+    timeout = settings.llm_timeout if timeout is None else timeout
 
     payload = {
         "model": model,
@@ -69,6 +70,11 @@ def chat_structured(
                 raise OllamaError("Ollama returned an empty response.")
             data = json.loads(_strip_code_fences(content))
             return schema.model_validate(data)
+        except httpx.TimeoutException as e:
+            # Don't retry a timeout — that would multiply the wait. Fail fast.
+            raise OllamaError(
+                f"Ollama timed out after {timeout:.0f}s for {schema.__name__} (model={model})."
+            ) from e
         except (httpx.HTTPError, json.JSONDecodeError, OllamaError, ValueError) as e:
             last_err = e
             # nudge variety on the retry so we don't repeat a degenerate output

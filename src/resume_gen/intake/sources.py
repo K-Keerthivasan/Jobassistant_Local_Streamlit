@@ -33,6 +33,13 @@ def _html_to_text(s: str) -> str:
     return re.sub(r"\n{3,}", "\n\n", text).strip()
 
 
+def _clean_na(value) -> str:
+    """The local collector writes the literal 'N/A' for empty fields; treat it
+    (and None) as an empty string."""
+    s = str(value or "").strip()
+    return "" if s.upper() == "N/A" else s
+
+
 def _find_email(text: str) -> str:
     """First HR-ish email in the text, else the first email, else ''. """
     if not text:
@@ -248,9 +255,185 @@ def fetch_apify(src: dict) -> list[JobPosting]:
     return out
 
 
+# --------------------------------------------------------------------------- #
+# Local collector: the Resume_Scraper app (Tampermonkey userscript -> CSV store)
+# exposes GET /api/jobs. We pull the jobs you saved in the browser straight into
+# the queue. Base URL defaults to the Docker host gateway since the resume-api
+# runs in a container and the collector publishes :8765 on the host.
+# --------------------------------------------------------------------------- #
+def fetch_collector(src: dict) -> list[JobPosting]:
+    base = (
+        src.get("base")
+        or os.getenv("COLLECTOR_BASE")
+        or "http://host.docker.internal:8765"
+    ).rstrip("/")
+    statuses = {str(s).lower() for s in (src.get("statuses") or ["saved"])}
+    exclude_flagged = bool(src.get("exclude_flagged", True))
+    exclude_applied = bool(src.get("exclude_applied", True))
+
+    r = httpx.get(f"{base}/api/jobs", headers=_UA, timeout=_TIMEOUT)
+    r.raise_for_status()
+
+    out: list[JobPosting] = []
+    for j in r.json().get("jobs", []):
+        if statuses and str(j.get("status", "saved")).lower() not in statuses:
+            continue
+        if exclude_flagged and str(j.get("flagged", "")).lower() == "yes":
+            continue
+        if exclude_applied and str(j.get("applied", "")).lower() == "yes":
+            continue
+
+        emails = j.get("contact_emails", "")
+        if isinstance(emails, list):
+            emails = ", ".join(str(e) for e in emails if e)
+        emails = _clean_na(emails)
+        first_email = emails.split(",")[0].strip() if emails else ""
+        desc = _clean_na(j.get("description_summary"))
+
+        out.append(JobPosting(
+            source="collector",
+            source_company=j.get("source_site") or "collector",
+            job_id=str(j.get("job_key") or j.get("source_url") or ""),
+            company=_clean_na(j.get("company")),
+            title=_clean_na(j.get("job_title")),
+            location=_clean_na(j.get("location")),
+            description=desc,
+            apply_url=j.get("apply_url") or j.get("source_url") or "",
+            contact_email=first_email or _find_email(desc),
+            posted=_clean_na(j.get("posted_date")),
+        ))
+    return out
+
+
+# --------------------------------------------------------------------------- #
+# RSS / Atom feeds (e.g. Job Bank job-search RSS). Parsed with stdlib XML so we
+# add no dependency. Each item/entry -> one JobPosting.
+# --------------------------------------------------------------------------- #
+def _xml_text(el) -> str:
+    return (el.text or "").strip() if el is not None else ""
+
+
+def _find(el, *names):
+    """Find the first child whose tag (ignoring namespace) matches any name."""
+    for child in el.iter():
+        tag = child.tag.split("}")[-1].lower()
+        if tag in names:
+            return child
+    return None
+
+
+def fetch_rss(src: dict) -> list[JobPosting]:
+    import xml.etree.ElementTree as ET
+
+    url = src["url"]
+    r = httpx.get(url, headers=_UA, timeout=_TIMEOUT, follow_redirects=True)
+    r.raise_for_status()
+    root = ET.fromstring(r.content)
+
+    # RSS <item> or Atom <entry>
+    items = [e for e in root.iter() if e.tag.split("}")[-1].lower() in ("item", "entry")]
+    domain = urlparse(url).netloc
+    out: list[JobPosting] = []
+    for it in items:
+        title = _xml_text(_find(it, "title"))
+        # link: RSS uses <link>text</link>; Atom uses <link href="..."/>
+        link_el = _find(it, "link")
+        link = _xml_text(link_el) or (link_el.get("href") if link_el is not None else "")
+        desc_el = _find(it, "description", "summary", "content")
+        desc = _html_to_text(_xml_text(desc_el))
+        posted = _xml_text(_find(it, "pubdate", "published", "updated"))
+
+        # company: explicit, else parsed from "Title - Company" / "Title at Company"
+        company = src.get("company", "")
+        if not company:
+            m = re.search(r"\s[-–]\s(.+)$", title) or re.search(r"\sat\s(.+)$", title, re.I)
+            company = (m.group(1).strip() if m else "") or domain
+
+        out.append(JobPosting(
+            source="rss", source_company=src.get("company") or domain,
+            job_id=link or title,
+            company=company,
+            title=re.sub(r"\s[-–]\s.+$", "", title).strip() or title,
+            description=desc,
+            apply_url=link,
+            contact_email=_find_email(desc),
+            posted=posted,
+        ))
+    return out
+
+
+# --------------------------------------------------------------------------- #
+# Job Bank (Canada) — its RSS is dead, so scrape the search results page and pull
+# each posting's description + contact email from the posting's JSON-LD.
+# --------------------------------------------------------------------------- #
+_BROWSER_UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+               "(KHTML, like Gecko) Chrome/124.0 Safari/537.36"}
+_JOBBANK = "https://www.jobbank.gc.ca"
+
+
+def _txt(el) -> str:
+    return el.get_text(" ", strip=True) if el else ""
+
+
+def _parse_jobbank_detail(html: str) -> tuple[str, str]:
+    """(description, contact_email) from a Job Bank posting page. The real content
+    is in [property='description'] (+ a .job-posting-brief with location/salary)."""
+    soup = BeautifulSoup(html, "html.parser")
+    brief = soup.select_one(".job-posting-brief")
+    desc = soup.select_one("[property='description']")
+    parts = [_txt(brief) if brief else "", desc.get_text("\n", strip=True) if desc else ""]
+    text = re.sub(r"\n{3,}", "\n\n", "\n\n".join(p for p in parts if p)).strip()
+    if not text:
+        for tag in soup(["script", "style", "nav", "header", "footer"]):
+            tag.decompose()
+        text = re.sub(r"\n{3,}", "\n\n", soup.get_text("\n")).strip()
+    return text[:8000], _find_email(html)
+
+
+def fetch_jobbank(src: dict) -> list[JobPosting]:
+    search = src.get("search") or src.get("searchstring") or src.get("keyword") or ""
+    location = src.get("location") or src.get("locationstring") or ""
+    limit = int(src.get("limit", 25))
+    want_detail = src.get("detail", True)
+    params = {"searchstring": search, "locationstring": location, "sort": src.get("sort", "M")}
+
+    out: list[JobPosting] = []
+    with httpx.Client(headers=_BROWSER_UA, timeout=_TIMEOUT, follow_redirects=True) as c:
+        r = c.get(f"{_JOBBANK}/jobsearch/jobsearch", params=params)
+        r.raise_for_status()
+        soup = BeautifulSoup(r.text, "html.parser")
+        for a in soup.select("a.resultJobItem")[:limit]:
+            href = a.get("href", "")
+            m = re.search(r"/jobposting/(\d+)", href)
+            jid = m.group(1) if m else ""
+            apply_url = f"{_JOBBANK}/jobsearch/jobposting/{jid}" if jid else _JOBBANK + href.split(";")[0]
+            title = _txt(a.select_one(".noctitle"))
+            company = _txt(a.select_one(".business"))
+            location_t = _txt(a.select_one(".location")).replace("Location", "").strip()
+            posted = _txt(a.select_one(".date"))
+            desc, email = "", ""
+            if want_detail and jid:
+                try:
+                    d = c.get(apply_url)
+                    desc, email = _parse_jobbank_detail(d.text)
+                except httpx.HTTPError:
+                    pass
+            out.append(JobPosting(
+                source="jobbank", source_company="jobbank",
+                job_id=jid or apply_url, company=company, title=title,
+                location=location_t, description=desc, apply_url=apply_url,
+                contact_email=email, posted=posted,
+            ))
+    return out
+
+
 def fetch_source(src: dict) -> list[JobPosting]:
     """Dispatch one source-config entry to the right fetcher."""
     t = (src.get("type") or "").lower()
+    if t == "jobbank":
+        return fetch_jobbank(src)
+    if t in ("rss", "atom"):
+        return fetch_rss(src)
     if t == "greenhouse":
         return fetch_greenhouse(src["company"])
     if t == "lever":
@@ -261,4 +444,6 @@ def fetch_source(src: dict) -> list[JobPosting]:
         return fetch_generic(src["url"], company=src.get("company", ""))
     if t == "apify":
         return fetch_apify(src)
+    if t in ("collector", "scraper"):
+        return fetch_collector(src)
     raise ValueError(f"Unknown source type: {t!r}")

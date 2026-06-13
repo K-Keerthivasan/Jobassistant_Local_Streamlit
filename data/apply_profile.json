@@ -1,0 +1,32 @@
+{
+  "firstName": "Keerthivasan",
+  "lastName": "",
+  "fullName": "Keerthivasan",
+  "email": "kkvasan99@gmail.com",
+  "phone": "226-977-6398",
+  "address": "",
+  "city": "London",
+  "province": "ON",
+  "country": "Canada",
+  "postalCode": "",
+  "linkedin": "https://linkedin.com/in/kkvasan/",
+  "portfolio": "https://k2digitalmedia.ca/",
+  "github": "https://github.com/K-Keerthivasan",
+  "workAuthorization": "Yes",
+  "requiresSponsorship": "No",
+  "experienceYears": "0-3",
+  "education": "Master of Computer Applications (MCA)",
+  "resumePath": "data/job-applications/resumes/general_resume.pdf",
+  "coverLetterPath": "data/job-applications/cover-letters/general_cover_letter.pdf",
+  "salaryExpectation": "",
+  "availableStartDate": "Immediately",
+  "commonAnswers": {
+    "Are you legally authorized to work in Canada?": "Yes",
+    "Will you now or in the future require sponsorship?": "No",
+    "How many years of experience do you have?": "Less than 3 years",
+    "Are you willing to relocate?": "No",
+    "Are you willing to work remotely?": "Yes",
+    "Are you willing to work hybrid?": "Yes",
+    "Do you have a valid driver's licence?": "Yes"
+  }
+}

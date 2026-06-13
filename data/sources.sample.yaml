@@ -43,6 +43,30 @@ sources:
   # - type: apify
   #   dataset_id: "abc123XYZ"
 
+  # Job Bank (Canada) — scrapes the search results + each posting's description.
+  # (Its RSS feed is dead/empty, so we scrape the site instead.)
+  - type: jobbank
+    search: "software developer"     # the search keyword
+    location: "Ontario"              # optional; blank = all of Canada
+    limit: 25                        # how many postings to pull (each = 1 detail fetch)
+    # detail: true                   # fetch each posting for the full description (default)
+
+  # RSS / Atom feed. Each item becomes a job. Stateless feeds that work
+  # (remote-heavy; the canada_only filter trims them):
+  - type: rss
+    url: "https://weworkremotely.com/categories/remote-programming-jobs.rss"
+    # company: "Optional override if the feed doesn't include it"
+
+  # Local collector: jobs you saved from the browser via the Tampermonkey
+  # userscript (LinkedIn + CareerBeacon -> Resume_Scraper app on :8765).
+  # The resume-api container reaches it on the Docker host gateway by default.
+  - type: collector
+    # base: "http://host.docker.internal:8765"  # default (Docker). On a host CLI
+    #                                             use http://localhost:8765
+    statuses: ["saved"]        # collector statuses to pull (saved|applied|interview|...)
+    exclude_flagged: true      # skip jobs flagged "useless" in the dashboard
+    exclude_applied: true      # skip jobs already marked applied
+
 filters:
   # Keep only postings whose title contains one of these (case-insensitive).
   # Leave empty [] to keep everything.
@@ -57,3 +81,13 @@ filters:
     - "web"
   # Set true to keep only jobs that expose a contact/HR email (for the email path).
   require_email: false
+  # Keep only Canadian postings. Matches "Canada", province names/codes (ON, BC…),
+  # and major metros. The global ATS boards (Greenhouse/Lever/Workday) list jobs
+  # worldwide, so turn this on to stay in Canada.
+  canada_only: true
+  keep_unknown_location: true   # keep blank/"remote" postings; false = strict Canada
+  # Optional: restrict to specific places (case-insensitive substring of the job
+  # location). Leave empty to allow anywhere that passes canada_only.
+  location_keywords: []
+    # - "ontario"
+    # - "remote"

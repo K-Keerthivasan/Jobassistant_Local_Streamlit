@@ -55,6 +55,9 @@ def profile_to_prompt_block(profile: dict) -> str:
             f" | {e.get('location', '')} | {e.get('start', '')} to {e.get('end', '')}")
         if e.get("tags"):
             add(f"    relevance_tags: {', '.join(e['tags'])}")
+        if e.get("preserve"):
+            add("    PRESERVE: keep this role's function as-is (do NOT recast it as a "
+                "different field); write bullets close to these facts with minimal rephrasing.")
         for fact in e.get("facts", []):
             add(f"    fact: {fact}")
 

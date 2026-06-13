@@ -6,6 +6,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         libreoffice-writer \
         fonts-liberation \
         fonts-dejavu \
+        fonts-lato \
+        fonts-ebgaramond \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

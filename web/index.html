@@ -57,15 +57,17 @@
   html[data-theme="dark"] .lib-card:hover { background: #1b2336; }
   * { box-sizing: border-box; }
   html, body { height: 100%; }
+  html { overflow-x: hidden; }
   body {
     margin: 0; background: var(--bg); color: var(--ink);
     font: 15px/1.55 -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
   }
   a { color: var(--accent); }
 
   /* ---------- App shell ---------- */
-  .app { display: grid; grid-template-columns: 232px 1fr; min-height: 100vh; }
+  .app { display: grid; grid-template-columns: 232px minmax(0, 1fr); min-height: 100vh; }
   .sidebar {
     background: var(--sidebar); color: #cdd7e6; padding: 18px 14px;
     display: flex; flex-direction: column; gap: 4px; position: sticky; top: 0; height: 100vh;
@@ -94,7 +96,8 @@
   .side-select { width: 100%; background: var(--sidebar-hi); color: #e6ebf3; border: 1px solid #2a3f5f;
                  border-radius: 9px; padding: 9px 11px; font: inherit; font-size: 13.5px; margin-bottom: 12px; }
   .side-select:focus { outline: 0; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(59,130,246,.3); }
-  .side-select option { color: #1a2230; }
+  .side-select option { color: #1a2230; background: #ffffff; }
+  html[data-theme="dark"] .side-select option { color: #e7ecf4; background: #1a2335; }
   .theme-btn { width: 100%; background: var(--sidebar-hi); color: #cdd7e6; border: 1px solid #2a3f5f;
                border-radius: 9px; padding: 9px; font: 600 13px inherit; cursor: pointer; margin-bottom: 12px;
                display: flex; align-items: center; justify-content: center; gap: 8px; }
@@ -103,7 +106,7 @@
   .dot.up { background: #34d399; box-shadow: 0 0 0 3px rgba(52,211,153,.18); }
   .dot.down { background: #f87171; box-shadow: 0 0 0 3px rgba(248,113,113,.18); }
 
-  .main { padding: 26px 30px 60px; max-width: 1240px; width: 100%; }
+  .main { padding: 26px 30px 60px; max-width: 1240px; width: 100%; min-width: 0; }
   .view { display: none; }
   .view.active { display: block; animation: fade .18s ease; }
   @keyframes fade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
@@ -113,22 +116,23 @@
   /* ---------- Cards / forms ---------- */
   .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
           box-shadow: var(--shadow); padding: 20px; }
-  .grid2 { display: grid; grid-template-columns: 420px 1fr; gap: 22px; align-items: start; }
+  .grid2 { display: grid; grid-template-columns: minmax(320px, 420px) minmax(0, 1fr); gap: 22px; align-items: start; min-width: 0; }
   @media (max-width: 1040px) { .grid2 { grid-template-columns: 1fr; } }
   .sec-title { font-size: 12px; text-transform: uppercase; letter-spacing: .7px; color: var(--faint);
                font-weight: 700; margin: 0 0 14px; }
   label.fld { display: block; font-size: 12.5px; font-weight: 600; color: #3a4759; margin: 14px 0 5px; }
   label.fld:first-of-type { margin-top: 0; }
-  input[type=text], textarea, select {
+  input[type=text], input[type=search], textarea, select {
     width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: 9px;
     font: inherit; background: var(--input-bg); color: var(--ink); transition: border .12s, box-shadow .12s;
+    min-width: 0;
   }
   textarea { resize: vertical; min-height: 140px; line-height: 1.5; }
   input:focus, textarea:focus, select:focus {
     outline: 0; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft);
   }
   .row { display: flex; gap: 12px; }
-  .row > div { flex: 1; }
+  .row > div { flex: 1; min-width: 0; }
   .checks { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 16px; }
   .checks label { display: flex; align-items: center; gap: 8px; font-size: 13.5px; font-weight: 500;
                   color: #3a4759; cursor: pointer; }
@@ -171,8 +175,8 @@
   .files .perr { color: var(--err); font-size: 12.5px; align-self: center; }
 
   /* ---------- Document preview ---------- */
-  .preview { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--panel); }
-  .pvtabs { display: flex; border-bottom: 1px solid var(--line); background: var(--soft-bg); }
+  .preview { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--panel); min-width: 0; }
+  .pvtabs { display: flex; border-bottom: 1px solid var(--line); background: var(--soft-bg); overflow-x: auto; }
   .pvtab { padding: 11px 16px; cursor: pointer; font-size: 13px; font-weight: 600; color: var(--muted); }
   .pvtab:hover { color: var(--ink); }
   .pvtab.active { color: var(--accent-d); box-shadow: inset 0 -2px 0 var(--accent); }
@@ -201,7 +205,10 @@
   .lib-toolbar .search .mag { position: absolute; left: 11px; top: 50%; transform: translateY(-50%);
                               color: var(--faint); font-size: 14px; }
   .lib-count { color: var(--muted); font-size: 13px; }
-  .lib-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+  .lib-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(260px, 100%), 1fr)); gap: 14px; }
+  .lib-month { grid-column: 1 / -1; font-size: 13px; font-weight: 700; color: var(--muted);
+               text-transform: uppercase; letter-spacing: .5px; margin: 8px 2px 0;
+               padding-bottom: 6px; border-bottom: 1px solid var(--line); }
   .lib-card { background: var(--panel); border: 1px solid var(--line); border-radius: 11px;
               box-shadow: var(--shadow); padding: 15px 16px; cursor: pointer; transition: border .12s, transform .12s; position: relative; }
   .lib-card:hover { border-color: var(--accent); transform: translateY(-2px); }
@@ -216,7 +223,7 @@
 
   /* ---------- Bulk ---------- */
   .toolbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 16px; }
-  .toolbar .sp { flex: 1; }
+  .toolbar .sp, .jl-toolbar .sp { flex: 1; min-width: 12px; }
   .bulk-list { display: flex; flex-direction: column; gap: 10px; }
   .bj { background: var(--panel); border: 1px solid var(--line); border-radius: 11px; padding: 14px 16px;
         box-shadow: var(--shadow); }
@@ -237,6 +244,46 @@
   .progress.show { display: block; }
   .progress > i { display: block; height: 100%; background: linear-gradient(90deg,#2563eb,#7c3aed); width: 0; transition: width .3s; }
 
+  /* ---------- Scraper (embedded dashboard) ---------- */
+  .sc-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 14px; }
+  .sc-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .sc-frame-wrap { border: 1px solid var(--line); border-radius: 14px; overflow: hidden;
+                   box-shadow: var(--shadow-lg); background: #08111f; height: calc(100vh - 150px); min-height: 520px; }
+  .sc-frame { width: 100%; height: 100%; border: 0; display: block; }
+  /* Jobs list */
+  .jl-toolbar { display: flex; gap: 10px; align-items: center; padding: 12px 14px; margin-bottom: 14px; flex-wrap: wrap; }
+  .jl-inp { background: var(--input-bg); border: 1px solid var(--line); border-radius: 9px; color: var(--ink);
+            padding: 8px 11px; font: inherit; font-size: 13.5px; }
+  #jl-search { flex: 1; min-width: 180px; }
+  .jl-inp:focus { outline: 0; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(37,99,235,.15); }
+  .jl-tablewrap { padding: 0; overflow: auto; max-width: 100%; }
+  .jl-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  .jl-table th, .jl-table td { text-align: left; padding: 11px 14px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+  .jl-table th { font-size: 11.5px; text-transform: uppercase; letter-spacing: .5px; color: var(--faint);
+                 font-weight: 700; background: var(--soft-bg); position: sticky; top: 0; z-index: 1; }
+  .jl-table th.jl-sort { cursor: pointer; user-select: none; white-space: nowrap; }
+  .jl-table th.jl-sort:hover { color: var(--ink); }
+  .jl-table th.jl-sort.on { color: var(--accent); }
+  .jl-table tbody tr:hover { background: var(--accent-soft); }
+  .jl-ck { width: 34px; }
+  .jl-table td .t { font-weight: 600; color: var(--ink); }
+  .jl-table td .muted { color: var(--muted); }
+  .jl-src { display: inline-block; padding: 2px 8px; border-radius: 999px; background: var(--surface-2);
+            color: var(--muted); font-size: 11.5px; font-weight: 600; }
+  .jl-email { display: inline-block; margin-left: 6px; color: var(--ok); font-size: 11px; }
+  .jl-rep { display: inline-block; margin-left: 4px; font-size: 11px; }
+  .jl-star { font-size: 13px; color: var(--faint); user-select: none; }
+  .jl-star.on { color: #f5b301; }
+  .jl-emailbtn { display: inline-block; margin-left: 6px; font-size: 12px; opacity: .55; user-select: none; }
+  .jl-emailbtn.on { opacity: 1; }
+  .jl-emailbtn:hover { opacity: 1; }
+  .jl-st { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 11px; font-weight: 700; background: var(--surface-2); color: var(--muted); }
+  .jl-st.generated { background: var(--ok-bg); color: var(--ok); }
+  .jl-st.new { background: var(--accent-soft); color: var(--accent); }
+  .jl-rowbtns { display: flex; gap: 6px; justify-content: flex-end; white-space: nowrap; }
+  .jl-sources .src-row { display: flex; gap: 10px; align-items: center; padding: 6px 0; font-size: 13px; min-width: 0; }
+  .jl-sources .src-type { min-width: 90px; font-weight: 700; color: var(--accent); }
+
   /* ---------- Modal ---------- */
   .overlay { position: fixed; inset: 0; background: rgba(15,27,45,.55); backdrop-filter: blur(2px);
              display: none; align-items: center; justify-content: center; padding: 28px; z-index: 50; }
@@ -250,6 +297,7 @@
                  border-radius: 9px; cursor: pointer; font-size: 18px; color: #3a4759; }
   .modal-h .mx:hover { filter: brightness(.95); }
   .modal-b { padding: 18px 20px; overflow: auto; }
+  .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
 
   .toast { position: fixed; bottom: 22px; right: 22px; background: #0f1b2d; color: #fff; padding: 12px 16px;
            border-radius: 10px; box-shadow: var(--shadow-lg); font-size: 13.5px; z-index: 60; opacity: 0;
@@ -257,13 +305,122 @@
   .toast.show { opacity: 1; transform: none; }
   .toast.err { background: #7f1d1d; }
 
-  @media (max-width: 760px) {
+  @media (max-width: 920px) {
     .app { grid-template-columns: 1fr; }
-    .sidebar { position: static; height: auto; flex-direction: row; flex-wrap: wrap; align-items: center; }
+    .sidebar { position: static; height: auto; flex-direction: row; flex-wrap: wrap; align-items: center; padding: 12px; gap: 8px; }
     .brand { padding: 4px 8px; }
-    .nav { flex-direction: row; flex-wrap: wrap; margin: 0; }
-    .side-foot, .health { display: none; }
-    .main { padding: 18px; }
+    .nav { flex: 1 1 100%; flex-direction: row; flex-wrap: nowrap; gap: 6px; margin: 0; overflow-x: auto; padding-bottom: 2px; }
+    .nav button { flex: 0 0 auto; width: auto; white-space: nowrap; padding: 9px 11px; }
+    .side-foot { display: grid; grid-template-columns: minmax(130px, 1fr) minmax(130px, 1fr) auto; gap: 8px; align-items: end; width: 100%; padding: 0 8px 2px; }
+    .side-foot .health, .side-foot .side-label { display: none; }
+    .side-select, .theme-btn { margin: 0; min-width: 0; }
+    .main { padding: 18px; max-width: none; }
+    .grid2 { grid-template-columns: 1fr; }
+    .pvbody { max-height: none; }
+    .sc-frame-wrap { height: 70vh; min-height: 420px; }
+  }
+
+  @media (max-width: 680px) {
+    body { font-size: 14px; }
+    .main { padding: 14px 12px 92px; }
+    .card { padding: 14px; border-radius: 10px; }
+    .page-h { font-size: 20px; }
+    .page-sub { font-size: 13px; margin-bottom: 16px; }
+    .row { flex-direction: column; gap: 0; }
+    input[type=text], input[type=search], textarea, select { min-height: 44px; font-size: 16px; }
+    textarea { min-height: 180px; }
+    .toolbar, .sc-actions, .lib-toolbar, .jl-toolbar { align-items: stretch; }
+    .toolbar .sp, .jl-toolbar .sp { display: none; }
+    .btn { width: 100%; min-height: 38px; }
+    .btn.sm { padding: 8px 10px; }
+    .checks { gap: 10px; }
+    .files a { flex: 1 1 140px; text-align: center; }
+    .lib-toolbar .search, #jl-search, .jl-inp { flex: 1 1 100%; min-width: 0; }
+    .lib-count { width: 100%; text-align: center; }
+    .bj .bj-top { align-items: flex-start; flex-wrap: wrap; }
+    .bj .bj-acts { width: 100%; flex-wrap: wrap; }
+    .bj .bj-acts .btn { flex: 1 1 96px; }
+    .stm { margin-left: auto; }
+    .jl-sources .src-row { flex-wrap: wrap; align-items: flex-start; border-bottom: 1px solid var(--line); padding: 10px 0; }
+    .jl-sources .src-row:last-child { border-bottom: 0; }
+    .jl-sources .src-type { min-width: 0; flex: 0 0 auto; }
+    .jl-rowbtns { width: 100%; justify-content: stretch; flex-wrap: wrap; white-space: normal; }
+    .jl-rowbtns .btn, .jl-rowbtns a.btn { flex: 1 1 110px; width: auto; }
+    .overlay { padding: 10px; align-items: stretch; }
+    .modal { width: 100% !important; max-height: calc(100vh - 20px); border-radius: 12px; }
+    .modal-h { padding: 12px 14px; }
+    .modal-b { padding: 14px; }
+    .modal-h .mc { display: none; }
+    .meta-grid { grid-template-columns: 1fr; }
+    .pvtabs { scrollbar-width: thin; }
+    .pvtab { flex: 0 0 auto; padding: 10px 13px; }
+    .pvbody { padding: 14px; }
+    .doc .job .hd { flex-direction: column; gap: 0; }
+    .doc .job .dt { white-space: normal; }
+    .toast { left: 12px; right: 12px; bottom: 12px; text-align: center; }
+  }
+
+  @media (max-width: 720px) {
+    .app { display: block; min-height: 100vh; }
+    .sidebar {
+      position: fixed; left: 0; right: 0; bottom: 0; top: auto; z-index: 40;
+      height: 76px; padding: 7px 8px calc(7px + env(safe-area-inset-bottom));
+      background: rgba(10, 17, 32, .96); border-top: 1px solid #233655;
+      box-shadow: 0 -10px 28px rgba(0,0,0,.28); backdrop-filter: blur(14px);
+      display: block;
+    }
+    .brand, .side-foot { display: none; }
+    .nav {
+      display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px;
+      width: 100%; height: 100%; margin: 0; padding: 0; overflow: visible;
+    }
+    .nav button {
+      width: 100%; min-width: 0; height: 62px; padding: 6px 3px; border-radius: 12px;
+      flex-direction: column; justify-content: center; gap: 3px; text-align: center;
+      font-size: 10.5px; line-height: 1.12; white-space: normal; color: #aebbd1;
+    }
+    .nav button.active { background: #2563eb; color: #fff; }
+    .nav button .ic { width: auto; font-size: 18px; line-height: 1; }
+    .grid2 { gap: 14px; }
+    .card, .bj, .lib-card, .jl-table tr {
+      border-radius: 12px; box-shadow: 0 1px 2px rgba(16,24,40,.08);
+    }
+    .jl-toolbar.card, .lib-toolbar {
+      position: sticky; top: 0; z-index: 2; margin-left: -12px; margin-right: -12px;
+      border-left: 0; border-right: 0; border-radius: 0; padding: 10px 12px;
+      background: var(--panel);
+    }
+    .sc-actions .btn, .toolbar .btn, .lib-toolbar .btn, .jl-toolbar .btn,
+    .sc-actions a.btn, .toolbar a.btn {
+      flex: 1 1 100%;
+    }
+    .checks label { width: 100%; min-height: 34px; }
+    .preview { border-left: 0; border-right: 0; border-radius: 0; margin-left: -14px; margin-right: -14px; }
+    .pvtabs { position: sticky; top: 0; z-index: 1; }
+    .empty { padding: 34px 12px; }
+    .toast { bottom: calc(88px + env(safe-area-inset-bottom)); }
+  }
+
+  @media (max-width: 560px) {
+    .side-foot { grid-template-columns: 1fr; }
+    .jl-tablewrap { overflow: visible; border: 0; background: transparent; box-shadow: none; }
+    .jl-table, .jl-table tbody, .jl-table tr, .jl-table td { display: block; width: 100%; }
+    .jl-table thead { display: none; }
+    .jl-table tr { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow); padding: 8px 10px; margin-bottom: 10px; }
+    .jl-table td { border: 0; padding: 6px 0; }
+    .jl-table td:not(:last-child) { display: grid; grid-template-columns: 82px minmax(0, 1fr); gap: 8px; align-items: start; }
+    .jl-table td::before { color: var(--faint); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; }
+    .jl-table td:nth-child(1)::before { content: "Select"; }
+    .jl-table td:nth-child(2)::before { content: "Title"; }
+    .jl-table td:nth-child(3)::before { content: "Company"; }
+    .jl-table td:nth-child(4)::before { content: "Location"; }
+    .jl-table td:nth-child(5)::before { content: "Source"; }
+    .jl-table td:nth-child(6)::before { content: "Date"; }
+    .jl-table td:nth-child(7)::before { content: "Status"; }
+    .jl-table td:nth-child(8)::before { content: "Applied"; }
+    .jl-table td:last-child { padding-top: 10px; }
+    .jl-table tbody tr:hover { background: var(--panel); }
+    .jl-ck { width: 100%; }
   }
 </style>
 </head>
@@ -277,12 +434,25 @@
     </div>
     <nav class="nav">
       <button data-view="generate" class="active"><span class="ic">✍️</span> Generate</button>
+      <button data-view="scrape"><span class="ic">🛰️</span> RSS Scraping</button>
+      <button data-view="claude-scrape"><span class="ic">🤖</span> Claude Scraping</button>
+      <button data-view="scraper"><span class="ic">💼</span> Jobs</button>
+      <button data-view="repeatable"><span class="ic">🔁</span> Repeatable</button>
+      <button data-view="qa"><span class="ic">💬</span> Q&amp;A</button>
       <button data-view="bulk"><span class="ic">⚡</span> Bulk Generate</button>
       <button data-view="library"><span class="ic">📚</span> Library</button>
     </nav>
     <div class="side-foot">
-      <label class="side-label">Model</label>
+      <label class="side-label">Persona</label>
+      <select id="persona" class="side-select"><option value="auto">Auto-detect</option></select>
+      <label class="side-label">Engine (resume/cover generation)</label>
       <select id="model" class="side-select"></select>
+      <div class="health" id="usage-line" title="Claude cloud usage" style="margin-bottom:12px;display:none">
+        <span style="font-size:13px">☁ <span id="usage-cost">$0.0000</span> · <span id="usage-calls">0</span> calls</span>
+      </div>
+      <div class="health" id="gentime-line" title="AI generation time (Ollama + Claude)" style="margin-bottom:12px;display:none">
+        <span style="font-size:13px">⏱ last <span id="gentime-last">0s</span> · avg <span id="gentime-avg">0s</span></span>
+      </div>
       <button class="theme-btn" id="theme-toggle"><span id="theme-ic">🌙</span> <span id="theme-lbl">Dark mode</span></button>
       <div class="health"><span class="dot" id="hdot"></span><span id="htext">checking…</span></div>
     </div>
@@ -297,7 +467,10 @@
       <p class="page-sub">Paste one job posting. Get a tailored resume, cover letter, and outreach email — grounded in your profile.</p>
       <div class="grid2">
         <div class="card">
-          <div class="sec-title">Target role</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px">
+            <div class="sec-title" style="margin:0">Target role</div>
+            <button class="btn ghost sm" id="g-fromjob" type="button">📋 From a job</button>
+          </div>
           <div class="row">
             <div><label class="fld">Company</label><input type="text" id="g-company" placeholder="Ontario Power Generation" /></div>
             <div><label class="fld">Location</label><input type="text" id="g-location" placeholder="Toronto, ON" /></div>
@@ -318,6 +491,79 @@
       </div>
     </section>
 
+    <!-- ===== Repeatable roles ===== -->
+    <section class="view" id="view-repeatable">
+      <div class="sc-head">
+        <div>
+          <h1 class="page-h" style="margin:0">Repeatable roles</h1>
+          <p class="page-sub" style="margin:4px 0 0">Companies you reapply to (TD, RBC…). Each saved role keeps its latest job description. Hit <b>Regenerate</b> for a freshly tuned resume/cover/email, download, tweak, reapply. Flag a job 🔁 in <b>Jobs</b> to add it here.</p>
+        </div>
+        <div class="sc-actions">
+          <button class="btn subtle sm" id="rp-refresh">↻ Refresh</button>
+        </div>
+      </div>
+
+      <!-- Paste a job-alert email -> extract the job -->
+      <div class="card" style="margin-bottom:16px">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px">
+          <div class="sec-title" style="margin:0">📩 Add from an email</div>
+          <label class="checks" style="margin:0"><input type="checkbox" id="rp-email-keep" checked style="width:auto" /> Save as repeatable role</label>
+        </div>
+        <p class="page-sub" style="margin:0 0 10px">Paste a job-alert email (or any job text). It extracts the company, title, and description, queues the job, and matches it to an existing repeatable role if the same one came round again. Engine follows the sidebar picker.</p>
+        <textarea id="rp-email-text" placeholder="Paste the whole email here…" style="min-height:120px"></textarea>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px">
+          <button class="btn primary" id="rp-email-go">Extract job</button>
+          <span id="rp-email-status" style="font-size:13px;color:var(--muted)"></span>
+        </div>
+        <div id="rp-email-result"></div>
+      </div>
+
+      <div id="rp-list"><div class="empty"><span class="spinner dark"></span></div></div>
+    </section>
+
+    <!-- ===== Q&A (screening questions) ===== -->
+    <section class="view" id="view-qa">
+      <h1 class="page-h">Answer a screening question</h1>
+      <p class="page-sub">Pick the job, paste the question ("Why do you want to join?", "Tell me about a time…"). Get a truthful, first-person answer grounded in your profile — or paste your own draft and have it rephrased for the role.</p>
+      <div class="grid2">
+        <div class="card">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px">
+            <div class="sec-title" style="margin:0">Target role <span style="font-weight:400;color:var(--muted)">(optional, improves tailoring)</span></div>
+            <button class="btn ghost sm" id="qa-fromjob" type="button">📋 From a job</button>
+          </div>
+          <div id="qa-jobline" style="font-size:13px;color:var(--muted);margin-bottom:10px">No job selected — answer will use your profile only.</div>
+          <div class="row">
+            <div><label class="fld">Company</label><input type="text" id="qa-company" placeholder="(optional)" /></div>
+            <div><label class="fld">Location</label><input type="text" id="qa-location" placeholder="(optional)" /></div>
+          </div>
+          <label class="fld">Job title</label>
+          <input type="text" id="qa-title" placeholder="(optional)" />
+          <label class="fld">Job description</label>
+          <textarea id="qa-description" placeholder="(optional) paste the posting to tailor the answer…" style="min-height:90px"></textarea>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin:8px 0 6px">
+            <label class="fld" style="margin:0">Questions</label>
+            <div style="display:flex;align-items:center;gap:8px">
+              <label class="fld" style="margin:0;font-weight:400">Length</label>
+              <select id="qa-length" class="jl-inp" style="width:auto">
+                <option value="">Auto</option>
+                <option value="40">Short · ~40 words</option>
+                <option value="80">Medium · ~80 words</option>
+                <option value="150">Long · ~150 words</option>
+                <option value="250">Detailed · ~250 words</option>
+              </select>
+            </div>
+          </div>
+          <div id="qa-qlist"></div>
+          <button class="btn ghost sm" id="qa-add" type="button">＋ Add question</button>
+          <button class="btn primary block" id="qa-go" style="margin-top:10px">Generate answers</button>
+          <input type="hidden" id="qa-jobkey" />
+        </div>
+        <div class="card" id="qa-result">
+          <div class="empty"><div class="big">💬</div>Your answer will appear here.</div>
+        </div>
+      </div>
+    </section>
+
     <!-- ===== Bulk ===== -->
     <section class="view" id="view-bulk">
       <h1 class="page-h">Bulk generate</h1>
@@ -327,6 +573,7 @@
         <div class="toolbar">
           <button class="btn ghost sm" id="b-add">＋ Add role</button>
           <button class="btn ghost sm" id="b-paste">📋 Paste multiple</button>
+          <button class="btn ghost sm" id="b-fetch">🔄 Fetch new jobs</button>
           <button class="btn ghost sm" id="b-queue">🛰️ From job queue</button>
           <span class="sp"></span>
           <label class="checks" style="margin:0"><input type="checkbox" id="b-strict" checked style="width:auto" /> Strict</label>
@@ -339,18 +586,129 @@
       </div>
     </section>
 
+    <!-- ===== Scrape (sources + fetch + manual) ===== -->
+    <section class="view" id="view-scrape">
+      <h1 class="page-h">RSS Scraping</h1>
+      <p class="page-sub">Pull jobs from Job Bank, RSS feeds, ATS boards, your browser capture, or add one by hand. Customize sources — new jobs land here and in the <b>Jobs</b> tab.</p>
+      <div class="sc-actions" style="margin-bottom:16px">
+        <button class="btn primary sm" id="sk-fetch">🔄 Fetch new jobs</button>
+        <button class="btn ghost sm" id="sk-manual">✍️ Add a job manually</button>
+        <button class="btn ghost sm" id="sk-csv" title="Import a CSV (e.g. collected via n8n)">⬆ Upload CSV</button>
+        <input type="file" id="sk-csv-file" accept=".csv,text/csv" style="display:none">
+        <a class="btn subtle sm" id="sk-capture" target="_blank" rel="noreferrer" title="Browser-capture dashboard (Tampermonkey collector)">Browser capture ↗</a>
+      </div>
+      <div class="card jl-sources" id="sk-setup"></div>
+      <div class="sec-title" style="margin:18px 0 8px">Scraped jobs</div>
+      <div class="card jl-sources" id="sk-jobs"></div>
+    </section>
+
+    <!-- ===== Claude Scraping ===== -->
+    <section class="view" id="view-claude-scrape">
+      <h1 class="page-h">🤖 Claude Scraping</h1>
+      <p class="page-sub">Claude searches the web for real, current jobs and queues them. This is a <b>cloud</b> task (uses your Anthropic key &amp; costs tokens) — finding jobs is separate from generating resumes. <span id="cs-enabled-note"></span></p>
+      <div class="card" style="max-width:680px">
+        <div class="row">
+          <div style="flex:2"><label class="fld">Role / keywords</label><input type="text" id="cs-role" placeholder="full-stack developer"></div>
+          <div><label class="fld">Location</label><input type="text" id="cs-loc" placeholder="Ontario" value="Ontario"></div>
+          <div style="width:90px"><label class="fld">Max</label><input type="number" id="cs-limit" value="15" min="1" max="30"></div>
+        </div>
+        <button class="btn primary block" id="cs-go" style="margin-top:12px">🔎 Find jobs with Claude</button>
+        <div class="muted" style="font-size:12px;margin-top:8px">Found jobs are added to <b>Jobs</b> (source <code>claude</code>). Generate resumes there — local or Claude, by priority.</div>
+      </div>
+      <div class="sec-title" style="margin:18px 0 8px">Recently found</div>
+      <div class="card jl-sources" id="cs-results"><div class="muted">No Claude searches yet.</div></div>
+    </section>
+
+    <!-- ===== Jobs (list) ===== -->
+    <section class="view" id="view-scraper">
+      <div class="sc-head">
+        <div>
+          <h1 class="page-h" style="margin:0">Jobs</h1>
+          <p class="page-sub" style="margin:4px 0 0">All your jobs. 🔁 repeat company · 📧 email apply (n8n) · ⌨ Autofill = portal autofill (stops before submit). Generated → see them in <b>Library</b>.</p>
+        </div>
+        <div class="sc-actions">
+          <button class="btn subtle sm" id="jl-refresh" title="Pull jobs you saved in the browser, then refresh">🔄 Sync saved &amp; refresh</button>
+        </div>
+      </div>
+
+      <div class="jl-toolbar card">
+        <input id="jl-search" class="jl-inp" type="search" placeholder="Search title, company, location…">
+        <select id="jl-status" class="jl-inp">
+          <option value="">All statuses</option><option value="new">New</option>
+          <option value="generated">Generated</option><option value="approved">Approved</option>
+        </select>
+        <select id="jl-source" class="jl-inp"><option value="">All sources</option></select>
+        <select id="jl-channel" class="jl-inp">
+          <option value="">All channels</option>
+          <option value="email">📧 Has email</option>
+          <option value="noemail">No email</option>
+        </select>
+        <select id="jl-applied" class="jl-inp">
+          <option value="">Applied: all</option>
+          <option value="no">Not applied</option>
+          <option value="yes">Applied</option>
+        </select>
+        <select id="jl-repeat" class="jl-inp">
+          <option value="">All companies</option>
+          <option value="yes">🔁 Repeat only</option>
+        </select>
+        <select id="jl-days" class="jl-inp">
+          <option value="1">Today</option>
+          <option value="2">Last 2 days</option>
+          <option value="3">Last 3 days</option>
+          <option value="7">Last 7 days</option>
+          <option value="month" selected>This month</option>
+          <option value="30">Last 30 days</option>
+          <option value="90">Last 3 months</option>
+          <option value="">All time</option>
+        </select>
+        <span class="sp"></span>
+        <button class="btn primary sm" id="jl-bulk" disabled>⚡ Generate selected (0)</button>
+      </div>
+
+      <div class="card jl-tablewrap">
+        <table class="jl-table">
+          <thead><tr>
+            <th class="jl-ck"><input type="checkbox" id="jl-all" aria-label="Select all"></th>
+            <th class="jl-sort" data-sort="title">Title</th>
+            <th class="jl-sort" data-sort="company">Company</th>
+            <th class="jl-sort" data-sort="location">Location</th>
+            <th class="jl-sort" data-sort="source">Source</th>
+            <th class="jl-sort" data-sort="date">Date</th>
+            <th>Status</th>
+            <th>Applied</th>
+            <th></th>
+          </tr></thead>
+          <tbody id="jl-body"></tbody>
+        </table>
+        <div class="empty" id="jl-empty"><div class="big">🛰️</div>No jobs match. Go to <b>Scrape</b> to fetch from sources or add one manually.</div>
+      </div>
+    </section>
+
     <!-- ===== Library ===== -->
     <section class="view" id="view-library">
       <h1 class="page-h">Library</h1>
       <p class="page-sub">Every application you've generated. Click a card to preview the resume, cover letter, email, and truth-guard report.</p>
       <div class="lib-toolbar">
         <div class="search"><span class="mag">🔎</span><input type="text" id="lib-search" placeholder="Search by company or title…" /></div>
+        <select id="lib-days" class="jl-inp">
+          <option value="">Any time</option><option value="1">Today</option>
+          <option value="2">Last 2 days</option>
+          <option value="3">Last 3 days</option><option value="7">Last 7 days</option>
+          <option value="30">Last 30 days</option>
+        </select>
+        <select id="lib-sort" class="jl-inp">
+          <option value="date">Sort: Newest</option>
+          <option value="company">Sort: Company</option>
+          <option value="persona">Sort: Type (persona)</option>
+        </select>
         <span class="lib-count" id="lib-count"></span>
         <button class="btn subtle sm" id="lib-refresh">↻ Refresh</button>
       </div>
       <div class="lib-grid" id="lib-grid"></div>
       <div class="empty" id="lib-empty"><div class="big">📚</div>No applications yet. Generate one to get started.</div>
     </section>
+
 
   </main>
 </div>
@@ -380,6 +738,48 @@
   </div>
 </div>
 
+<div class="overlay" id="sc-modal">
+  <div class="modal" style="width:min(620px,100%)">
+    <div class="modal-h"><div class="mt">Add a job manually</div><button class="mx" id="sc-modal-x">✕</button></div>
+    <div class="modal-b">
+      <p style="margin:0 0 12px;color:var(--muted);font-size:13px">Adds the job straight to your <b>Jobs</b> list (no collector/connector needed) — ready to generate right away.</p>
+      <div class="row">
+        <div><label class="fld">Company</label><input type="text" id="s-company" placeholder="Acme Corp"></div>
+        <div><label class="fld">Location</label><input type="text" id="s-location" placeholder="London, ON"></div>
+      </div>
+      <label class="fld">Job title</label><input type="text" id="s-title" placeholder="Full-Stack Developer">
+      <div class="row">
+        <div><label class="fld">Contact email <span style="color:var(--faint)">(email apply)</span></label><input type="text" id="s-email" placeholder="hr@acme.com"></div>
+        <div><label class="fld">Apply URL</label><input type="text" id="s-url" placeholder="https://…"></div>
+      </div>
+      <label class="fld">Job description</label><textarea id="s-description" placeholder="Paste the full posting…"></textarea>
+      <button class="btn primary block" id="s-add">＋ Save to dashboard</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="g-pick">
+  <div class="modal" style="width:min(680px,100%)">
+    <div class="modal-h"><div class="mt">Load a job into the form</div><button class="mx" id="g-pick-x">✕</button></div>
+    <div class="modal-b">
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+        <input id="g-pick-search" class="jl-inp" style="flex:1 1 200px;min-width:0" type="search" placeholder="Search title, company, location…">
+        <select id="g-pick-days" class="jl-inp" style="flex:0 0 auto">
+          <option value="1">Today</option>
+          <option value="2">Last 2 days</option>
+          <option value="3">Last 3 days</option>
+          <option value="month" selected>This month</option>
+          <option value="7">Last 7 days</option>
+          <option value="30">Last 30 days</option>
+          <option value="90">Last 3 months</option>
+          <option value="">All time</option>
+        </select>
+      </div>
+      <div id="g-pick-list" style="max-height:420px;overflow:auto"></div>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -388,7 +788,7 @@ const esc = (s) => (s ?? "").toString().replace(/[&<>]/g, c => ({'&':'&amp;','<'
 const enc = encodeURIComponent;
 
 async function api(path, opts) {
-  const r = await fetch(path, opts);
+  const r = await fetch(path, { cache: 'no-store', ...opts });
   if (!r.ok) {
     let msg = r.statusText;
     try { msg = (await r.json()).detail || msg; } catch {}
@@ -403,19 +803,40 @@ function toast(msg, isErr) {
 }
 
 /* ---------- Nav ---------- */
-document.querySelectorAll('.nav button').forEach(b => b.onclick = () => {
+function showView(view) {
+  const btn = document.querySelector(`.nav button[data-view="${view}"]`);
+  if (!btn) return;
   document.querySelectorAll('.nav button').forEach(x => x.classList.remove('active'));
-  b.classList.add('active');
+  btn.classList.add('active');
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-  $('view-' + b.dataset.view).classList.add('active');
-  renderHealth();   // badge reflects the active view's model picker
-  if (b.dataset.view === 'library') loadLibrary();
-});
+  $('view-' + view).classList.add('active');
+  localStorage.setItem('view', view);   // remember across refresh
+  renderHealth();
+  if (view === 'scraper') loadJobs();
+  if (view === 'repeatable') loadRepeatable();
+  if (view === 'scrape') { renderSetup(); renderScrapedJobs(); }
+  if (view === 'claude-scrape') { $('cs-enabled-note').innerHTML = CLOUD_ENABLED ? '' : '<b style="color:var(--warn)">Set ANTHROPIC_API_KEY in .env to enable.</b>'; }
+  if (view === 'library') loadLibrary();
+}
+document.querySelectorAll('.nav button').forEach(b => b.onclick = () => showView(b.dataset.view));
 
 /* ---------- Health + models ---------- */
 let ollamaUp = null;   // null = unknown, true/false from /health
 // Single global model picker (sidebar) drives every generation + the badge.
 function activeModel() { return $('model').value || ''; }
+// Global persona picker. 'auto' (or empty) => let the backend auto-detect.
+function activePersona() { const v = $('persona').value; return v && v !== 'auto' ? v : 'auto'; }
+async function loadPersonas() {
+  try {
+    const { personas } = await api('/personas');
+    const sel = $('persona');
+    sel.innerHTML = '<option value="auto">Auto-detect</option>';
+    personas.forEach(p => {
+      const o = document.createElement('option');
+      o.value = p.id; o.textContent = p.label; sel.appendChild(o);
+    });
+  } catch { /* personas optional; Auto-detect still works */ }
+}
 function renderHealth() {
   $('hdot').className = 'dot ' + (ollamaUp === false ? 'down' : ollamaUp ? 'up' : '');
   if (ollamaUp === null) { $('htext').textContent = 'checking…'; return; }
@@ -428,19 +849,104 @@ async function loadHealth() {
   catch { ollamaUp = false; $('hdot').className = 'dot down'; $('htext').textContent = 'API offline'; return; }
   renderHealth();
 }
+let OLLAMA_DEFAULT = '', CLAUDE_DEFAULT = '', CLOUD_ENABLED = false;
 async function loadModels() {
   try {
     const m = await api('/models');
-    const names = m.models.length ? m.models : [m.default];
+    OLLAMA_DEFAULT = m.default;
+    CLOUD_ENABLED = !!(m.cloud && m.cloud.length);
+    CLAUDE_DEFAULT = CLOUD_ENABLED ? m.cloud[0].id : '';
     const sel = $('model'); sel.innerHTML = '';
-    names.forEach(n => {
+    const addOpt = (val, label, parent, selected) => {
       const o = document.createElement('option');
-      o.value = n; o.textContent = n; if (n === m.default) o.selected = true;
-      sel.appendChild(o);
-    });
-    sel.onchange = renderHealth;   // health badge follows the picker
+      o.value = val; o.textContent = label; if (selected) o.selected = true;
+      (parent || sel).appendChild(o);
+    };
+    const locals = (m.models && m.models.length) ? m.models : [m.default];
+    if (CLOUD_ENABLED) {
+      addOpt('auto', 'Auto · ⭐ priority → Claude, else local', sel, true);
+      const g1 = document.createElement('optgroup'); g1.label = 'Local (Ollama)';
+      locals.forEach(n => addOpt(n, n, g1, false)); sel.appendChild(g1);
+      const g2 = document.createElement('optgroup'); g2.label = '☁ Claude (cloud)';
+      m.cloud.forEach(c => addOpt(c.id, c.label, g2, false)); sel.appendChild(g2);
+    } else {
+      locals.forEach(n => addOpt(n, n, sel, n === m.default));
+    }
+    sel.onchange = renderHealth;
     renderHealth();
+    loadUsage();
   } catch {}
+}
+
+// Resolve which model to use for a generation given the job's priority.
+function resolveModel(isPriority) {
+  const v = $('model').value;
+  if (v === 'auto') return isPriority ? (CLAUDE_DEFAULT || OLLAMA_DEFAULT) : OLLAMA_DEFAULT;
+  return v;
+}
+
+async function loadUsage() {
+  try {
+    const u = await api('/usage');
+    // Claude cost line — only when the cloud engine is enabled.
+    const line = $('usage-line');
+    if (u.enabled) {
+      line.style.display = '';
+      $('usage-cost').textContent = '$' + (u.total_cost || 0).toFixed(4);
+      $('usage-calls').textContent = u.calls || 0;
+    } else {
+      line.style.display = 'none';
+    }
+    // AI timing line — shown for any engine (Ollama or Claude) once we have data.
+    const tline = $('gentime-line');
+    if (u.timed_calls) {
+      tline.style.display = '';
+      $('gentime-last').textContent = fmtSecs(u.last_seconds);
+      $('gentime-avg').textContent = fmtSecs(u.avg_seconds);
+    } else {
+      tline.style.display = 'none';
+    }
+  } catch {}
+}
+
+function fmtSecs(s) {
+  s = Number(s) || 0;
+  if (s < 60) return s.toFixed(1) + 's';
+  const m = Math.floor(s / 60), r = Math.round(s % 60);
+  return `${m}m ${r}s`;
+}
+
+/* Click-to-copy a value (LinkedIn, portfolio, phone, …) for pasting into forms. */
+function copyVal(text, label) {
+  const t = String(text ?? '');
+  (navigator.clipboard?.writeText(t) || Promise.reject()).then(
+    () => toast(`Copied ${label}.`),
+    () => {
+      const ta = document.createElement('textarea');
+      ta.value = t; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      try { document.execCommand('copy'); toast(`Copied ${label}.`); } catch { toast('Copy failed.', true); }
+      ta.remove();
+    }
+  );
+}
+
+/* Profile fields → click-to-copy chips for the Apply-profile section. */
+function pfChips(p) {
+  p = p || {};
+  const rows = [
+    ['Full name', p.fullName || p.firstName], ['Email', p.email], ['Phone', p.phone],
+    ['LinkedIn', p.linkedin], ['Portfolio', p.portfolio], ['GitHub', p.github],
+    ['City', p.city], ['Province', p.province], ['Country', p.country],
+    ['Postal code', p.postalCode], ['Work auth', p.workAuthorization],
+    ['Experience', p.experienceYears], ['Education', p.education],
+    ['Salary', p.salaryExpectation], ['Start date', p.availableStartDate],
+  ];
+  Object.entries(p.commonAnswers || {}).forEach(([q, a]) => { if (a) rows.push([q, a]); });
+  const chips = rows.filter(([, v]) => v).map(([k, v]) =>
+    `<button class="btn ghost sm pf-copy" data-copy="${esc(v)}" data-label="${esc(k)}" title="Click to copy: ${esc(v)}" style="margin:0 6px 6px 0">
+       <span style="opacity:.65">${esc(k)}:</span> ${esc(String(v).length > 36 ? String(v).slice(0,36)+'…' : v)} ⧉</button>`).join('');
+  return chips || '<div class="muted">No apply-profile data. Edit data/apply_profile.json.</div>';
 }
 
 /* ---------- Shared rendering ---------- */
@@ -485,13 +991,23 @@ function filesFromMap(files) {
   // Prefer a friendly order; fall back to filename.
   const pretty = {'resume.pdf':'Resume PDF','resume.docx':'Resume DOCX','cover_letter.pdf':'Cover PDF',
     'cover_letter.docx':'Cover DOCX','email.txt':'Email','resume.json':'resume.json','qa_report.json':'qa_report.json'};
+  const fileLabel = (name) => pretty[name] ||
+    (/_Resume\.pdf$/i.test(name) ? 'Resume PDF' :
+     /_Resume\.docx$/i.test(name) ? 'Resume DOCX' :
+     /_Cover\.pdf$/i.test(name) ? 'Cover PDF' :
+     /_Cover\.docx$/i.test(name) ? 'Cover DOCX' : name);
   const rank = Object.keys(pretty);
   const entries = Object.entries(files).sort((a,b) => {
-    const ia = rank.indexOf(a[0]), ib = rank.indexOf(b[0]);
-    return (ia<0?99:ia) - (ib<0?99:ib);
+    const score = (name) => /_Resume\.pdf$/i.test(name) || name === 'resume.pdf' ? 0 :
+      /_Resume\.docx$/i.test(name) || name === 'resume.docx' ? 1 :
+      /_Cover\.pdf$/i.test(name) || name === 'cover_letter.pdf' ? 2 :
+      /_Cover\.docx$/i.test(name) || name === 'cover_letter.docx' ? 3 :
+      rank.indexOf(name) >= 0 ? rank.indexOf(name) + 4 : 99;
+    const ia = score(a[0]), ib = score(b[0]);
+    return ia - ib;
   });
   const links = entries.map(([name, path]) =>
-    `<a href="/file?path=${enc(path)}" target="_blank">${esc(pretty[name]||name)}</a>`).join('');
+    `<a href="/file?path=${enc(path)}" target="_blank">${esc(fileLabel(name))}</a>`).join('');
   return `<div class="files">${links}</div>`;
 }
 
@@ -567,7 +1083,7 @@ $('g-go').onclick = async () => {
   const body = {
     company: $('g-company').value.trim(), title: $('g-title').value.trim(),
     description: $('g-description').value.trim(), location: $('g-location').value.trim(),
-    model: activeModel(), strict: $('g-strict').checked, pdf: $('g-pdf').checked,
+    model: resolveModel(false), persona: activePersona(), strict: $('g-strict').checked, pdf: $('g-pdf').checked,
   };
   if (!body.company || !body.title || !body.description) { toast('Company, title, and description are required.', true); return; }
   const box = $('g-result');
@@ -576,10 +1092,260 @@ $('g-go').onclick = async () => {
   try {
     const res = await api('/generate', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
     renderApplication(box, res, filesFromPaths(res.paths));
-    toast('Application generated.');
+    toast('Generated' + (res.persona_label ? ` · ${res.persona_label} persona` : ' · neutral'));
+    loadUsage();
   } catch (e) {
     box.innerHTML = `<div class="qa dirty"><b>Generation failed:</b> ${esc(e.message)}</div>`;
   } finally { btn.disabled = false; btn.textContent = 'Generate application'; }
+};
+
+/* Generate: load a job from the list into the form (no copy-paste) */
+const gPick = { rows: [] };
+function gRenderPick(all) {
+  if (all) gPick.all = all;
+  const q = $('g-pick-search').value.trim().toLowerCase();
+  const daysVal = $('g-pick-days').value;
+  const rows = gPick.rows = (gPick.all || []).filter(j => {
+    if (!inRange((j.found_at || '').slice(0, 10), daysVal)) return false;
+    return !q || [j.title, j.company, j.location].join(' ').toLowerCase().includes(q);
+  });
+  $('g-pick-list').innerHTML = rows.length ? rows.map((j, i) => `
+    <div class="g-pick-row" data-i="${i}" style="padding:10px 12px;border:1px solid var(--line);border-radius:10px;margin-bottom:8px;cursor:pointer">
+      <div style="font-weight:600">${esc(j.title || 'Untitled')}${(j.contact_email||'').trim()?' 📧':''}</div>
+      <div style="font-size:13px;color:var(--muted)">${esc([j.company, j.location].filter(Boolean).join(' · '))} · <span class="jl-st ${esc(j.status)}">${esc(j.status)}</span> · ${esc((j.found_at||'').slice(0,10))}</div>
+    </div>`).join('') : '<div class="empty">No jobs yet. Fetch or scrape some in the Jobs tab.</div>';
+  $('g-pick-list').querySelectorAll('.g-pick-row').forEach(el => el.onclick = () => {
+    const j = gPick.rows[+el.dataset.i];
+    if (gPick.mode === 'qa') { qaSetJob(j); $('g-pick').classList.remove('show'); return; }
+    $('g-company').value = j.company || ''; $('g-title').value = j.title || '';
+    $('g-location').value = j.location || ''; $('g-description').value = j.description || '';
+    $('g-pick').classList.remove('show');
+    toast(`Loaded "${j.title || 'job'}" into the form.`);
+  });
+}
+async function openPick(mode) {
+  gPick.mode = mode || 'generate';
+  $('g-pick').classList.add('show');
+  $('g-pick-list').innerHTML = '<div class="empty"><span class="spinner dark"></span></div>';
+  try { const { jobs } = await api('/jobs'); gRenderPick(jobs); $('g-pick-search').focus(); }
+  catch (e) { $('g-pick-list').innerHTML = `<div class="qa dirty">${esc(e.message)}</div>`; }
+}
+$('g-fromjob').onclick = () => openPick('generate');
+$('g-pick-search').oninput = () => gRenderPick();
+$('g-pick-days').onchange = () => gRenderPick();
+$('g-pick-x').onclick = () => $('g-pick').classList.remove('show');
+$('g-pick').onclick = (e) => { if (e.target === $('g-pick')) $('g-pick').classList.remove('show'); };
+
+/* ---------- Q&A (screening questions) ---------- */
+let qaJob = null;   // {key_id, priority, ...} when a queued job is selected
+function qaSetJob(j) {
+  qaJob = j;
+  $('qa-jobkey').value = j.key_id || '';
+  $('qa-company').value = j.company || ''; $('qa-title').value = j.title || '';
+  $('qa-location').value = j.location || ''; $('qa-description').value = j.description || '';
+  $('qa-jobline').innerHTML = `Selected: <b>${esc(j.title || 'job')}</b>${j.company ? ' @ ' + esc(j.company) : ''}${j.priority ? ' ⭐' : ''}`;
+}
+$('qa-fromjob').onclick = () => openPick('qa');
+// Editing the role fields by hand detaches from the queued job (use inline fields).
+['qa-company','qa-title','qa-location','qa-description'].forEach(id => $(id).addEventListener('input', () => {
+  if (qaJob) { qaJob = null; $('qa-jobkey').value = ''; $('qa-jobline').textContent = 'Using the fields above (not linked to a saved job).'; }
+}));
+/* Dynamic question rows — answer several screening questions at once. */
+function qaAddRow(focus) {
+  const list = $('qa-qlist');
+  const row = document.createElement('div');
+  row.className = 'qa-qrow';
+  row.style = 'border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:10px';
+  row.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <span class="fld qa-qnum" style="margin:0"></span>
+      <button class="btn ghost sm qa-rm" type="button" title="Remove question">✕</button>
+    </div>
+    <textarea class="qa-q" placeholder="e.g. Why do you want to work here? / Tell me about a time you solved a hard problem." style="min-height:64px;width:100%"></textarea>
+    <textarea class="qa-d" placeholder="(optional) your rough draft — I'll rephrase it truthfully for this role" style="min-height:44px;width:100%;margin-top:6px"></textarea>`;
+  list.appendChild(row);
+  row.querySelector('.qa-rm').onclick = () => {
+    if (list.querySelectorAll('.qa-qrow').length <= 1) { row.querySelector('.qa-q').value = ''; row.querySelector('.qa-d').value = ''; }
+    else { row.remove(); }
+    qaRenumber();
+  };
+  qaRenumber();
+  if (focus) row.querySelector('.qa-q').focus();
+}
+function qaRenumber() {
+  const rows = $('qa-qlist').querySelectorAll('.qa-qrow');
+  rows.forEach((r, i) => { r.querySelector('.qa-qnum').textContent = `Question ${i + 1}`; });
+  rows.forEach(r => { r.querySelector('.qa-rm').style.display = rows.length > 1 ? '' : 'none'; });
+}
+// Start with one row.
+qaAddRow(false);
+$('qa-add').onclick = () => qaAddRow(true);
+
+$('qa-go').onclick = async () => {
+  const rows = [...$('qa-qlist').querySelectorAll('.qa-qrow')];
+  const items = rows.map(r => ({
+    question: r.querySelector('.qa-q').value.trim(),
+    draft: r.querySelector('.qa-d').value.trim(),
+  })).filter(it => it.question);
+  if (!items.length) { toast('Type or paste at least one question.', true); return; }
+  const mw = parseInt($('qa-length').value, 10);
+  const btn = $('qa-go'), box = $('qa-result');
+  const body = {
+    items,
+    model: resolveModel(!!(qaJob && qaJob.priority)),
+    max_words: Number.isFinite(mw) ? mw : null,
+    job_key: $('qa-jobkey').value || '',
+    company: $('qa-company').value.trim(), title: $('qa-title').value.trim(),
+    description: $('qa-description').value.trim(), location: $('qa-location').value.trim(),
+  };
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Writing…';
+  box.innerHTML = `<div class="empty"><span class="spinner dark"></span><div style="margin-top:10px">Writing ${items.length} answer${items.length>1?'s':''}…</div></div>`;
+  try {
+    const res = await api('/answers', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+    qaRenderAnswers(res.answers || []);
+    const ok = (res.answers || []).filter(a => !a.error).length;
+    toast(`${ok} answer${ok!==1?'s':''} ready.`);
+    loadUsage();
+  } catch (e) {
+    box.innerHTML = `<div class="qa dirty"><b>Failed:</b> ${esc(e.message)}</div>`;
+  } finally { btn.disabled = false; btn.textContent = 'Generate answers'; }
+};
+
+function wordCount(s) { return (String(s).trim().match(/\S+/g) || []).length; }
+
+function qaRenderAnswers(answers) {
+  const box = $('qa-result');
+  if (!answers.length) { box.innerHTML = '<div class="empty"><div class="big">💬</div>No answers.</div>'; return; }
+  const allText = answers.filter(a => a.answer).map(a => `Q: ${a.question}\n${a.answer}`).join('\n\n');
+  box.innerHTML =
+    `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+       <div class="sec-title" style="margin:0">Answers (${answers.length})</div>
+       <button class="btn ghost sm" id="qa-copyall">📋 Copy all</button>
+     </div>` +
+    answers.map((a, i) => a.error
+      ? `<div class="qa dirty" style="margin-bottom:12px"><b>Q${i+1} failed:</b> ${esc(a.error)}</div>`
+      : `<div style="border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:12px">
+           <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px">
+             <div style="font-size:13px;color:var(--muted);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Q${i+1}: ${esc(a.question)}</div>
+             <button class="btn ghost sm qa-copy1" data-i="${i}">📋 <span style="opacity:.6">${wordCount(a.answer)}w</span></button>
+           </div>
+           <div style="white-space:pre-wrap;line-height:1.55">${esc(a.answer)}</div>
+         </div>`).join('');
+  const copyBtn = $('qa-copyall');
+  if (copyBtn) copyBtn.onclick = () => { navigator.clipboard.writeText(allText); toast('All answers copied.'); };
+  box.querySelectorAll('.qa-copy1').forEach(b => b.onclick = () => {
+    navigator.clipboard.writeText(answers[+b.dataset.i].answer || ''); toast('Answer copied.');
+  });
+}
+
+/* ---------- Repeatable roles ---------- */
+let rpRoles = [];
+async function loadRepeatable() {
+  const box = $('rp-list');
+  box.innerHTML = '<div class="empty"><span class="spinner dark"></span></div>';
+  try {
+    const { roles } = await api('/repeatable');
+    rpRoles = roles || [];
+    rpRender();
+  } catch (e) { box.innerHTML = `<div class="qa dirty">${esc(e.message)}</div>`; }
+}
+function rpRender() {
+  const box = $('rp-list');
+  if (!rpRoles.length) {
+    box.innerHTML = `<div class="empty"><div class="big">🔁</div>No repeatable roles yet. In <b>Jobs</b>, click the 🔁 on a job you reapply to often, or paste a job email above.</div>`;
+    return;
+  }
+  box.innerHTML = rpRoles.map((r, i) => {
+    const applied = r.times_applied ? `applied ${r.times_applied}×${r.last_applied ? ' · last ' + esc(r.last_applied) : ''}` : 'never generated yet';
+    const jd = (r.description || '').trim();
+    return `<div class="card rp-card" data-i="${i}" style="margin-bottom:12px">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap">
+        <div style="min-width:0">
+          <div style="font-weight:700;font-size:15px">${esc(r.title || 'Untitled')}${r.priority ? ' ⭐' : ''}</div>
+          <div class="muted" style="font-size:13px">${esc(r.company || '')}${r.location ? ' · ' + esc(r.location) : ''} · <span style="color:var(--accent)">${applied}</span></div>
+        </div>
+        <div class="jl-rowbtns">
+          ${r.last_folder_name ? `<button class="btn ghost sm" data-rpa="open" data-i="${i}" title="Open the last generated docs">📂 Last docs</button>` : ''}
+          ${r.apply_url ? `<a class="btn subtle sm" href="${esc(r.apply_url)}" target="_blank" rel="noreferrer">Open ↗</a>` : ''}
+          <button class="btn subtle sm" data-rpa="edit" data-i="${i}">✎ Edit JD</button>
+          <button class="btn primary sm" data-rpa="gen" data-i="${i}">⟳ Regenerate</button>
+          <button class="btn danger sm" data-rpa="del" data-i="${i}" title="Stop tracking this role">🗑</button>
+        </div>
+      </div>
+      <details style="margin-top:10px"${jd ? '' : ' open'}>
+        <summary style="cursor:pointer;font-size:13px;color:var(--muted)">Job description (${jd ? jd.length + ' chars' : 'empty — add one'})</summary>
+        <textarea class="rp-jd" data-i="${i}" style="min-height:120px;margin-top:8px" placeholder="Paste the latest job description here…">${esc(jd)}</textarea>
+        <div style="margin-top:6px"><button class="btn ghost sm" data-rpa="save" data-i="${i}">Save JD</button></div>
+      </details>
+      <div class="rp-out" data-i="${i}"></div>
+    </div>`;
+  }).join('');
+  box.querySelectorAll('[data-rpa="gen"]').forEach(b => b.onclick = () => rpGenerate(rpRoles[+b.dataset.i], b));
+  box.querySelectorAll('[data-rpa="save"]').forEach(b => b.onclick = () => rpSaveJd(rpRoles[+b.dataset.i], b));
+  box.querySelectorAll('[data-rpa="edit"]').forEach(b => b.onclick = () => {
+    const d = b.closest('.rp-card').querySelector('details'); if (d) { d.open = true; d.querySelector('textarea')?.focus(); }
+  });
+  box.querySelectorAll('[data-rpa="open"]').forEach(b => b.onclick = () => openLibrary(rpRoles[+b.dataset.i].last_folder_name));
+  box.querySelectorAll('[data-rpa="del"]').forEach(b => b.onclick = () => rpDelete(rpRoles[+b.dataset.i], b));
+}
+async function rpSaveJd(role, btn) {
+  const ta = $('rp-list').querySelector(`textarea.rp-jd[data-i="${rpRoles.indexOf(role)}"]`);
+  const description = (ta?.value || '').trim();
+  btn.disabled = true;
+  try {
+    await api(`/repeatable/${enc(role.key)}/update`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ description }) });
+    role.description = description; toast('Job description saved.');
+  } catch (e) { toast('Save failed: ' + e.message, true); } finally { btn.disabled = false; }
+}
+async function rpGenerate(role, btn) {
+  const out = $('rp-list').querySelector(`.rp-out[data-i="${rpRoles.indexOf(role)}"]`);
+  const model = resolveModel(!!role.priority);
+  const label = btn.textContent; btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>' + ((model||'').startsWith('claude') ? ' ☁' : '');
+  out.innerHTML = '<div class="empty" style="padding:18px"><span class="spinner dark"></span><div style="margin-top:8px">Regenerating a fresh tuned copy…</div></div>';
+  try {
+    const res = await api(`/repeatable/${enc(role.key)}/generate`, { method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ model, persona: activePersona(), strict: true, pdf: true }) });
+    out.innerHTML = `<div style="margin-top:10px"><b>New docs ready</b> — download, tweak, reapply:</div>` + filesFromPaths(res.paths);
+    toast('Regenerated' + (res.persona_label ? ` · ${res.persona_label}` : ''));
+    loadUsage();
+    // refresh counts
+    const upd = (await api('/repeatable')).roles.find(x => x.key === role.key);
+    if (upd) { Object.assign(role, upd); }
+    const meta = btn.closest('.rp-card').querySelector('.muted span'); if (meta && upd) meta.textContent = `applied ${upd.times_applied}× · last ${upd.last_applied}`;
+  } catch (e) {
+    out.innerHTML = `<div class="qa dirty" style="margin-top:10px"><b>Failed:</b> ${esc(e.message)}</div>`;
+  } finally { btn.disabled = false; btn.innerHTML = label; }
+}
+async function rpDelete(role, btn) {
+  if (!confirm(`Stop tracking "${role.title} @ ${role.company}" as a repeatable role?\n(Generated files are kept.)`)) return;
+  btn.disabled = true;
+  try { await api(`/repeatable/${enc(role.key)}`, { method: 'DELETE' }); toast('Removed.'); loadRepeatable(); }
+  catch (e) { toast('Delete failed: ' + e.message, true); btn.disabled = false; }
+}
+$('rp-refresh').onclick = () => loadRepeatable();
+$('rp-email-go').onclick = async () => {
+  const text = $('rp-email-text').value.trim();
+  if (!text) { toast('Paste an email first.', true); return; }
+  const btn = $('rp-email-go'), status = $('rp-email-status'), out = $('rp-email-result');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Extracting…'; status.textContent = ''; out.innerHTML = '';
+  try {
+    const res = await api('/jobs/from-email', { method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ text, model: resolveModel(false), repeatable: $('rp-email-keep').checked }) });
+    const p = res.parsed || {};
+    const tag = res.matched_repeatable ? '<span style="color:var(--accent)">matched an existing repeatable role</span>'
+      : res.duplicate ? 'already in your queue' : res.queued ? 'added to Jobs' : 'parsed';
+    out.innerHTML = `<div class="card" style="margin-top:12px;background:var(--input-bg)">
+      <div style="font-weight:600">${esc(p.title || '(no title found)')}</div>
+      <div class="muted" style="font-size:13px;margin-bottom:6px">${esc(p.company || '(no company)')}${p.location ? ' · ' + esc(p.location) : ''} · ${tag}</div>
+      <div style="font-size:13px;white-space:pre-wrap;max-height:160px;overflow:auto">${esc((p.description || '').slice(0, 1200))}${(p.description||'').length>1200?'…':''}</div>
+    </div>`;
+    toast(res.matched_repeatable ? 'Matched a repeatable role — JD refreshed.' : res.queued ? 'Job extracted and queued.' : res.duplicate ? 'Already queued.' : 'Parsed.');
+    $('rp-email-text').value = '';
+    loadRepeatable(); loadUsage();
+  } catch (e) {
+    out.innerHTML = `<div class="qa dirty" style="margin-top:12px"><b>Couldn't extract:</b> ${esc(e.message)}</div>`;
+  } finally { btn.disabled = false; btn.textContent = 'Extract job'; }
 };
 
 /* ---------- Bulk ---------- */
@@ -640,7 +1406,7 @@ $('b-run').onclick = async () => {
   bulkRunning = true;
   const btn = $('b-run'); btn.disabled = true; btn.textContent = 'Generating…';
   const prog = $('b-progress'); prog.className = 'progress show'; prog.firstElementChild.style.width = '0%';
-  const opts = { model: activeModel(), strict: $('b-strict').checked, pdf: $('b-pdf').checked };
+  const opts = { model: resolveModel(false), persona: activePersona(), strict: $('b-strict').checked, pdf: $('b-pdf').checked };
   let done = 0;
   for (const j of bulk) {
     if (!(j.company.trim() && j.title.trim() && j.description.trim())) continue;
@@ -657,7 +1423,7 @@ $('b-run').onclick = async () => {
   bulkRunning = false; btn.disabled = false; btn.textContent = 'Generate all';
   const ok = bulk.filter(j => j.status==='done').length;
   toast(`Done — ${ok}/${jobs.length} generated.`);
-  loadLibrary();
+  loadJobs(); loadLibrary();
 };
 
 /* paste-multiple */
@@ -680,21 +1446,503 @@ $('paste-add').onclick = () => {
   toast(`Added ${n} role${n===1?'':'s'}.`);
 };
 
-/* from scraper queue */
+/* load whatever is already queued (status=new) into the bulk list */
+async function pullQueue(quiet) {
+  const { jobs } = await api('/jobs?status=new');
+  if (!jobs.length) { if (!quiet) toast('No new jobs in the scraper queue.'); return 0; }
+  jobs.forEach(j => bulkAdd({ company: j.company||'', title: j.title||'',
+    location: j.location||'', description: j.description||'' }, false));
+  if (!quiet) toast(`Pulled ${jobs.length} job${jobs.length===1?'':'s'} from queue.`);
+  return jobs.length;
+}
+
+/* from scraper queue (read-only: shows jobs already pulled in) */
 $('b-queue').onclick = async () => {
-  try {
-    const { jobs } = await api('/jobs?status=new');
-    if (!jobs.length) { toast('No new jobs in the scraper queue.'); return; }
-    jobs.forEach(j => bulkAdd({ company: j.company||'', title: j.title||'',
-      location: j.location||'', description: j.description||'' }, false));
-    toast(`Pulled ${jobs.length} job${jobs.length===1?'':'s'} from queue.`);
-  } catch (e) { toast('Queue unavailable: ' + e.message, true); }
+  try { await pullQueue(false); }
+  catch (e) { toast('Queue unavailable: ' + e.message, true); }
 };
 
-/* ---------- Library ---------- */
+/* fetch new jobs: run intake (pulls from the browser scraper + other sources),
+   then load the freshly queued jobs into the bulk list */
+$('b-fetch').onclick = async (e) => {
+  const btn = e.currentTarget;
+  btn.disabled = true; const label = btn.textContent; btn.textContent = '⏳ Fetching…';
+  try {
+    const res = await api('/intake/run', { method: 'POST' });
+    const got = await pullQueue(true);
+    const errs = (res.errors && res.errors.length) ? ` · ${res.errors.length} source error(s)` : '';
+    toast(`Scraped ${res.fetched}, queued ${res.committed} new · ${got} loaded${errs}.`);
+  } catch (err) {
+    toast('Fetch failed: ' + err.message, true);
+  } finally {
+    btn.disabled = false; btn.textContent = label;
+  }
+};
+
+/* ---------- Jobs (native list) ---------- */
+// Collector (capture dashboard) on the same host, port 8765. Tracks how the app
+// was opened (localhost / Tailscale).
+const COLLECTOR = `http://${location.hostname || '127.0.0.1'}:8765`;
+
+const jl = { all: [], rows: [], sort: { key: 'date', dir: 'desc' }, sel: new Set() };
+
+function jobFromApi(j) {
+  const folder = j.status === 'generated' ? (j.notes || '').split(/[\\/]/).pop() : '';
+  return { id: j.key_id, title: j.title || 'Untitled', company: j.company || '',
+    location: j.location || '', source: j.source || '', date: (j.found_at || '').slice(0, 10),
+    status: j.status, gen: j.status === 'generated', folder, email: (j.contact_email || '').trim(),
+    applied: !!j.applied, repeat: !!j.repeat, priority: !!j.priority, repeatable: !!j.repeatable, apply_url: j.apply_url || '', description: j.description || '' };
+}
+
+// Start-of-day (local) cutoff for "the last N calendar days, including today".
+// N=1 => today only, N=2 => today + yesterday, etc.
+function dayWindowStart(days) {
+  const n = new Date();
+  return new Date(n.getFullYear(), n.getMonth(), n.getDate() - (days - 1)).getTime();
+}
+function inRange(dateStr, daysVal) {
+  if (!daysVal) return true;                       // All time
+  const t = Date.parse(dateStr); if (isNaN(t)) return false;
+  if (daysVal === 'month') {                       // since the 1st of this month
+    const n = new Date();
+    return t >= new Date(n.getFullYear(), n.getMonth(), 1).getTime();
+  }
+  return t >= dayWindowStart(Number(daysVal));     // calendar days, incl. today
+}
+
+// Pull browser-saved (collector) jobs into the queue. Fast: collector source only.
+// Best-effort — if the collector is down we still show whatever's queued.
+async function syncCollector() {
+  try {
+    const r = await api('/intake/run?source_type=collector', { method: 'POST' });
+    if (r && r.committed) toast(`${r.committed} new saved job${r.committed > 1 ? 's' : ''} synced.`);
+    return r && r.committed ? r.committed : 0;
+  } catch { return 0; }
+}
+
+// Unified list: queue jobs (generated + not) + any generated outputs not tied to a job.
+async function loadJobs() {
+  const body = $('jl-body'), empty = $('jl-empty');
+  body.innerHTML = '<tr><td colspan="9" class="empty"><span class="spinner dark"></span></td></tr>';
+  try {
+    await syncCollector();                       // auto-pull browser-saved jobs first
+    const jr = await api('/jobs');               // Jobs = the queue; generated apps live in Library
+    jl.all = (jr.jobs || []).map(jobFromApi);
+    const items = jl.all;
+    const sel = $('jl-source'), cur = sel.value;
+    const sources = [...new Set(items.map(j => j.source).filter(Boolean))].sort();
+    sel.innerHTML = '<option value="">All sources</option>' +
+      sources.map(s => `<option value="${esc(s)}">${esc(s)}</option>`).join('');
+    sel.value = sources.includes(cur) ? cur : '';
+    renderJobs();
+  } catch (e) {
+    body.innerHTML = ''; empty.style.display = '';
+    toast('Jobs unavailable: ' + e.message, true);
+  }
+}
+
+function jlFiltered() {
+  const q = $('jl-search').value.trim().toLowerCase();
+  const status = $('jl-status').value, source = $('jl-source').value, daysVal = $('jl-days').value;
+  const channel = $('jl-channel').value, applied = $('jl-applied').value, repeat = $('jl-repeat').value;
+  let rows = jl.all.filter(j => {
+    if (status && j.status !== status) return false;
+    if (source && j.source !== source) return false;
+    if (channel === 'email' && !j.email) return false;
+    if (channel === 'noemail' && j.email) return false;
+    if (applied === 'yes' && !j.applied) return false;
+    if (applied === 'no' && j.applied) return false;
+    if (repeat === 'yes' && !j.repeat) return false;
+    if (!inRange(j.date, daysVal)) return false;
+    if (!q) return true;
+    return [j.title, j.company, j.location, j.source].join(' ').toLowerCase().includes(q);
+  });
+  const { key, dir } = jl.sort, f = dir === 'asc' ? 1 : -1;
+  rows.sort((a, b) => String(a[key] ?? '').toLowerCase() < String(b[key] ?? '').toLowerCase() ? -f : f);
+  return rows;
+}
+
+function renderJobs() {
+  const body = $('jl-body'), empty = $('jl-empty');
+  const rows = jl.rows = jlFiltered();
+  empty.style.display = rows.length ? 'none' : '';
+  document.querySelectorAll('.jl-sort').forEach(th => {
+    th.classList.toggle('on', th.dataset.sort === jl.sort.key);
+    th.textContent = th.textContent.replace(/ [▲▼]$/, '') +
+      (th.dataset.sort === jl.sort.key ? (jl.sort.dir === 'asc' ? ' ▲' : ' ▼') : '');
+  });
+  body.innerHTML = rows.map((j, i) => {
+    const canSelect = j.id && !j.gen;
+    return `<tr>
+      <td class="jl-ck">${canSelect ? `<input type="checkbox" class="jl-rowck" data-k="${esc(j.id)}" ${jl.sel.has(j.id)?'checked':''}>` : ''}</td>
+      <td>${j.id?`<span class="jl-star ${j.priority?'on':''}" data-act="star" data-i="${i}" title="${j.priority?'Priority (Auto → Claude)':'Mark priority'}" style="cursor:pointer">${j.priority?'⭐':'☆'}</span> `:''}<span class="t" data-act="detail" data-i="${i}" style="cursor:pointer" title="View details">${esc(j.title)}</span>${j.id?`<span class="jl-emailbtn ${j.email?'on':''}" data-act="email" data-i="${i}" title="${j.email?'Email: '+esc(j.email)+' — click to edit':'Add an HR email (for the n8n email path)'}" style="cursor:pointer">${j.email?'📧':'✉️'}</span><span data-act="repeatable" data-i="${i}" title="${j.repeatable?'Repeatable role — saved. Click to remove':'Mark as a repeatable role (reapply often)'}" style="cursor:pointer;margin-left:4px;opacity:${j.repeatable?1:.3}">🔁</span>`:''}</td>
+      <td class="muted">${esc(j.company)}${j.repeat?` <span class="jl-rep" title="Repeat company — saved details reused">🔁</span>`:''}</td>
+      <td class="muted">${esc(j.location)}</td>
+      <td><span class="jl-src">${esc(j.source || '—')}</span></td>
+      <td class="muted">${esc(j.date)}</td>
+      <td><span class="jl-st ${esc(j.status)}">${esc(j.status)}</span></td>
+      <td>${j.id ? `<input type="checkbox" class="jl-applied" data-i="${i}" ${j.applied?'checked':''} title="Mark applied">` : (j.applied?'✓':'')}</td>
+      <td><div class="jl-rowbtns">
+        ${j.gen ? `<button class="btn ghost sm" data-act="preview" data-i="${i}">Preview</button>` : ''}
+        ${(j.gen && j.email && j.id) ? `<button class="btn ghost sm" data-act="send" data-i="${i}" title="Send to n8n (email apply)">📧 n8n</button>` : ''}
+        ${j.apply_url ? `<a class="btn subtle sm" href="${esc(j.apply_url)}" target="_blank" rel="noreferrer" title="Open the application portal">Open ↗</a>` : ''}
+        ${(j.apply_url && j.id) ? `<button class="btn subtle sm" data-act="autofill" data-i="${i}" title="Copy the Playwright autofill command (runs on your host)">⌨ Autofill</button>` : ''}
+        ${j.id ? `<button class="btn primary sm" data-act="gen" data-i="${i}">${j.gen?'Regenerate':'Generate'}</button>` : ''}
+        ${j.gen ? `<button class="btn danger sm" data-act="del" data-i="${i}" title="Delete generated files">🗑</button>` : ''}
+      </div></td>
+    </tr>`;
+  }).join('');
+
+  body.querySelectorAll('.jl-rowck').forEach(cb => cb.onclick = (e) => {
+    e.stopPropagation();
+    cb.checked ? jl.sel.add(cb.dataset.k) : jl.sel.delete(cb.dataset.k);
+    syncBulkBtn();
+  });
+  body.querySelectorAll('[data-act="gen"]').forEach(b => b.onclick = () => genJob(jl.rows[+b.dataset.i], b));
+  body.querySelectorAll('[data-act="preview"]').forEach(b => b.onclick = () => {
+    const f = jl.rows[+b.dataset.i].folder; if (f) openLibrary(f);
+  });
+  body.querySelectorAll('[data-act="send"]').forEach(b => b.onclick = () => sendToN8n(jl.rows[+b.dataset.i].id, b));
+  body.querySelectorAll('[data-act="del"]').forEach(b => b.onclick = () => delJob(jl.rows[+b.dataset.i], b));
+  body.querySelectorAll('[data-act="detail"]').forEach(el => el.onclick = () => openJobDetail(jl.rows[+el.dataset.i]));
+  body.querySelectorAll('[data-act="email"]').forEach(el => el.onclick = async () => {
+    const j = jl.rows[+el.dataset.i];
+    const val = prompt(`HR / application email for:\n${j.title} @ ${j.company}`, j.email || '');
+    if (val === null) return;                       // cancelled
+    try {
+      await api(`/jobs/${j.id}/update`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contact_email: val.trim() }) });
+      toast(val.trim() ? 'Email saved.' : 'Email cleared.');
+      loadJobs();
+    } catch (e) { toast('Update failed: ' + e.message, true); }
+  });
+  body.querySelectorAll('[data-act="star"]').forEach(el => el.onclick = async (e) => {
+    e.stopPropagation();
+    const j = jl.rows[+el.dataset.i], val = !j.priority;
+    try {
+      await api(`/jobs/${j.id}/priority`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ priority: val }) });
+      j.priority = val; el.textContent = val ? '⭐' : '☆'; el.classList.toggle('on', val);
+    } catch (err) { toast('Update failed: ' + err.message, true); }
+  });
+  body.querySelectorAll('[data-act="repeatable"]').forEach(el => el.onclick = async (e) => {
+    e.stopPropagation();
+    const j = jl.rows[+el.dataset.i], val = !j.repeatable;
+    try {
+      await api(`/jobs/${j.id}/repeatable`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ repeatable: val }) });
+      j.repeatable = val; el.style.opacity = val ? 1 : .3;
+      el.title = val ? 'Repeatable role — saved. Click to remove' : 'Mark as a repeatable role (reapply often)';
+      toast(val ? 'Saved as a repeatable role → see the Repeatable tab.' : 'Removed from repeatable roles.');
+    } catch (err) { toast('Update failed: ' + err.message, true); }
+  });
+  body.querySelectorAll('[data-act="autofill"]').forEach(b => b.onclick = () => {
+    const j = jl.rows[+b.dataset.i];
+    const cmd = `python -m resume_gen.automation.playwright_apply --job ${j.id}`;
+    (navigator.clipboard?.writeText(cmd) || Promise.reject()).then(
+      () => toast('Autofill command copied — run it in your terminal (opens a browser, stops before submit).'),
+      () => { prompt('Run this on your host:', cmd); });
+  });
+  body.querySelectorAll('.jl-applied').forEach(cb => cb.onclick = async (e) => {
+    e.stopPropagation();
+    const j = jl.rows[+cb.dataset.i];
+    try {
+      await api(`/jobs/${j.id}/applied`, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ applied: cb.checked }) });
+      j.applied = cb.checked;
+      toast(cb.checked ? 'Marked applied.' : 'Marked not applied.');
+    } catch (err) { cb.checked = !cb.checked; toast('Update failed: ' + err.message, true); }
+  });
+  syncBulkBtn();
+}
+
+async function delJob(row, btn) {
+  if (!row.folder) return;
+  if (!confirm(`Delete the generated files for "${row.title}"?`)) return;
+  btn.disabled = true;
+  try {
+    await api('/run?folder=' + enc(row.folder), { method: 'DELETE' });
+    if (row.id) {  // reset the queue job so it can be generated again (no dangling link)
+      try { await api(`/jobs/${row.id}/status`, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'new' }) }); } catch {}
+    }
+    toast('Deleted.'); loadJobs(); loadLibrary();
+  } catch (e) { toast('Delete failed: ' + e.message, true); btn.disabled = false; }
+}
+
+async function deleteScrapedJob(row, btn) {
+  if (!row?.id) return;
+  if (!confirm(`Delete this scraped job from the queue?\n\n${row.title}\n${row.company}`)) return;
+  const label = btn.textContent; btn.disabled = true; btn.textContent = 'Deleting...';
+  try {
+    await api(`/jobs/${row.id}`, { method: 'DELETE' });
+    jl.sel.delete(row.id);
+    toast('Scraped job deleted.');
+    await loadJobs(); renderScrapedJobs();
+  } catch (e) {
+    toast('Delete failed: ' + e.message, true); btn.disabled = false; btn.textContent = label;
+  }
+}
+
+async function sendToN8n(key, btn) {
+  const label = btn.textContent; btn.disabled = true; btn.textContent = '⏳';
+  try {
+    await api(`/jobs/${key}/send-n8n`, { method: 'POST' });
+    toast('Sent to n8n (email apply). Marked applied.');
+    loadJobs();
+  } catch (e) {
+    toast('Send failed: ' + e.message, true); btn.disabled = false; btn.textContent = label;
+  }
+}
+
+function syncBulkBtn() {
+  const n = jl.sel.size;
+  const btn = $('jl-bulk'); btn.textContent = `⚡ Generate selected (${n})`; btn.disabled = !n;
+  const sel = jlFiltered().filter(r => r.id && !r.gen);
+  $('jl-all').checked = sel.length > 0 && sel.every(r => jl.sel.has(r.id));
+}
+
+async function genJob(job, btn) {
+  const label = btn.textContent; btn.disabled = true; btn.textContent = '⏳';
+  const model = resolveModel(!!job.priority);
+  const viaClaude = (model || '').startsWith('claude');
+  if (viaClaude) btn.textContent = '⏳☁';
+  try {
+    const result = await api(`/jobs/${job.id}/generate`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ persona: activePersona(), strict: true, pdf: true, model }),
+    });
+    toast(`Generated${viaClaude ? ' · Claude' : ''}${result.persona_label ? ' · ' + result.persona_label : ''}.`);
+    openModalFor(result); loadJobs(); loadLibrary(); renderScrapedJobs(); loadUsage();
+  } catch (e) {
+    toast('Generation failed: ' + e.message, true); btn.disabled = false; btn.textContent = label;
+  }
+}
+
+/* filters + sort wiring */
+['jl-search','jl-status','jl-source','jl-channel','jl-applied','jl-repeat','jl-days'].forEach(id => {
+  $(id).addEventListener(id === 'jl-search' ? 'input' : 'change', renderJobs);
+});
+document.querySelectorAll('.jl-sort').forEach(th => th.onclick = () => {
+  const k = th.dataset.sort;
+  jl.sort = { key: k, dir: jl.sort.key === k && jl.sort.dir === 'asc' ? 'desc' : 'asc' };
+  renderJobs();
+});
+$('jl-all').onclick = () => {
+  const rows = jlFiltered().filter(r => r.id && !r.gen);
+  const turnOn = !rows.every(r => jl.sel.has(r.id));
+  rows.forEach(r => turnOn ? jl.sel.add(r.id) : jl.sel.delete(r.id));
+  renderJobs();
+};
+
+/* bulk generate selected, sequentially — engine per job priority */
+$('jl-bulk').onclick = async () => {
+  const keys = [...jl.sel]; if (!keys.length) return;
+  const byId = Object.fromEntries(jl.all.map(j => [j.id, j]));
+  const btn = $('jl-bulk'); btn.disabled = true;
+  let ok = 0, fail = 0;
+  for (let i = 0; i < keys.length; i++) {
+    const model = resolveModel(!!(byId[keys[i]] || {}).priority);
+    btn.textContent = `⏳ Generating ${i+1}/${keys.length}${(model||'').startsWith('claude')?' ☁':''}…`;
+    try {
+      await api(`/jobs/${keys[i]}/generate`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ persona: activePersona(), strict: true, pdf: true, model }),
+      });
+      ok++;
+    } catch { fail++; }
+  }
+  toast(`Bulk done: ${ok} generated${fail?`, ${fail} failed`:''}.`);
+  jl.sel.clear(); loadJobs(); loadLibrary(); loadUsage();
+};
+
+/* Jobs: refresh the list */
+$('jl-refresh').onclick = () => loadJobs();
+
+/* Claude Scraping: Claude searches the web for jobs and queues them */
+$('cs-go').onclick = async (e) => {
+  const role = $('cs-role').value.trim();
+  if (!role) { toast('Enter a role / keywords.', true); return; }
+  const btn = e.currentTarget, label = btn.textContent;
+  btn.disabled = true; btn.textContent = '🔎☁ Claude is searching…';
+  const box = $('cs-results'); box.innerHTML = '<span class="spinner dark"></span> Searching the web…';
+  try {
+    const res = await api('/scrape/claude', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ role, location: $('cs-loc').value.trim(), limit: Number($('cs-limit').value) || 15 }) });
+    toast(`Claude found ${res.found}, queued ${res.queued} new.`);
+    box.innerHTML = (res.new_jobs && res.new_jobs.length)
+      ? res.new_jobs.map(j => `<div class="src-row"><span style="flex:1">${esc(j.title)}</span><span class="muted">${esc(j.company)}${j.location?' · '+esc(j.location):''}</span></div>`).join('')
+      : '<div class="muted">No new jobs (already in your queue, or none found). Try different keywords.</div>';
+    loadJobs(); loadUsage();
+  } catch (err) {
+    box.innerHTML = `<div class="qa dirty">${esc(err.message)}</div>`;
+    toast('Claude scraping failed: ' + err.message, true);
+  } finally { btn.disabled = false; btn.textContent = label; }
+};
+
+/* Scrape tab: fetch new jobs (intake) */
+$('sk-fetch').onclick = async (e) => {
+  const btn = e.currentTarget, label = btn.textContent; btn.disabled = true; btn.textContent = '⏳ Fetching…';
+  try {
+    const res = await api('/intake/run', { method: 'POST' });
+    const errs = (res.errors && res.errors.length) ? ` · ${res.errors.length} source error(s)` : '';
+    toast(`Scraped ${res.fetched}, queued ${res.committed} new${errs}.`);
+    await loadJobs(); renderScrapedJobs();
+  } catch (err) { toast('Fetch failed: ' + err.message, true); }
+  finally { btn.disabled = false; btn.textContent = label; }
+};
+
+/* Scrape tab: import a CSV (e.g. from n8n) into the queue */
+$('sk-csv').onclick = () => $('sk-csv-file').click();
+$('sk-csv-file').onchange = async (e) => {
+  const file = e.target.files[0]; if (!file) return;
+  try {
+    const text = await file.text();
+    const res = await api('/jobs/import', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ csv: text }) });
+    toast(`CSV: ${res.rows} rows, ${res.committed} new jobs added.`);
+    await loadJobs(); renderScrapedJobs();
+  } catch (err) { toast('Import failed: ' + err.message, true); }
+  finally { e.target.value = ''; }
+};
+
+/* Scrape tab: list the scraped jobs, grouped by source */
+async function renderScrapedJobs() {
+  const box = $('sk-jobs'); if (!box) return;
+  box.innerHTML = '<span class="spinner dark"></span>';
+  try {
+    const { jobs } = await api('/jobs');
+    if (!jobs.length) { box.innerHTML = '<div class="muted">No jobs scraped yet. Add a source above and hit Fetch new jobs.</div>'; return; }
+    const bySrc = {};
+    const rows = jobs.map(jobFromApi);
+    rows.forEach(j => { (bySrc[j.source || 'other'] = bySrc[j.source || 'other'] || []).push(j); });
+    box.innerHTML = Object.entries(bySrc).sort((a, b) => b[1].length - a[1].length).map(([src, js]) =>
+      `<div style="margin-bottom:14px">
+         <div class="sec-title" style="margin:0 0 6px">${esc(src)} <span style="color:var(--faint);font-weight:500;text-transform:none">(${js.length})</span></div>
+         ${js.map(j => `<div class="src-row" style="align-items:flex-start">
+           <div style="flex:1;min-width:0">
+             <div style="font-weight:600">${esc(j.title)}${j.email?' 📧':''}${j.repeat?' 🔁':''}</div>
+             <div class="muted">${esc(j.company)}${j.location?' · '+esc(j.location):''} · ${esc(j.status)} · ${esc(j.date)}</div>
+           </div>
+           <div class="jl-rowbtns">
+             <button class="btn subtle sm" data-skact="view" data-id="${esc(j.id)}">View</button>
+             ${j.gen ? `<button class="btn ghost sm" data-skact="preview" data-id="${esc(j.id)}">Preview</button>` : ''}
+             <button class="btn primary sm" data-skact="gen" data-id="${esc(j.id)}">${j.gen?'Regenerate':'Generate'}</button>
+             <button class="btn danger sm" data-skact="delete" data-id="${esc(j.id)}">Delete</button>
+           </div>
+         </div>`).join('')}
+       </div>`).join('');
+    const byId = Object.fromEntries(rows.map(j => [j.id, j]));
+    box.querySelectorAll('[data-skact="view"]').forEach(b => b.onclick = () => openJobDetail(byId[b.dataset.id]));
+    box.querySelectorAll('[data-skact="preview"]').forEach(b => b.onclick = () => {
+      const j = byId[b.dataset.id]; if (j?.folder) openLibrary(j.folder);
+    });
+    box.querySelectorAll('[data-skact="gen"]').forEach(b => b.onclick = () => genJob(b.dataset.id, b));
+    box.querySelectorAll('[data-skact="delete"]').forEach(b => b.onclick = () => deleteScrapedJob(byId[b.dataset.id], b));
+  } catch (e) { box.innerHTML = `<div class="muted">Unavailable: ${esc(e.message)}</div>`; }
+}
+
+/* Scrape tab: sources (add/remove), filters, repeat companies, saved companies, apply profile */
+async function renderSetup() {
+  const panel = $('sk-setup');
+  panel.innerHTML = '<span class="spinner dark"></span>';
+  try {
+    const [src, ap, co] = await Promise.all([api('/sources'), api('/apply-profile'), api('/companies')]);
+    const f = src.filters || {};
+    const sec = (t) => `<div class="sec-title" style="margin:14px 0 8px">${t}</div>`;
+    const sources = (src.sources || []).map((s, i) =>
+      `<div class="src-row"><span class="src-type">${esc(s.type)}</span><span class="muted" style="flex:1">${esc(s.label)}</span>
+         <button class="btn danger sm" data-rmsrc="${i}" title="Remove source">✕</button></div>`).join('')
+      || '<div class="muted">No sources configured.</div>';
+    const addForm =
+      `<div class="src-row" style="gap:6px;margin-top:8px;flex-wrap:wrap">
+         <select id="add-src-type" class="jl-inp" style="width:auto">
+           <option value="jobbank">Job Bank (Canada)</option>
+           <option value="rss">RSS feed</option>
+           <option value="greenhouse">Greenhouse</option>
+           <option value="lever">Lever</option>
+           <option value="workday">Workday</option>
+           <option value="generic">Generic page</option>
+         </select>
+         <input id="add-src-val" class="jl-inp" style="flex:1;min-width:160px" placeholder="Job Bank search keyword (e.g. software developer)">
+         <input id="add-src-loc" class="jl-inp" style="width:150px" placeholder="Location (optional)">
+         <button class="btn primary sm" id="add-src-btn">＋ Add</button>
+       </div>`;
+    const repeats = (ap.repeat_companies || []).map(c => `<span class="jl-src" style="margin:0 4px 4px 0">${esc(c)}</span>`).join('')
+      || '<span class="muted">none</span>';
+    const saved = (co.companies || []).map(c =>
+      `<div class="src-row"><span class="src-type">${esc(c.company||'')}</span><span class="muted">${esc(c.ats||'')} ${c.last_apply_url||c.careers_url?'· saved URL':''}</span></div>`).join('')
+      || '<div class="muted">None saved yet — the autofill assistant saves company details as you use it.</div>';
+    const p = ap.profile || {};
+    panel.innerHTML =
+      sec('Job sources <span style="color:var(--faint);font-weight:500;text-transform:none">— fetched by “🔄 Fetch new jobs”</span>') +
+      sources + addForm +
+      `<div class="src-row" style="border-top:1px solid var(--line);margin-top:8px;padding-top:10px">
+         <span class="src-type">filters</span>
+         <span class="muted">${f.canada_only ? 'Canada only · ' : ''}${(f.title_keywords||[]).length} title keyword(s)${f.require_email?' · email required':''}</span></div>` +
+      sec('Repeat companies <span style="color:var(--faint);font-weight:500;text-transform:none">— data/repeat_companies.json</span>') +
+      `<div>${repeats}</div>` +
+      sec('Saved company details') + saved +
+      sec('Apply profile <span style="color:var(--faint);font-weight:500;text-transform:none">— data/apply_profile.json · click any field to copy</span>') +
+      `<div>${pfChips(p)}</div>`;
+
+    panel.querySelectorAll('[data-rmsrc]').forEach(b => b.onclick = async () => {
+      if (!confirm('Remove this source?')) return;
+      try { await api('/sources/' + b.dataset.rmsrc, { method: 'DELETE' }); toast('Source removed.'); renderSetup(); }
+      catch (e) { toast('Remove failed: ' + e.message, true); }
+    });
+    const syncAddForm = () => {
+      const t = $('add-src-type').value;
+      $('add-src-loc').style.display = t === 'jobbank' ? '' : 'none';
+      $('add-src-val').placeholder =
+        t === 'jobbank' ? 'Job Bank search keyword (e.g. software developer)' :
+        (t === 'greenhouse' || t === 'lever') ? 'Company token (e.g. gitlab)' :
+        t === 'rss' ? 'RSS feed URL' : 'Page / Workday URL';
+    };
+    panel.querySelectorAll('.pf-copy').forEach(b =>
+      b.onclick = () => copyVal(b.dataset.copy, b.dataset.label));
+    $('add-src-type').onchange = syncAddForm; syncAddForm();
+    $('add-src-btn').onclick = async () => {
+      const type = $('add-src-type').value, val = $('add-src-val').value.trim();
+      if (!val) { toast('Enter a value.', true); return; }
+      const body = type === 'jobbank' ? { type, search: val, location: $('add-src-loc').value.trim() }
+        : (type === 'greenhouse' || type === 'lever') ? { type, company: val }
+        : { type, url: val };
+      try {
+        await api('/sources/add', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        toast('Source added. Hit “🔄 Fetch new jobs” to pull it in.');
+        renderSetup();
+      } catch (e) { toast('Add failed: ' + e.message, true); }
+    };
+  } catch (e) { panel.innerHTML = `<span class="muted">Setup unavailable: ${esc(e.message)}</span>`; }
+}
+
+/* manual add (Scrape tab) -> writes to the queue; shows up in Jobs */
+$('sk-manual').onclick = () => { $('sc-modal').classList.add('show'); };
+$('sc-modal-x').onclick = () => $('sc-modal').classList.remove('show');
+$('sc-modal').onclick = (e) => { if (e.target === $('sc-modal')) $('sc-modal').classList.remove('show'); };
+$('sk-capture').href = COLLECTOR + '/';
+
+$('s-add').onclick = async () => {
+  const payload = {
+    company: $('s-company').value.trim(), title: $('s-title').value.trim(),
+    location: $('s-location').value.trim(), contact_email: $('s-email').value.trim(),
+    apply_url: $('s-url').value.trim(), description: $('s-description').value.trim(),
+  };
+  if (!payload.title && !payload.company) { toast('Enter at least a title or company.', true); return; }
+  const btn = $('s-add'); btn.disabled = true; const label = btn.textContent; btn.textContent = 'Saving…';
+  try {
+    const res = await api('/jobs/manual', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+    });
+    toast(res.duplicate ? 'Already in the list.' : 'Added to Jobs.');
+    ['s-company','s-title','s-location','s-email','s-url','s-description'].forEach(id => $(id).value = '');
+    $('sc-modal').classList.remove('show');
+    $('jl-status').value = ''; loadJobs(); showView('scraper');   // show it in Jobs
+  } catch (e) { toast('Add failed: ' + e.message, true); }
+  finally { btn.disabled = false; btn.textContent = label; }
+};
+
+/* ---------- Library (all generated applications) ---------- */
 let libCache = [];
 async function loadLibrary() {
-  const grid = $('lib-grid');
+  const grid = $('lib-grid'); if (!grid) return;
   grid.innerHTML = '<div class="empty"><span class="spinner dark"></span></div>';
   try {
     const { outputs } = await api('/outputs');
@@ -704,26 +1952,52 @@ async function loadLibrary() {
 }
 function libFilter() {
   const q = $('lib-search').value.trim().toLowerCase();
-  const items = libCache.filter(o =>
-    !q || (o.title||'').toLowerCase().includes(q) || (o.company||'').toLowerCase().includes(q) || o.folder.toLowerCase().includes(q));
-  $('lib-empty').style.display = items.length ? 'none' : (libCache.length ? '' : '');
-  $('lib-count').textContent = libCache.length ? `${items.length} of ${libCache.length}` : '';
-  $('lib-grid').innerHTML = items.map(o => `
+  const days = $('lib-days').value ? Number($('lib-days').value) : null;
+  const sort = $('lib-sort').value;
+  const dupKey = o => ((o.company||'') + '|' + (o.title||'')).toLowerCase();
+  const counts = {}; libCache.forEach(o => { counts[dupKey(o)] = (counts[dupKey(o)]||0) + 1; });
+  let items = libCache.filter(o => {
+    if (days !== null && (Date.now() - o.mtime * 1000) / 86400000 > days) return false;
+    return !q || (o.title||'').toLowerCase().includes(q) || (o.company||'').toLowerCase().includes(q)
+      || (o.persona||'').toLowerCase().includes(q) || o.folder.toLowerCase().includes(q);
+  });
+  $('lib-empty').style.display = items.length ? 'none' : '';
+  const dups = Object.values(counts).filter(n => n > 1).length;
+  $('lib-count').textContent = libCache.length ? `${items.length} of ${libCache.length}${dups?` · ${dups} duplicate`:''}` : '';
+
+  // Fold into monthly "folders" (newest month first); sort WITHIN each month.
+  const mKey = o => { const d = new Date(o.mtime*1000); return d.getFullYear()*12 + d.getMonth(); };
+  const mLabel = o => new Date(o.mtime*1000).toLocaleString(undefined, { month: 'long', year: 'numeric' });
+  const within = sort === 'company'
+    ? (a,b) => (a.company||'').toLowerCase().localeCompare((b.company||'').toLowerCase()) || b.mtime-a.mtime
+    : sort === 'persona'
+    ? (a,b) => (a.persona||'~').toLowerCase().localeCompare((b.persona||'~').toLowerCase()) || b.mtime-a.mtime
+    : (a,b) => b.mtime - a.mtime;
+  const groups = {};
+  items.forEach(o => { (groups[mKey(o)] = groups[mKey(o)] || []).push(o); });
+  const card = o => `
     <div class="lib-card" data-folder="${esc(o.folder)}">
       <button class="x" data-del="${esc(o.folder)}" title="Delete">🗑</button>
-      <div class="ttl">${esc(o.title || o.folder)}</div>
+      <div class="ttl">${esc(o.title || o.folder)}${counts[dupKey(o)]>1?' <span class="pill" style="background:var(--warn-bg);color:var(--warn)">dup ×'+counts[dupKey(o)]+'</span>':''}</div>
       <div class="co">${esc(o.company || '—')}</div>
-      <div class="meta">${o.has_pdf?'<span class="pill">PDF</span>':''}<span>${new Date(o.mtime*1000).toLocaleString()}</span></div>
-    </div>`).join('');
-  $('lib-grid').querySelectorAll('.lib-card').forEach(card => {
-    card.onclick = () => openLibrary(card.dataset.folder);
-    const x = card.querySelector('.x');
-    x.onclick = (e) => { e.stopPropagation(); deleteRun(x.dataset.del); };
+      <div class="meta">${o.persona?'<span class="pill">'+esc(o.persona)+'</span>':''}${o.has_pdf?'<span class="pill">PDF</span>':''}<span>${new Date(o.mtime*1000).toLocaleDateString()}</span></div>
+    </div>`;
+  $('lib-grid').innerHTML = Object.keys(groups).map(Number).sort((a,b)=>b-a).map(mk => {
+    const g = groups[mk].sort(within);
+    return `<div class="lib-month">${esc(mLabel(g[0]))} <span class="muted" style="font-weight:500">(${g.length})</span></div>` +
+      g.map(card).join('');
+  }).join('');
+  $('lib-grid').querySelectorAll('.lib-card').forEach(c => {
+    c.onclick = () => openLibrary(c.dataset.folder);
+    const x = c.querySelector('.x'); x.onclick = (e) => { e.stopPropagation(); deleteRun(x.dataset.del); };
   });
 }
 $('lib-search').oninput = libFilter;
+$('lib-days').onchange = libFilter;
+$('lib-sort').onchange = libFilter;
 $('lib-refresh').onclick = loadLibrary;
 
+/* ---------- Preview / delete a generated application ---------- */
 async function openLibrary(folder) {
   openModalShell('Loading…', '');
   $('modal-body').innerHTML = '<div class="empty"><span class="spinner dark"></span></div>';
@@ -738,7 +2012,7 @@ async function deleteRun(folder) {
   if (!confirm(`Delete this application permanently?\n\n${folder}`)) return;
   try {
     await api('/run?folder=' + enc(folder), { method: 'DELETE' });
-    toast('Deleted.'); loadLibrary();
+    toast('Deleted.'); loadLibrary(); loadJobs();
   } catch (e) { toast('Delete failed: ' + e.message, true); }
 }
 
@@ -756,6 +2030,41 @@ function openModalFor(data) {
   const t = data.target || {};
   openModalShell(t.title || 'Application', [t.company, t.location].filter(Boolean).join(' · '));
   renderApplication($('modal-body'), data, filesFromPaths(data.paths));
+}
+
+/* Job detail modal: info + editable email + actions (Jobs tab) */
+function openJobDetail(j) {
+  if (!j) return;
+  openModalShell(j.title || 'Job', [j.company, j.location].filter(Boolean).join(' · '));
+  const meta = (k, v) => `<div class="meta"><div class="meta-label" style="font-size:11px;color:var(--faint);text-transform:uppercase">${k}</div><div>${v||'—'}</div></div>`;
+  $('modal-body').innerHTML = `
+    <div class="meta-grid">
+      ${meta('Source', esc(j.source))}${meta('Status', esc(j.status) + (j.repeat?' · 🔁 repeat':''))}
+      ${meta('Date', esc(j.date))}${meta('Applied', j.applied?'Yes':'No')}
+    </div>
+    <label class="fld">Contact email (HR) — edit & save to enable email apply</label>
+    <div style="display:flex;gap:8px">
+      <input id="jd-email" class="jl-inp" style="flex:1" value="${esc(j.email)}" placeholder="hr@company.com" ${j.id?'':'disabled'}>
+      <button class="btn primary sm" id="jd-email-save" ${j.id?'':'disabled'}>Save</button>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin:14px 0">
+      ${j.apply_url?`<a class="btn subtle sm" href="${esc(j.apply_url)}" target="_blank" rel="noreferrer">Open portal ↗</a>`:''}
+      ${j.gen?`<button class="btn ghost sm" id="jd-preview">Preview application</button>`:''}
+      ${j.id?`<button class="btn primary sm" id="jd-gen">${j.gen?'Regenerate':'Generate'}</button>`:''}
+    </div>
+    <label class="fld">Job description</label>
+    <div class="summary-box" style="max-height:42vh;overflow:auto;white-space:pre-wrap;background:var(--soft-bg);border:1px solid var(--line);border-radius:10px;padding:12px;font-size:13px">${esc(j.description) || '<span class="muted">No description.</span>'}</div>`;
+  const save = $('jd-email-save');
+  if (save) save.onclick = async () => {
+    const email = $('jd-email').value.trim();
+    save.disabled = true;
+    try {
+      await api(`/jobs/${j.id}/update`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contact_email: email }) });
+      j.email = email; toast('Email updated.'); loadJobs();
+    } catch (e) { toast('Update failed: ' + e.message, true); } finally { save.disabled = false; }
+  };
+  const prev = $('jd-preview'); if (prev) prev.onclick = () => { if (j.folder) openLibrary(j.folder); };
+  const gen = $('jd-gen'); if (gen) gen.onclick = () => { $('overlay').classList.remove('show'); genJob(j, gen); };
 }
 $('modal-x').onclick = () => $('overlay').classList.remove('show');
 $('overlay').onclick = (e) => { if (e.target === $('overlay')) $('overlay').classList.remove('show'); };
@@ -775,7 +2084,8 @@ $('theme-toggle').onclick = () =>
 
 /* ---------- Boot ---------- */
 applyTheme(localStorage.getItem('theme') || 'dark');
-loadHealth(); loadModels();
+loadHealth(); loadModels(); loadPersonas();
+showView(localStorage.getItem('view') || 'generate');   // stay on the last tab after refresh
 setInterval(loadHealth, 15000);
 </script>
 </body>

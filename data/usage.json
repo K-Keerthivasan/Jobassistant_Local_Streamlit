@@ -1,0 +1,31 @@
+{
+  "total_input": 0,
+  "total_output": 0,
+  "total_cost": 0.0,
+  "calls": 0,
+  "by_model": {
+    "qwen3:8b": {
+      "input": 0,
+      "output": 0,
+      "cost": 0.0,
+      "calls": 0,
+      "seconds": 349.158,
+      "timed_calls": 24
+    }
+  },
+  "by_day": {
+    "2026-06-13": {
+      "input": 0,
+      "output": 0,
+      "cost": 0.0,
+      "calls": 0,
+      "seconds": 349.158,
+      "timed_calls": 24
+    }
+  },
+  "total_seconds": 349.158,
+  "timed_calls": 24,
+  "last_seconds": 11.971,
+  "last_model": "qwen3:8b",
+  "last_label": "ApplicationEmail"
+}

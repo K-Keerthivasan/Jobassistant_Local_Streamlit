@@ -1,0 +1,228 @@
+# =============================================================================
+# PERSONAS — role-specific framings of the SAME true history in master_profile.
+# Each persona maps a job (by keywords) to: a headline, a factual summary seed
+# (lifted from the user's own kk_Base_*.docx), which experience to lead with,
+# which skills to foreground, and which links to show. Personas change FRAMING
+# only — the truth-guard still validates everything against master_profile.yaml.
+#
+# Auto-selection: the persona whose keywords best match the target job title +
+# description wins. The UI can override with a manual pick. If nothing matches,
+# generation falls back to the neutral master_profile summary (no persona).
+# =============================================================================
+
+personas:
+  - id: fullstack
+    label: "Full-Stack Developer"
+    base_doc: "Sample/kk_Base_Dev_FullStack.docx"
+    headline: "Full-Stack Web Developer"
+    keywords:
+      - "full stack"
+      - "full-stack"
+      - "fullstack"
+      - "web developer"
+      - "frontend"
+      - "front-end"
+      - "react"
+      - "next.js"
+      - "node"
+      - "javascript"
+      - "typescript"
+      - "wordpress"
+      - "php"
+      - "laravel"
+    links: ["LinkedIn", "Portfolio", "GitHub", "K2 Digital Media"]
+    lead_with: "K2 Digital Media (freelance full-stack), then Certify Technologies"
+    foreground_skills: "React, Next.js, TypeScript, Node.js, Python APIs, PostgreSQL/MongoDB/SQL Server, WordPress"
+    summary_seed: >
+      Full-stack web developer who ships front to back: React, Next.js, and TypeScript
+      on the frontend, Node.js, Express, and Python APIs on the backend, with PostgreSQL,
+      MongoDB, MySQL, and SQL Server underneath. Builds and deploys production client
+      applications and WordPress sites end to end, integrates third-party services, and
+      works comfortably under deadline. PHP is foundational through WordPress and Laravel;
+      JavaScript, HTML, and CSS are a daily core competency. Running freelance client work
+      through K2 Digital Media means being self-directed and accountable for the whole
+      stack, from build to deploy to handover.
+
+  - id: software
+    label: "Software Developer"
+    base_doc: "Sample/kk_Base_Software.docx"
+    headline: "Software Developer"
+    keywords:
+      - "software engineer"
+      - "software developer"
+      - "backend"
+      - "back-end"
+      - "site reliability"
+      - "sre"
+      - "devops"
+      - "platform engineer"
+      - "infrastructure"
+      - "reliability engineer"
+      - "cloud engineer"
+      - "systems engineer"
+      - "kubernetes"
+      - "golang"
+      - "ruby on rails"
+      - "automation"
+      - "c#"
+      - ".net"
+      - "c++"
+      - "rest api"
+      - "api developer"
+      - "associate developer"
+      - "embedded"
+      - "systems developer"
+      - "engineer"
+    links: ["LinkedIn", "Portfolio", "GitHub"]
+    lead_with: "Certify Technologies (backend services, REST APIs, C#/C++ interop), then K2 Digital Media"
+    foreground_skills: "C#, C++, Python, JavaScript/TypeScript, REST APIs, SQL Server/MongoDB/Firebase, .NET, OpenGL"
+    summary_seed: >
+      Software developer with production experience across C#, C++, Python, and
+      JavaScript/TypeScript. At Certify Technologies built and shipped backend services
+      and REST APIs, worked across SQL Server, MongoDB, and Firebase, and authored
+      real-time C# to C++ interop layers for a haptics platform. Ramps into low-level and
+      unfamiliar domains quickly, writes maintainable code under deadline, and has built a
+      game engine from scratch in C++ and OpenGL. Strong CS fundamentals from an MCA, with
+      Java foundational and growing. Comfortable in enterprise .NET environments and across
+      the full software lifecycle from design to release sign-off.
+
+  - id: data_records
+    label: "Data & Records Support"
+    base_doc: "Sample/kk_Base_DataRecordsSupport.docx"
+    headline: "Data & Records Support Specialist"
+    keywords:
+      - "data entry"
+      - "records"
+      - "data analyst"
+      - "data support"
+      - "business systems"
+      - "reporting"
+      - "sql"
+      - "database"
+      - "data quality"
+      - "data management"
+    links: ["LinkedIn", "Portfolio", "GitHub"]
+    lead_with: "Materia Bioworks (data/ML research, Python scrapers), then Bill Gosling (records accuracy)"
+    foreground_skills: "Python scraping, SQL Server/PostgreSQL/MongoDB, data cleaning/validation, reporting, CRM records accuracy, Excel"
+    summary_seed: >
+      Detail-focused data and records professional with hands-on experience collecting,
+      cleaning, validating, and reporting on data. Has built Python scrapers to gather
+      data automatically, worked across SQL Server, MongoDB, and PostgreSQL for schema
+      design and queries, and turned messy inputs into clean records and clear reports for
+      non-technical stakeholders. Strong on accuracy and documentation from a high-volume
+      CRM environment, and comfortable automating routine data work. Looking for a data,
+      records, or business-systems support role where precision and reliable reporting matter.
+
+  - id: digital_marketing
+    label: "Digital Marketing"
+    base_doc: "Sample/kk_Base_DigitalMarketing.docx"
+    headline: "Digital Marketing Specialist"
+    keywords:
+      - "digital marketing"
+      - "marketing"
+      - "paid media"
+      - "social media"
+      - "meta ads"
+      - "google ads"
+      - "ppc"
+      - "seo"
+      - "content marketing"
+      - "marketing campaign"
+      - "ga4"
+      - "email marketing"
+    links: ["LinkedIn", "K2 Digital Media", "Portfolio"]
+    lead_with: "K2 Digital Media (paid media, social, analytics)"
+    foreground_skills: "Meta Ads, Google Ads, social calendars, copywriting, GA4 and ad analytics, SEO, WordPress"
+    summary_seed: >
+      Digital marketer who runs campaigns end to end: paid media, social, email, and the
+      analytics that prove they worked. Plans and ships Meta and Google Ads, manages
+      multi-brand social calendars on a consistent cadence, writes copy that earns
+      attention, and reads the numbers (GA4, ad dashboards, retention curves) to decide
+      what to do next. Runs K2 Digital Media full time, where clients have seen real
+      follower and engagement growth from steady, well-targeted output. Cares about
+      performance over vanity metrics.
+
+  - id: sales
+    label: "Sales"
+    base_doc: "Sample/kk_Base_Sales.docx"
+    headline: "Sales Professional"
+    keywords:
+      - "sales"
+      - "account executive"
+      - "account manager"
+      - "business development"
+      - "sdr"
+      - "bdr"
+      - "inside sales"
+      - "sales associate"
+      - "retail"
+      - "client relationship"
+      - "tech sales"
+    links: ["LinkedIn", "K2 Digital Media"]
+    lead_with: "Best Buy (computing sales), then K2 Digital Media (pitch/scope/close), then Bill Gosling (negotiation, daily targets)"
+    foreground_skills: "consultative selling, technical product knowledge, client relationships, negotiation, CRM, communication"
+    summary_seed: >
+      Customer-facing sales professional who closes on fit, not pressure. Sold computing
+      and technology at Best Buy, where the win came from understanding what someone needed
+      and translating specs into plain language. Runs K2 Digital Media, which means
+      pitching, scoping, and closing client work and then keeping those relationships
+      healthy. In collections, negotiates resolutions and holds daily targets in a
+      high-volume environment. Comfortable with technical products, fast on the feet, and
+      genuinely good with people.
+
+  - id: content_video
+    label: "Content & Video"
+    base_doc: "Sample/kk_Base_Content_Video.docx"
+    headline: "Video Editor & Content Producer"
+    keywords:
+      - "video editor"
+      - "video editing"
+      - "content creator"
+      - "content producer"
+      - "premiere pro"
+      - "davinci"
+      - "after effects"
+      - "motion graphics"
+      - "vfx"
+      - "videographer"
+      - "social content"
+      - "reels"
+      - "short-form"
+    links: ["LinkedIn", "K2 Digital Media", "Portfolio"]
+    lead_with: "K2 Digital Media (editing/post, short-form, shoots)"
+    foreground_skills: "Premiere Pro, DaVinci Resolve, After Effects (motion/VFX), Sony FX3/A7 shooting, short-form for Reels/Shorts/ads, retention analytics"
+    summary_seed: >
+      Video editor and content producer focused on edits that hold attention: strong hooks,
+      clean pacing, and finishing that lands. Cuts short-form for Reels, Shorts, and paid
+      ads in Premiere Pro and DaVinci Resolve, builds motion graphics and VFX in After
+      Effects, and shoots on Sony FX3 and Alpha 7 when a piece needs to be captured from
+      scratch. Came up through a VFX and editing diploma at Fanshawe and runs K2 Digital
+      Media full time, owning the whole pipeline from shoot to delivery. Tracks retention
+      and engagement and lets the data shape the next cut.
+
+  - id: admin
+    label: "Admin & Operations"
+    base_doc: "Sample/kk_Base_AdminOfficeCoordinator.docx"
+    headline: "Administrative & Operations Coordinator"
+    keywords:
+      - "administrative"
+      - "office coordinator"
+      - "office administrator"
+      - "operations coordinator"
+      - "admin assistant"
+      - "executive assistant"
+      - "scheduling"
+      - "coordinator"
+      - "office manager"
+      - "data entry"
+      - "customer service"
+    links: ["LinkedIn", "K2 Digital Media"]
+    lead_with: "Bill Gosling (records/scheduling under deadline), then K2 Digital Media (operations/coordination)"
+    foreground_skills: "CRM documentation, scheduling, records accuracy, Microsoft 365, Google Workspace, multi-account coordination, communication"
+    summary_seed: >
+      Organized administrative and operations professional who keeps records accurate,
+      schedules on track, and clients informed in high-volume settings. Handles the back
+      office of real work: documenting interactions in CRM systems, coordinating multiple
+      client accounts and timelines at once, and keeping communication clear under deadline
+      pressure. Comfortable across Microsoft 365 and Google Workspace, confident with data
+      entry and records accuracy, and quick to pick up new systems and workflows.

@@ -3,6 +3,7 @@ filter by title keywords / email requirement -> dedup -> queue the new jobs."""
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import yaml
@@ -15,6 +16,45 @@ from .store import commit, filter_new
 _CONFIG = ROOT / "data" / "sources.yaml"
 _SAMPLE = ROOT / "data" / "sources.sample.yaml"
 
+# Canada matchers for the canada_only filter: the word Canada, province codes
+# (whole-word), province names, and the larger metros. Remote/blank locations are
+# treated as "unknown" and kept (toggle with keep_unknown_location: false).
+_CA_PROVINCES = {
+    "on", "qc", "bc", "ab", "mb", "sk", "ns", "nb", "nl", "pe", "nt", "yt", "nu",
+}
+_CA_TERMS = [
+    "canada", "ontario", "quebec", "british columbia", "alberta", "manitoba",
+    "saskatchewan", "nova scotia", "new brunswick", "newfoundland", "labrador",
+    "prince edward", "yukon", "nunavut", "northwest territories",
+    "toronto", "vancouver", "montreal", "montréal", "calgary", "edmonton", "ottawa",
+    "mississauga", "winnipeg", "hamilton", "kitchener", "waterloo", "london, on",
+    "halifax", "victoria", "quebec city", "windsor", "saskatoon", "regina",
+    "brampton", "markham", "vaughan", "burnaby", "richmond hill", "gatineau",
+]
+
+
+def _in_canada(location: str) -> bool:
+    loc = (location or "").lower()
+    if any(term in loc for term in _CA_TERMS):
+        return True
+    # Province code as a standalone token, e.g. "London, ON" / "Remote (BC)".
+    tokens = re.findall(r"[a-z]+", loc)
+    return any(tok in _CA_PROVINCES for tok in tokens)
+
+
+# Words that don't name a place — so "Remote", "Fully Remote (WFH)" are "unknown",
+# but "Remote, US" / "Remote, India" name a place and are NOT bare.
+_REMOTE_FILLER = re.compile(r"\b(remote|fully|wfh|work\s*from\s*home|hybrid|telework)\b", re.I)
+
+
+def _is_bare_remote(location: str) -> bool:
+    """True only when the location is essentially just 'remote' with no place named."""
+    loc = (location or "").lower()
+    if "remote" not in loc:
+        return False
+    rest = _REMOTE_FILLER.sub(" ", loc)
+    return re.sub(r"[^a-z]", "", rest) == ""
+
 
 def load_sources(path: Path | None = None) -> dict:
     """Load data/sources.yaml, falling back to the shipped sample."""
@@ -24,30 +64,60 @@ def load_sources(path: Path | None = None) -> dict:
     return yaml.safe_load(p.read_text(encoding="utf-8")) or {}
 
 
-def _keep(job: JobPosting, keywords: list[str], require_email: bool) -> bool:
+# Sources you curate by hand — you already chose these, so don't keyword/location
+# filter them out of your own queue.
+_CURATED_SOURCES = {"collector", "manual", "csv", "claude"}
+
+
+def _keep(job: JobPosting, keywords: list[str], require_email: bool,
+          canada_only: bool, keep_unknown_loc: bool, locations: list[str]) -> bool:
+    if job.source in _CURATED_SOURCES:
+        return True  # browser-saved / manual / CSV jobs always pass
     if keywords and not any(k in job.title.lower() for k in keywords):
         return False
     if require_email and not job.contact_email:
         return False
+    if locations and not any(l in (job.location or "").lower() for l in locations):
+        return False
+    if canada_only:
+        loc = (job.location or "").strip()
+        if not loc:
+            return keep_unknown_loc  # blank location = unknown
+        if not _in_canada(loc):
+            # Keep ONLY a bare "Remote" (no country named) as unknown. A location
+            # that names a non-Canadian place — even "Remote, US" — is dropped.
+            if keep_unknown_loc and _is_bare_remote(loc):
+                return True
+            return False
     return True
 
 
-def run_intake(*, commit_new: bool = True, config_path: Path | None = None) -> dict:
+def run_intake(*, commit_new: bool = True, config_path: Path | None = None,
+               only_types: set[str] | None = None) -> dict:
+    """Fetch sources, filter, dedup, queue new jobs. When `only_types` is given,
+    only sources of those types are fetched (e.g. {"collector"} for a fast sync of
+    browser-saved jobs)."""
     cfg = load_sources(config_path)
     filters = cfg.get("filters") or {}
     keywords = [k.lower() for k in (filters.get("title_keywords") or [])]
     require_email = bool(filters.get("require_email"))
+    canada_only = bool(filters.get("canada_only"))
+    keep_unknown_loc = filters.get("keep_unknown_location", True)
+    locations = [l.lower() for l in (filters.get("location_keywords") or [])]
 
     fetched: list[JobPosting] = []
     errors: list[dict] = []
     for src in cfg.get("sources", []):
+        if only_types and src.get("type") not in only_types:
+            continue
         label = f"{src.get('type')}:{src.get('company') or src.get('url')}"
         try:
             fetched.extend(fetch_source(src))
         except Exception as e:  # one bad source must not kill the run
             errors.append({"source": label, "error": str(e)})
 
-    matched = [j for j in fetched if _keep(j, keywords, require_email)]
+    matched = [j for j in fetched
+               if _keep(j, keywords, require_email, canada_only, keep_unknown_loc, locations)]
     new = filter_new(matched)
     queued = commit(new) if commit_new else []
 

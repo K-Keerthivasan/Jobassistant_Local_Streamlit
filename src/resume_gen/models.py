@@ -70,6 +70,23 @@ class ApplicationEmail(BaseModel):
     body: str = Field(description="plain-text email body, ready to send")
 
 
+class ScreeningAnswer(BaseModel):
+    """A first-person answer to one application screening question."""
+
+    answer: str
+
+
+class JobExtract(BaseModel):
+    """A job posting parsed out of a job-alert email (or pasted text)."""
+
+    company: str = ""
+    title: str = ""
+    location: str = ""
+    description: str = ""
+    apply_url: str = ""
+    contact_email: str = ""
+
+
 # --------------------------------------------------------------------------- #
 # The target job an application is generated against
 # --------------------------------------------------------------------------- #

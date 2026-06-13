@@ -34,7 +34,11 @@ class Settings:
     # Ollama
     ollama_host: str = _normalize_ollama_host(os.getenv("OLLAMA_HOST", "http://localhost:11434"))
     ollama_model: str = os.getenv("OLLAMA_MODEL", "qwen3:8b")
-    ollama_temperature: float = float(os.getenv("OLLAMA_TEMPERATURE", "0.3"))
+    ollama_temperature: float = float(os.getenv("OLLAMA_TEMPERATURE", "0.2"))
+
+    # Max seconds any single AI request (Ollama or Claude) may run before it is
+    # aborted with a clean error. Local models on CPU can be slow — keep generous.
+    llm_timeout: float = float(os.getenv("LLM_TIMEOUT", "300"))
 
     # Paths
     profile_path: Path = field(
@@ -55,6 +59,10 @@ class Settings:
     # API
     api_host: str = os.getenv("API_HOST", "0.0.0.0")
     api_port: int = int(os.getenv("API_PORT", "8088"))
+
+    # n8n webhook for the email-apply path. Email-apply jobs are POSTed here
+    # (with the generated resume/cover/email) after generation.
+    n8n_webhook_url: str = os.getenv("N8N_WEBHOOK_URL", "")
 
 
 settings = Settings()

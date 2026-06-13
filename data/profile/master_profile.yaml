@@ -12,13 +12,14 @@ contact:
   email: "kkvasan99@gmail.com"
   phone: "226-977-6398"
   location: "London, ON, Canada"
+  # Shown instead of the precise city when applying OUTSIDE London (so a Toronto/
+  # remote application doesn't surface "London"). Still true.
+  location_general: "Ontario, Canada"
+  # Keep this short: every link here appears on EVERY resume. K2 Digital Media is
+  # the single portfolio/website (personal work + company); LinkedIn for contact.
   links:
     - label: "LinkedIn"
       url: "https://linkedin.com/in/kkvasan/"
-    - label: "Portfolio"
-      url: "https://dev.kkvasan.ca/"
-    - label: "GitHub"
-      url: "https://github.com/K-Keerthivasan"
     - label: "K2 Digital Media"
       url: "https://k2digitalmedia.ca/"
 
@@ -48,6 +49,17 @@ skills:
     - "scikit-learn"
   game_dev: ["Unreal Engine", OpenGL, Unity, "CHAI 3D"]
   tools_other: [Git, Docker, Postman, Figma, WordPress, Asana, Jira, Excel, Word, Slack, Illustrator]
+  # Non-engineering skill groups (truthful, drawn from the role base resumes).
+  # These let sales/marketing/creative/admin resumes show relevant skills instead
+  # of programming languages.
+  marketing: ["Meta Ads", "Google Ads", "Social media management", "GA4 / analytics",
+              "SEO", "Copywriting", "Email marketing", "Content strategy", "Campaign optimization"]
+  sales_service: ["Consultative selling", "Technical product knowledge", "Client relationship management",
+                  "Account management", "Negotiation", "CRM", "Customer service"]
+  creative_media: ["Premiere Pro", "DaVinci Resolve", "After Effects", "Motion graphics", "VFX",
+                   "Short-form video editing", "Sony FX3 / Alpha 7 shooting", "Color grading"]
+  office_admin: ["Microsoft 365", "Google Workspace", "Scheduling & calendar management",
+                 "Data entry", "Records management", "Document control"]
 
 experience:
   - company: "Bill Gosling Outsourcing"
@@ -55,6 +67,9 @@ experience:
     location: "London, ON"
     start: "May 2025"
     end: "Present"
+    # Customer-service / finance (collections) role. Keep it as-is: do NOT recast
+    # it as sales/marketing/dev. Bullets should stay close to these facts.
+    preserve: true
     # Facts the generator can draw bullets from (truthful, reusable).
     facts:
       - "Document every customer interaction in CRM systems with accuracy, keeping account records clean and audit-ready across a high volume of daily contacts."

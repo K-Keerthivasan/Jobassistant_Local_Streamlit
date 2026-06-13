@@ -18,7 +18,51 @@ from ..models import CoverLetter, Resume
 
 ACCENT = RGBColor(0x1F, 0x4E, 0x79)  # deep blue, like the samples
 DARK = RGBColor(0x22, 0x22, 0x22)
-FONT = "Calibri"
+MUTED = RGBColor(0x55, 0x5B, 0x66)
+FONT = "Lato"  # clean, modern, ATS-safe (installed in the PDF container)
+
+# Friendly labels for the master-profile skill groups, in display order.
+SKILL_GROUP_LABELS = {
+    "languages": "Languages",
+    "backend_cloud": "Backend & Cloud",
+    "frontend_ui": "Frontend",
+    "ai_automation": "AI & Automation",
+    "game_dev": "Game Development",
+    "marketing": "Marketing",
+    "sales_service": "Sales & Service",
+    "creative_media": "Creative & Media",
+    "office_admin": "Office & Admin",
+    "tools_other": "Tools",
+}
+
+
+def _group_skills(skills, profile):
+    """Bucket the resume's flat skill list into the master-profile categories,
+    preserving the resume's relevance order within each category. Returns a list
+    of (label, [skills]) for the categories that have any skills, plus 'Other'."""
+    if not profile:
+        return [("", list(skills))]
+    groups = profile.get("skills") or {}
+    # map each profile skill (lowercased) -> its group key
+    skill_to_group = {}
+    for gkey, items in groups.items():
+        for it in items:
+            skill_to_group[it.lower()] = gkey
+    buckets: dict[str, list[str]] = {}
+    other: list[str] = []
+    for s in skills:
+        g = skill_to_group.get(s.lower())
+        if g:
+            buckets.setdefault(g, []).append(s)
+        else:
+            other.append(s)
+    out = []
+    for gkey, label in SKILL_GROUP_LABELS.items():
+        if buckets.get(gkey):
+            out.append((label, buckets[gkey]))
+    if other:
+        out.append(("Other", other))
+    return out
 
 
 # --------------------------------------------------------------------------- #
@@ -120,7 +164,7 @@ def _header(doc: Document, full_name: str, contact, *, headline: str = "") -> No
 # --------------------------------------------------------------------------- #
 # public: resume
 # --------------------------------------------------------------------------- #
-def render_resume(resume: Resume, out_path: Path) -> Path:
+def render_resume(resume: Resume, out_path: Path, profile: dict | None = None) -> Path:
     doc = Document()
     _base_styles(doc)
     _header(doc, resume.fullName, resume.contact, headline=resume.headline)
@@ -132,8 +176,17 @@ def render_resume(resume: Resume, out_path: Path) -> Path:
 
     if resume.skills:
         _heading(doc, "Skills")
-        p = doc.add_paragraph()
-        _run(p, " • ".join(resume.skills))
+        grouped = _group_skills(resume.skills, profile)
+        if len(grouped) > 1 or (grouped and grouped[0][0]):
+            # Categorized: one line per group, bold label + skills.
+            for label, items in grouped:
+                p = doc.add_paragraph()
+                p.paragraph_format.space_after = Pt(2)
+                _run(p, f"{label}: ", bold=True, size=10.5, color=ACCENT)
+                _run(p, "  •  ".join(items), size=10.5)
+        else:
+            p = doc.add_paragraph()
+            _run(p, "  •  ".join(resume.skills))
 
     if resume.experience:
         _heading(doc, "Experience")

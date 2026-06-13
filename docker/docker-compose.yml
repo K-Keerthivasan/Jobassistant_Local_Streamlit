@@ -21,6 +21,10 @@ services:
       PDF_ENGINE: libreoffice
       # Apify token for scraper sources (set APIFY_TOKEN in your .env).
       APIFY_TOKEN: ${APIFY_TOKEN:-}
+      # Claude cloud generation engine (set ANTHROPIC_API_KEY in your .env to enable).
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      # n8n webhook for the email-apply path (set N8N_WEBHOOK_URL in your .env).
+      N8N_WEBHOOK_URL: ${N8N_WEBHOOK_URL:-}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:

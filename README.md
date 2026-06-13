@@ -1,75 +1,66 @@
 # Automatic Resume Generator
 
-Self-hosted, **truth-only** job-application engine. Feed it a job description; it
-generates a tailored, ATS-friendly **resume**, **cover letter**, and **application
-email** — locally via [Ollama](https://ollama.com) — then renders them to DOCX/PDF.
-The longer-term goal is a full auto-apply pipeline (custom scraper → n8n →
-Selenium / direct email), Dockerized and reachable across devices via Tailscale.
+Self-hosted, **truth-only** job-application engine. Feed it a job; it produces a
+tailored, ATS-friendly **resume**, **cover letter**, and **application email** —
+generated locally via [Ollama](https://ollama.com), rendered to DOCX/PDF — and it
+will never invent employers, dates, titles, degrees, certifications, metrics, or
+skills. Everything is grounded in your master profile and enforced by a
+deterministic truth-guard.
 
-The generator may **only** use facts from your master profile
-(`data/profile/master_profile.yaml`). It never invents employers, dates, titles,
-degrees, certifications, metrics, or skills.
+It ships with a web app (**Resume Studio**), a browser **scraper** (Tampermonkey →
+local collector dashboard), role **personas**, and **n8n**-friendly HTTP APIs for
+automation.
+
+> This README is the overview. Full details live in [`docs/`](docs/).
+> Recent changes are in [`docs/CHANGELOG.md`](docs/CHANGELOG.md).
+
+## What's in the box
+
+| Piece | What it is | Where |
+|------|------------|-------|
+| **Resume Studio** | Web app: Generate, Bulk, Scraper, Library views | `web/index.html`, served by `api/server.py` at `:8088` |
+| **Generation core** | profile + persona + job → resume/cover/email, truth-guarded | `src/resume_gen/` |
+| **Personas** | Role-specific framings of your one true history | `data/profile/personas.yaml` |
+| **Scraper collector** | Local dashboard + store fed by the userscript | separate app on `:8765` (`Resume_Scraper/Scraper.py`) |
+| **Userscript** | Saves LinkedIn + Indeed jobs to the collector | `tampermonkey/tampermonkey.user.js` |
+| **Intake** | Pull jobs (collector / Apify / ATS boards) → review queue | `src/resume_gen/intake/` |
 
 ## Quick start
 
 ```powershell
-# 1. install
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
+# 1. install (editable so `resume_gen` imports cleanly)
+python -m venv .venv ; .\.venv\Scripts\Activate.ps1
+pip install -e .
 
 # 2. configure
-copy .env.example .env       # edit OLLAMA_MODEL etc. if needed
+copy .env.example .env        # OLLAMA_MODEL, etc.
+ollama list                   # ensure a model is pulled (qwen3:8b recommended)
 
-# 3. make sure Ollama is running and a model is pulled
-ollama list                  # qwen3:8b or gemma4:12b recommended
-
-# 4. sanity check
-python -m resume_gen.cli check
-
-# 5. generate from the sample job
-python -m resume_gen.cli generate --job data/jobs/opg_sample.json
+# 3. run the app (Docker is the supported path; LibreOffice PDF inside the container)
+docker compose -f docker/docker-compose.yml up -d --build
+#   -> Resume Studio at http://localhost:8088/
 ```
 
-Set `PYTHONPATH=src` (or `pip install -e .`) so `resume_gen` is importable.
-Output lands in `output/<Company>_<Title>_<date>/`.
+Full install (profile, personas, sources, scraper collector, Tampermonkey, n8n) is
+in [`docs/setup.md`](docs/setup.md).
 
-## Usage
+## The truth-only rule
 
-```powershell
-# from a JSON target_role file
-python -m resume_gen.cli generate --job data/jobs/opg_sample.json
+The generator may **only** use facts in `data/profile/master_profile.yaml`. A
+deterministic [truth-guard](docs/architecture.md#truth-guard) repairs identity,
+education, skills, and links from the profile, flags (or strips) fabricated
+metrics, and backfills a relevant skills section. Personas change *framing*, never
+facts.
 
-# from flags + a plain-text JD
-python -m resume_gen.cli generate --company "Acme" --title "Backend Developer" `
-    --jd-file path\to\jd.txt
+## Docs
 
-# skip PDF export (DOCX + JSON only — fastest)
-python -m resume_gen.cli generate --job data/jobs/opg_sample.json --no-pdf
-```
-
-Each run produces: `resume.json` (validated schema output), `resume.docx`/`.pdf`,
-`cover_letter.docx`/`.pdf`, `email.txt`.
-
-## HTTP API (for n8n / other devices)
-
-```powershell
-uvicorn api.server:app --host 0.0.0.0 --port 8088
-# POST /generate  {company,title,description,...}  ->  file paths
-# GET  /health
-# docs at http://localhost:8088/docs
-```
-
-## Docker
-
-```bash
-docker compose -f docker/docker-compose.yml up -d
-# resume-api on :8088 (LibreOffice PDF), n8n on :5678
-# Ollama runs on the host; containers reach it via host.docker.internal
-```
-
-## Architecture & roadmap
-
-See [`docs/architecture.md`](docs/architecture.md). Phase 1 (generation core) is
-implemented; Phases 2–4 (scraping, n8n orchestration, Selenium auto-apply,
-Tailscale) are scaffolded and built incrementally.
+- [`docs/how-it-works.md`](docs/how-it-works.md) — **start here**: the whole flow end to end
+- [`docs/setup.md`](docs/setup.md) — full setup, every component
+- [`docs/architecture.md`](docs/architecture.md) — components, ports, data flow, truth-guard
+- [`docs/scraper.md`](docs/scraper.md) — collector, userscript (LinkedIn + Indeed), intake, Canada filter
+- [`docs/personas.md`](docs/personas.md) — role personas and how selection works
+- [`docs/auto-apply.md`](docs/auto-apply.md) — semi-auto apply (email → n8n, Playwright portal autofill)
+- [`docs/repeatable.md`](docs/repeatable.md) — repeatable roles (reapply templates) + email-alert intake
+- [`docs/claude-bulk-jobs-prompt.md`](docs/claude-bulk-jobs-prompt.md) — Claude.ai + Indeed/LinkedIn connector → bulk jobs CSV to import
+- [`docs/api.md`](docs/api.md) — HTTP API reference (for n8n and other devices)
+- [`docs/CHANGELOG.md`](docs/CHANGELOG.md) — updates & patches

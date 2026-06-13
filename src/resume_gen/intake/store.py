@@ -92,3 +92,62 @@ def update_status(key_id: str, status: str, notes: str = "") -> QueuedJob | None
         q.notes = notes
     (_QUEUE / f"{key_id}.json").write_text(q.model_dump_json(indent=2), encoding="utf-8")
     return q
+
+
+def set_applied(key_id: str, applied: bool) -> QueuedJob | None:
+    q = get_job(key_id)
+    if q is None:
+        return None
+    q.applied = applied
+    (_QUEUE / f"{key_id}.json").write_text(q.model_dump_json(indent=2), encoding="utf-8")
+    return q
+
+
+def set_priority(key_id: str, priority: bool) -> QueuedJob | None:
+    q = get_job(key_id)
+    if q is None:
+        return None
+    q.priority = priority
+    (_QUEUE / f"{key_id}.json").write_text(q.model_dump_json(indent=2), encoding="utf-8")
+    return q
+
+
+def set_repeatable(key_id: str, repeatable: bool) -> QueuedJob | None:
+    q = get_job(key_id)
+    if q is None:
+        return None
+    q.repeatable = repeatable
+    (_QUEUE / f"{key_id}.json").write_text(q.model_dump_json(indent=2), encoding="utf-8")
+    return q
+
+
+def delete_job(key_id: str, *, forget_seen: bool = True) -> QueuedJob | None:
+    """Remove a queued job. Optionally remove its key from seen.json so a future
+    scrape can queue it again."""
+    q = get_job(key_id)
+    if q is None:
+        return None
+    f = _QUEUE / f"{key_id}.json"
+    if f.exists():
+        f.unlink()
+    if forget_seen:
+        seen = _load_seen()
+        if key_id in seen:
+            seen.remove(key_id)
+            _save_seen(seen)
+    return q
+
+
+_EDITABLE = {"company", "title", "location", "description", "apply_url", "contact_email"}
+
+
+def update_fields(key_id: str, fields: dict) -> QueuedJob | None:
+    """Edit a queued job's content fields (e.g. add an HR email)."""
+    q = get_job(key_id)
+    if q is None:
+        return None
+    for k, v in (fields or {}).items():
+        if k in _EDITABLE:
+            setattr(q, k, v)
+    (_QUEUE / f"{key_id}.json").write_text(q.model_dump_json(indent=2), encoding="utf-8")
+    return q

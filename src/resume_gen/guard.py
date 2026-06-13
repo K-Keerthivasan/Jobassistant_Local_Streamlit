@@ -18,7 +18,15 @@ from __future__ import annotations
 
 import re
 
-from .models import ApplicationEmail, Contact, CoverLetter, EducationItem, Link, Resume
+from .models import (
+    ApplicationEmail,
+    Contact,
+    CoverLetter,
+    EducationItem,
+    ExperienceItem,
+    Link,
+    Resume,
+)
 
 _NUMBER_RE = re.compile(r"\d+(?:[.,]\d+)?\s*(?:%|\+|x|years?|yrs?|k|months?)?", re.I)
 
@@ -29,6 +37,59 @@ def _profile_skill_text(profile: dict) -> str:
     for group in (profile.get("skills") or {}).values():
         chunks.extend(group)
     return " | ".join(chunks).lower()
+
+
+def _display_location(profile: dict, target_location: str = "") -> str:
+    """Show the precise home city (London) only for local jobs; for jobs elsewhere
+    show a broader-but-true location (e.g. 'Ontario, Canada') so applying out of
+    town doesn't surface 'London'."""
+    c = profile.get("contact", {})
+    full = c.get("location", "")
+    general = c.get("location_general", "") or full
+    tl = (target_location or "").lower()
+    home_city = full.split(",")[0].strip().lower() if full else ""
+    if not tl:                      # no target info -> default to home
+        return full
+    if home_city and home_city in tl:   # job is in the home city -> show it
+        return full
+    return general                  # remote / elsewhere -> broader true location
+
+
+def _profile_skills_flat(profile: dict) -> list[str]:
+    """All profile skills as a flat, de-duplicated list, in group order."""
+    out: list[str] = []
+    seen: set[str] = set()
+    for group in (profile.get("skills") or {}).values():
+        for s in group:
+            if s.lower() not in seen:
+                seen.add(s.lower())
+                out.append(s)
+    return out
+
+
+def _backfill_skills(kept: list[str], profile: dict, persona: dict | None,
+                     target: int = 10) -> list[str]:
+    """Ensure a usable Skills section even when the model under-produces. Tops up
+    `kept` from the profile's real skills, leading with the persona's foreground
+    skills so the section stays role-relevant. Never adds anything off-profile."""
+    have = {s.lower() for s in kept}
+    pool = [s for s in _profile_skills_flat(profile) if s.lower() not in have]
+
+    # Order the pool so persona-relevant skills come first.
+    if persona and persona.get("foreground_skills"):
+        fg = re.findall(r"[a-z0-9#.+]+", persona["foreground_skills"].lower())
+        fg = {t for t in fg if len(t) >= 2} - _SKILL_STOPWORDS
+        def relevance(skill: str) -> int:
+            toks = set(re.findall(r"[a-z0-9#.+]+", skill.lower()))
+            return -len(toks & fg)  # more overlap -> earlier
+        pool.sort(key=relevance)
+
+    out = list(kept)
+    for s in pool:
+        if len(out) >= target:
+            break
+        out.append(s)
+    return out
 
 
 def _profile_number_text(profile: dict) -> str:
@@ -89,6 +150,60 @@ _SKILL_STOPWORDS = {
 }
 
 
+# Generic words that don't, on their own, tie a bullet to a real fact.
+_PROSE_STOP = set(
+    "a an the and or of to in for with on by at as from into using used use over under across their our we "
+    "is are was were be been being able about more most than then so via per up down out this that these those it its "
+    "led lead leading build built building develop developed developing development create created creating "
+    "design designed designing implement implemented implementing manage managed managing work worked working "
+    "deliver delivered delivering support supported supporting provide provided providing improve improved improving "
+    "increase increased increasing reduce reduced reducing achieve achieved achieving enable enabled enabling "
+    "new key real time end full scalable robust various multiple several including include included high low "
+    "results driven proven track record passionate cutting edge level role roles responsible resulting result "
+    "team teams project projects system systems application applications data customer customers user users "
+    "architected pioneered directed spearheaded".split()
+)
+
+
+def _content_tokens(text: str) -> set[str]:
+    return {t for t in re.findall(r"[a-z0-9#.+]+", (text or "").lower())
+            if len(t) >= 3 and t not in _PROSE_STOP}
+
+
+def _facts_tokens(match: dict) -> set[str]:
+    parts = list(match.get("facts", [])) + [match.get("role", ""), match.get("company", "")]
+    parts += match.get("tags", []) or []
+    return _content_tokens(" ".join(parts))
+
+
+def _topup_from_facts(bullets: list[str], facts: list[str], target: int) -> list[str]:
+    """Pad a thin role up to `target` bullets using its truthful profile facts that
+    aren't already represented (so the resume fills the page without fabrication)."""
+    out = list(bullets)
+    have = [_content_tokens(b) for b in out]
+    for fact in facts:
+        if len(out) >= target:
+            break
+        ft = _content_tokens(fact)
+        if any(len(ft & h) >= 3 for h in have):   # already covered by a kept bullet
+            continue
+        out.append(fact)
+        have.append(ft)
+    return out
+
+
+def _strip_experience_claims(text: str) -> str:
+    """Remove fabricated 'N+ years of experience' style claims (the profile has no
+    total-years figure, so any such claim is invented)."""
+    t = text or ""
+    t = re.sub(r"\bwith\s+\d+\s*\+?\s*years?\b[^.,|]*", "", t, flags=re.I)
+    t = re.sub(r"\b\d+\s*\+?\s*years?\s+of\s+(?:[\w/&-]+\s+){0,4}experience\b", "experience", t, flags=re.I)
+    t = re.sub(r"\b\d+\s*\+?\s*years?\b", "", t, flags=re.I)
+    t = re.sub(r"\s+([.,;])", r"\1", t)          # no space before punctuation
+    t = re.sub(r"\s{2,}", " ", t).strip(" ,;–-")
+    return t
+
+
 def _grounded(atom: str, skill_text: str) -> bool:
     """True if a skill atom is supported by the profile's skill inventory.
 
@@ -108,7 +223,8 @@ def _grounded(atom: str, skill_text: str) -> bool:
 
 
 # --------------------------------------------------------------------------- #
-def enforce(resume: Resume, profile: dict, *, strict: bool = False) -> tuple[Resume, dict]:
+def enforce(resume: Resume, profile: dict, *, strict: bool = False,
+            persona: dict | None = None, target_location: str = "") -> tuple[Resume, dict]:
     report: dict = {"identity_fixed": [], "skills_dropped": [],
                     "fabricated_numbers": [], "education_replaced": False}
 
@@ -122,9 +238,29 @@ def enforce(resume: Resume, profile: dict, *, strict: bool = False) -> tuple[Res
     resume.contact = Contact(
         email=c.get("email", ""),
         phone=c.get("phone", ""),
-        location=c.get("location", ""),
+        location=_display_location(profile, target_location),
         links=[Link(label=l.get("label", ""), url=l.get("url", "")) for l in c.get("links", [])],
     )
+
+    # --- HEADLINE + SUMMARY (strip invented "N years of experience" + metrics) --
+    allowed_numbers = _numbers_in(_profile_number_text(profile))
+
+    def _clean_prose(text: str) -> str:
+        out = _strip_experience_claims(text)
+        if strict:
+            bad = [n for n in _numbers_in(out) if n not in allowed_numbers and re.search(r"\d", n)]
+            if bad:
+                out = _strip_metrics(out)
+        return out
+
+    new_headline = _clean_prose(resume.headline)
+    if new_headline != resume.headline:
+        report.setdefault("headline_fixed", []).append(f"'{resume.headline}' -> '{new_headline}'")
+        resume.headline = new_headline
+    new_summary = _clean_prose(resume.summary)
+    if new_summary != resume.summary:
+        report["summary_fixed"] = True
+        resume.summary = new_summary
 
     # --- EDUCATION (verbatim from profile) ----------------------------------
     prof_edu = profile.get("education", [])
@@ -161,6 +297,15 @@ def enforce(resume: Resume, profile: dict, *, strict: bool = False) -> tuple[Res
                     kept.append(atom)
             else:
                 report["skills_dropped"].append(atom)
+
+    # Backfill from the profile so a relevant Skills section always renders, even
+    # when the model returned too few grounded skills.
+    if len(kept) < 6:
+        filled = _backfill_skills(kept, profile, persona)
+        added = [s for s in filled if s not in kept]
+        if added:
+            report["skills_backfilled"] = added
+        kept = filled
     resume.skills = kept
 
     # --- EXPERIENCE STRUCTURE (company/role/dates/location from profile) -----
@@ -168,18 +313,24 @@ def enforce(resume: Resume, profile: dict, *, strict: bool = False) -> tuple[Res
     # invent the company, title, dates, or location. Match each generated entry
     # back to a profile role and overwrite those fields verbatim.
     prof_exp = profile.get("experience", [])
-    for e in resume.experience:
+    dropped_lower = {d.lower() for d in report["skills_dropped"] if not d.startswith("cert:")}
+    kept_exp = []
+    for idx, e in enumerate(resume.experience):
         match = _best_experience_match(e, prof_exp)
         if match is None:
+            # Can't tie this entry to a real role -> a fabricated job. Drop it in strict.
             report.setdefault("unmatched_experience", []).append(
                 {"company": e.company, "role": e.role})
+            if strict:
+                continue
+            kept_exp.append(e)
             continue
+
+        # company / role / dates / location are FACTS -> overwrite verbatim
+        # (kills inflated titles like 'Senior Software Engineer' for an 'Associate Developer').
         fixed = []
-        if e.company.strip() != match.get("company", ""):
-            fixed.append(f"company '{e.company}' -> '{match['company']}'")
-            e.company = match.get("company", e.company)
-        # role can be tailored, but dates/location are facts
-        for fld, key in (("start", "start"), ("end", "end"), ("location", "location")):
+        for fld, key in (("company", "company"), ("role", "role"),
+                         ("start", "start"), ("end", "end"), ("location", "location")):
             true_val = match.get(key, "")
             if true_val and getattr(e, fld).strip() != true_val:
                 fixed.append(f"{fld} '{getattr(e, fld)}' -> '{true_val}'")
@@ -188,37 +339,66 @@ def enforce(resume: Resume, profile: dict, *, strict: bool = False) -> tuple[Res
             report.setdefault("experience_fixed", []).append(
                 {"company": e.company, "changes": fixed})
 
-    # --- BULLET CONTENT (flag mentions of ungrounded technologies) ----------
-    dropped_lower = {d.lower() for d in report["skills_dropped"]}
-    if dropped_lower:
-        for e in resume.experience:
-            for b in e.bullets:
-                hits = [d for d in dropped_lower if re.search(rf"\b{re.escape(d)}\b", b.lower())]
-                if hits:
-                    report.setdefault("ungrounded_in_bullets", []).append(
-                        {"company": e.company, "terms": hits, "bullet": b})
-
-    # --- BULLET METRICS (flag/strip fabricated numbers) ---------------------
-    allowed_numbers = _numbers_in(_profile_number_text(profile))
-    for e in resume.experience:
-        new_bullets = []
+        # bullets must be grounded in THIS role's facts; clean fabricated metrics
+        facts_tok = _facts_tokens(match)
+        kept_bullets = []
         for b in e.bullets:
+            low = b.lower()
+            skill_hits = [d for d in dropped_lower
+                          if d and re.search(rf"(?<![a-z0-9]){re.escape(d)}(?![a-z0-9])", low)]
+            grounded = len(_content_tokens(b) & facts_tok) >= 1
+            if skill_hits:
+                report.setdefault("ungrounded_in_bullets", []).append(
+                    {"company": e.company, "terms": skill_hits, "bullet": b})
+            if not grounded:
+                report.setdefault("ungrounded_bullets", []).append(
+                    {"company": e.company, "bullet": b})
+            # In strict mode, drop a bullet that names an ungrounded skill OR that
+            # doesn't connect to any of this role's real facts (likely fabricated).
+            if strict and (skill_hits or not grounded):
+                continue
             bad = [n for n in _numbers_in(b) if n not in allowed_numbers and re.search(r"\d", n)]
             if bad:
                 report["fabricated_numbers"].append(
-                    {"company": e.company, "bullet": b, "numbers": sorted(bad)}
-                )
+                    {"company": e.company, "bullet": b, "numbers": sorted(bad)})
                 if strict:
                     b = _strip_metrics(b)
-            new_bullets.append(b)
-        e.bullets = new_bullets
+            kept_bullets.append(b)
+
+        # Keep the resume full + truthful: top up thin roles from their real facts.
+        # Front (most-relevant) roles get more bullets, mirroring the prompt's intent.
+        facts = match.get("facts", [])
+        target = (5 if idx < 2 else 3) if facts else len(kept_bullets)
+        if facts and len(kept_bullets) < target:
+            before = len(kept_bullets)
+            kept_bullets = _topup_from_facts(kept_bullets, facts, target)
+            if len(kept_bullets) > before:
+                report.setdefault("bullets_from_facts", []).append(e.company)
+        e.bullets = kept_bullets
+        kept_exp.append(e)
+
+    resume.experience = kept_exp
+
+    # If the model fabricated experience wholesale (nothing survived grounding),
+    # rebuild a truthful experience section straight from the profile's real roles.
+    if strict and not kept_exp and prof_exp:
+        report["experience_rebuilt_from_profile"] = True
+        resume.experience = [
+            ExperienceItem(
+                company=p.get("company", ""), role=p.get("role", ""),
+                location=p.get("location", ""), start=p.get("start", ""),
+                end=p.get("end", ""), bullets=list(p.get("facts", []))[: (5 if i < 2 else 3)],
+            )
+            for i, p in enumerate(prof_exp)
+        ]
 
     return resume, report
 
 
 # count-nouns that read fine as "multiple <noun>" once the fake figure is removed
 _COUNT_NOUNS = (r"concurrent\s+)?(projects|clients|customers|interactions|accounts|"
-                r"users|websites|sites|dashboards|applications|tickets|records|teams")
+                r"users|websites|sites|dashboards|applications|tickets|records|teams|"
+                r"developers|engineers|people|members|staff|employees|contributors|reports|papers|publications")
 
 
 def _strip_metrics(bullet: str) -> str:
@@ -226,13 +406,17 @@ def _strip_metrics(bullet: str) -> str:
     The call site only invokes this for bullets with non-profile numbers, so we
     treat every metric here as fabricated and remove it cleanly."""
     b = bullet
+    # "10M+ events", "500k users", "2.5B" -> drop the suffixed figure
+    b = re.sub(r"\b\d+(?:[.,]\d+)?\s*[kmb]\+?\b", "", b, flags=re.I)
     # "10+ concurrent clients" / "200 accounts" -> "multiple clients"
     b = re.sub(rf"\b\d+\s*\+?\s*({_COUNT_NOUNS})\b", r"multiple \1\2", b, flags=re.I)
     # trailing "by/to/of 40%" and bare "40%"
     b = re.sub(r"\s*\b(?:by|to|of|up to|around|over)\s+\d+(?:[.,]\d+)?\s*%", "", b)
     b = re.sub(r"\s*\d+(?:[.,]\d+)?\s*%", "", b)
-    # "3+ years", "6 months"
-    b = re.sub(r"\b\d+\s*\+?\s*(?:years?|yrs?|months?)\b", "", b, flags=re.I)
+    # "3+ years", "6 months", "within 24 hours", "5 days"
+    b = re.sub(r"\b(?:within|in|under|over)?\s*\d+\s*\+?\s*"
+               r"(?:years?|yrs?|months?|weeks?|days?|hours?|hrs?|minutes?|mins?|seconds?|secs?)\b",
+               "", b, flags=re.I)
     # any leftover "N+" or standalone count
     b = re.sub(r"\b\d+\s*\+", "", b)
     # tidy punctuation/whitespace
@@ -277,16 +461,56 @@ def _fix_name_in_text(text: str, profile: dict) -> str:
     return t
 
 
-def enforce_cover_letter(cl: CoverLetter, profile: dict) -> tuple[CoverLetter, dict]:
-    report: dict = {"name_fixed": False, "signoff_fixed": False}
+def _profile_contact_line(profile: dict, target_location: str = "") -> str:
+    """The canonical one-line contact string, built from the profile only."""
+    c = profile.get("contact", {})
+    parts = [profile.get("full_name", ""), _display_location(profile, target_location),
+             c.get("email", ""), c.get("phone", "")]
+    parts += [l.get("url", "") for l in c.get("links", [])]
+    return " | ".join(p for p in parts if p)
+
+
+def _clean_letter_prose(text: str, profile: dict, allowed: set[str]) -> tuple[str, bool]:
+    """Fix the candidate's name and strip invented years/metrics from a paragraph.
+    Returns (cleaned_text, changed)."""
+    t = _fix_name_in_text(text, profile)
+    t = _strip_experience_claims(t)
+    changed = t != text
+    if {n for n in _numbers_in(t) if re.search(r"\d", n)} - allowed:
+        stripped = _strip_metrics(t)
+        if stripped != t:
+            t, changed = stripped, True
+    return t, changed
+
+
+def enforce_cover_letter(cl: CoverLetter, profile: dict,
+                         target_location: str = "") -> tuple[CoverLetter, dict]:
+    report: dict = {"name_fixed": False, "signoff_fixed": False,
+                    "contact_fixed": False, "claims_stripped": 0}
     name = profile.get("full_name", cl.fullName)
 
     if cl.fullName.strip() != name:
         report["name_fixed"] = True
     cl.fullName = name
-    cl.contactLine = _fix_name_in_text(cl.contactLine, profile)
+
+    # Contact line: ALWAYS rebuilt from the profile — the model invents whole
+    # identities (wrong name/email/phone), which _fix_name_in_text can't catch.
+    true_contact = _profile_contact_line(profile, target_location)
+    if true_contact and cl.contactLine.strip() != true_contact:
+        report["contact_fixed"] = True
+    cl.contactLine = true_contact or cl.contactLine
+
     cl.greeting = _fix_name_in_text(cl.greeting, profile)
-    cl.body = [_fix_name_in_text(p, profile) for p in cl.body]
+
+    # Body: strip invented "N years", team sizes, event counts, percentages.
+    allowed = _numbers_in(_profile_number_text(profile))
+    new_body = []
+    for p in cl.body:
+        cleaned, changed = _clean_letter_prose(p, profile, allowed)
+        if changed:
+            report["claims_stripped"] += 1
+        new_body.append(cleaned)
+    cl.body = new_body
 
     # The model often swaps these two. The signature must be the name; the
     # sign-off must be a closing phrase.
@@ -304,17 +528,26 @@ def enforce_cover_letter(cl: CoverLetter, profile: dict) -> tuple[CoverLetter, d
 
 
 def enforce_email(email: ApplicationEmail, profile: dict) -> tuple[ApplicationEmail, dict]:
-    report: dict = {"name_fixed": False}
-    before = (email.subject, email.body)
+    report: dict = {"name_fixed": False, "claims_stripped": 0}
+    allowed = _numbers_in(_profile_number_text(profile))
     email.subject = _fix_name_in_text(email.subject, profile)
-    email.body = _fix_name_in_text(email.body, profile)
-    if (email.subject, email.body) != before:
-        report["name_fixed"] = True
+    body, changed = _clean_letter_prose(email.body, profile, allowed)
+    email.body = body
+    if changed:
+        report["claims_stripped"] = 1
     return email, report
 
 
 def has_violations(report: dict) -> bool:
-    return any(report.get(k) for k in (
+    if any(report.get(k) for k in (
         "skills_dropped", "fabricated_numbers", "identity_fixed",
         "experience_fixed", "unmatched_experience", "ungrounded_in_bullets",
-    ))
+        "ungrounded_bullets", "headline_fixed", "summary_fixed", "bullets_from_facts",
+        "experience_rebuilt_from_profile",
+    )):
+        return True
+    for sub in ("cover_letter", "email"):
+        s = report.get(sub) or {}
+        if s.get("contact_fixed") or s.get("claims_stripped") or s.get("name_fixed"):
+            return True
+    return False

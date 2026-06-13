@@ -20,6 +20,11 @@ class JobPosting(BaseModel):
     apply_url: str = ""
     contact_email: str = ""
     posted: str = ""
+    # Extra metadata captured by the browser saver (not used for generation, kept
+    # for reference/filtering).
+    salary: str = ""
+    job_type: str = ""
+    key_skills: str = ""
 
     @property
     def key(self) -> str:
@@ -43,5 +48,12 @@ class QueuedJob(JobPosting):
 
     key_id: str = ""
     status: str = "new"       # new | generated | approved | sent | applied | skipped
+    applied: bool = False     # marked applied (independent of generation status)
+    priority: bool = False    # ⭐ high-value job — generate with Claude in Auto mode
+    repeatable: bool = False  # 🔁 saved as a recurring-role template (reapply often)
     found_at: str = ""
     notes: str = Field(default="")
+
+    @property
+    def has_email(self) -> bool:
+        return bool((self.contact_email or "").strip())
