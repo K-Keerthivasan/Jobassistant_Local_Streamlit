@@ -93,11 +93,11 @@ def health():
 
 @app.get("/models")
 def models():
-    """Local Ollama models + Claude cloud models (if ANTHROPIC_API_KEY is set)."""
-    from resume_gen.llm import anthropic_client
+    """Local Ollama models + the Hermes agent engine (if HERMES_API_KEY is set)."""
+    from resume_gen.llm import hermes_client
 
-    cloud = [{"id": m, "label": lbl} for m, lbl in anthropic_client.CLAUDE_MODELS] \
-        if anthropic_client.available() else []
+    cloud = [{"id": m, "label": lbl} for m, lbl in hermes_client.HERMES_MODELS()] \
+        if hermes_client.available() else []
     return {
         "models": ollama_client.list_models(),
         "cloud": cloud,
@@ -171,10 +171,9 @@ def generate(req: GenerateRequest):
     """Generate resume + cover letter + email for one role. Returns content,
     QA report, and file paths."""
     target = TargetRole(**req.model_dump(include=set(TargetRole.model_fields)))
-    if req.model:
-        settings.ollama_model = req.model
     try:
-        return run(target, make_pdf=req.pdf, strict=req.strict, persona=req.persona)
+        return run(target, make_pdf=req.pdf, strict=req.strict, persona=req.persona,
+                   model=req.model)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -240,6 +239,7 @@ def get_run(folder: str):
     }
     return {
         "folder": folder,
+        "folder_name": folder,  # lets the UI target this run for review/rewrite-apply
         "target": _read_json(d / "target_role.json") or {},
         "resume": _read_json(d / "resume.json") or {},
         "cover_letter": _read_json(d / "cover_letter.json") or {},
@@ -583,10 +583,9 @@ def generate_queued_job(key_id: str, req: GenerateOptions | None = None):
     pdf = True if req is None else req.pdf
     strict = False if req is None else req.strict
     persona = None if req is None else req.persona
-    if req and req.model:
-        settings.ollama_model = req.model
+    model = None if req is None else req.model
     try:
-        result = run(target, make_pdf=pdf, strict=strict, persona=persona)
+        result = run(target, make_pdf=pdf, strict=strict, persona=persona, model=model)
         update_status(key_id, "generated", result["folder"])
         return result
     except Exception as e:
@@ -714,7 +713,7 @@ class PriorityRequest(BaseModel):
 
 @app.post("/jobs/{key_id}/priority")
 def mark_priority(key_id: str, req: PriorityRequest):
-    """Flag a job ⭐ priority (Auto engine generates priority jobs with Claude)."""
+    """Flag a job ⭐ priority (Auto engine generates priority jobs with Hermes)."""
     from resume_gen.intake.store import set_priority
 
     q = set_priority(key_id, req.priority)
@@ -742,7 +741,7 @@ def mark_repeatable(key_id: str, req: RepeatableRequest):
         rp.upsert_role(
             q.company, q.title, location=q.location, description=q.description,
             apply_url=q.apply_url, contact_email=q.contact_email,
-            priority=q.priority, source=q.source or "manual",
+            job_id=q.job_id, priority=q.priority, source=q.source or "manual",
         )
     else:
         rp.delete_role(key)
@@ -751,16 +750,31 @@ def mark_repeatable(key_id: str, req: RepeatableRequest):
 
 @app.get("/repeatable")
 def repeatable_list():
-    """All saved recurring-role templates, most-recently-applied first."""
+    """All saved recurring-role templates, most-recently-applied first, plus the
+    sector/status/tag facets present in the data (for the filter dropdowns)."""
+    from resume_gen.intake.companies import load_sectors
     from resume_gen.intake.repeatable import list_roles
 
-    return {"roles": [r.model_dump() for r in list_roles()]}
+    roles = list_roles()
+    sectors = sorted({r.sector for r in roles if r.sector} | set(load_sectors()))
+    statuses = sorted({r.status for r in roles if r.status})
+    tags = sorted({t for r in roles for t in (r.tags or [])}, key=str.lower)
+    return {
+        "roles": [r.model_dump() for r in roles],
+        "sectors": sectors,
+        "statuses": statuses,
+        "tags": tags,
+    }
 
 
 class RepeatableUpdate(BaseModel):
     company: str | None = None
     title: str | None = None
     location: str | None = None
+    job_id: str | None = None
+    sector: str | None = None
+    tags: list[str] | str | None = None
+    status: str | None = None
     description: str | None = None
     apply_url: str | None = None
     contact_email: str | None = None
@@ -807,10 +821,9 @@ def repeatable_generate(key: str, req: GenerateOptions | None = None):
     strict = False if req is None else req.strict
     # Per-run persona overrides the saved one; fall back to the template's persona.
     persona = (req.persona if req and req.persona else None) or (role.persona or None)
-    if req and req.model:
-        settings.ollama_model = req.model
+    model = None if req is None else req.model
     try:
-        result = run(target, make_pdf=pdf, strict=strict, persona=persona)
+        result = run(target, make_pdf=pdf, strict=strict, persona=persona, model=model)
         mark_applied(key, folder=result["folder"], folder_name=result["folder_name"])
         return result
     except Exception as e:
@@ -885,41 +898,234 @@ def job_from_email(req: EmailJobRequest):
 
 @app.get("/usage")
 def usage():
-    """Claude (cloud) usage + estimated cost, for the resource monitor."""
-    from resume_gen.llm import anthropic_client
+    """AI engine usage + timing, for the resource monitor."""
+    from resume_gen.llm import hermes_client
     from resume_gen.usage import summary
 
-    return {"enabled": anthropic_client.available(), **summary()}
+    return {"enabled": hermes_client.available(), **summary()}
 
 
-class ClaudeScrape(BaseModel):
+class ReviewRequest(BaseModel):
+    folder_name: str | None = None   # review a saved run by its output folder
+    resume: dict | None = None       # ...or pass the resume + target inline
+    cover_letter: dict | None = None
+    target: dict | None = None
+    model: str | None = None         # defaults to the Hermes engine
+
+
+def _doc_base(folder: Path, target: dict, suffix: str) -> str:
+    """Document base name for a run (e.g. 'Acme_Dev_KK'); falls back to the file name."""
+    base = (target or {}).get("document_base_name")
+    if base:
+        return base
+    m = list(folder.glob(f"*_{suffix}.docx"))
+    return m[0].name[: -len(f"_{suffix}.docx")] if m else suffix
+
+
+@app.post("/review")
+def review(req: ReviewRequest):
+    """Have the Hermes agent review a generated application against its job description:
+    the résumé AND the cover letter (recruiter-style critique each). When Hermes judges a
+    rewrite warranted, it also returns a rewritten résumé / cover letter — each run through
+    the deterministic truth-guard so it can improve wording/ordering/keywords but never
+    fabricate facts. Also reports deterministic page validation (count + Letter/A4 size).
+    Pass a `folder_name` of a past run, or `resume`+`target` inline. Applying a rewrite is a
+    separate explicit step (POST /review/apply)."""
+    from resume_gen.llm import hermes_client
+    from resume_gen.review import (
+        review_cover_letter, review_resume, rewrite_cover_letter, rewrite_resume,
+    )
+
+    if not hermes_client.available():
+        raise HTTPException(status_code=400, detail="HERMES_API_KEY is not set — the Hermes review engine is off.")
+
+    resume, cover, target, folder = req.resume, req.cover_letter, req.target, None
+    if req.folder_name:
+        folder = (settings.output_dir / Path(req.folder_name).name).resolve()
+        if not str(folder).startswith(str(settings.output_dir.resolve())) or not folder.is_dir():
+            raise HTTPException(status_code=404, detail="Run not found.")
+        resume = _read_json(folder / "resume.json") or {}
+        cover = _read_json(folder / "cover_letter.json") or {}
+        target = _read_json(folder / "target_role.json") or {}
+    if not resume or not target:
+        raise HTTPException(status_code=400, detail="Provide folder_name, or both resume and target.")
+
+    from resume_gen.guard import enforce, enforce_cover_letter, has_violations
+    from resume_gen.personas import select_persona
+    from resume_gen.profile import load_profile
+
+    tr = TargetRole(**{k: v for k, v in (target or {}).items() if k in TargetRole.model_fields})
+    profile = load_profile()
+
+    # --- Résumé review (+ truth-guarded rewrite when warranted) ---------------
+    try:
+        result = review_resume(resume, target, model=req.model)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=str(e))
+    data = result.model_dump()
+
+    if result.rewrite_recommended:
+        try:
+            rw = rewrite_resume(resume, target, review=result, model=req.model)
+            guarded, rw_qa = enforce(rw.resume, profile, persona=select_persona(tr),
+                                     target_location=tr.location)
+            data["rewrite"] = guarded.model_dump()
+            data["rewrite_changes"] = rw.changes
+            data["rewrite_qa"] = rw_qa
+            data["rewrite_qa_has_violations"] = has_violations(rw_qa)
+        except Exception as e:
+            data["rewrite_error"] = str(e)
+
+    # --- Cover letter review (+ truth-guarded rewrite when warranted) ---------
+    if cover:
+        try:
+            c_result = review_cover_letter(cover, target, model=req.model)
+            data["cover_review"] = c_result.model_dump()
+            if c_result.rewrite_recommended:
+                crw = rewrite_cover_letter(cover, target, review=c_result, model=req.model)
+                c_guarded, c_qa = enforce_cover_letter(crw.cover_letter, profile,
+                                                       target_location=tr.location)
+                data["cover_rewrite"] = c_guarded.model_dump()
+                data["cover_rewrite_changes"] = crw.changes
+                data["cover_rewrite_qa"] = c_qa
+        except Exception as e:
+            data["cover_review_error"] = str(e)
+
+    # --- Deterministic page validation (count + Letter/A4) --------------------
+    if folder is not None:
+        from resume_gen.render.pagecheck import page_report
+
+        r_base = _doc_base(folder, target, "Resume")
+        c_base = _doc_base(folder, target, "Cover")
+        data["pages"] = page_report(
+            resume_pdf=folder / f"{r_base}_Resume.pdf",
+            cover_pdf=folder / f"{c_base}_Cover.pdf",
+        )
+
+    if folder is not None:  # persist alongside the run for later reference
+        try:
+            (folder / "hermes_review.json").write_text(
+                json.dumps(data, indent=2), encoding="utf-8")
+            if data.get("rewrite"):
+                (folder / "hermes_rewrite.json").write_text(
+                    json.dumps(data["rewrite"], indent=2), encoding="utf-8")
+            if data.get("cover_rewrite"):
+                (folder / "hermes_cover_rewrite.json").write_text(
+                    json.dumps(data["cover_rewrite"], indent=2), encoding="utf-8")
+        except OSError:
+            pass
+    return data
+
+
+class ApplyRewriteRequest(BaseModel):
+    folder_name: str
+    kind: str = "resume"   # "resume" | "cover"
+
+
+@app.post("/review/apply")
+def apply_rewrite(req: ApplyRewriteRequest):
+    """Apply a saved Hermes rewrite: back up the originals, replace the JSON, and
+    re-render the DOCX/PDF. `kind` selects résumé or cover letter. Reversible — originals
+    are copied into a `pre_rewrite_<timestamp>/` subfolder first."""
+    import time
+
+    if req.kind not in ("resume", "cover"):
+        raise HTTPException(status_code=400, detail="kind must be 'resume' or 'cover'.")
+    folder = (settings.output_dir / Path(req.folder_name).name).resolve()
+    if not str(folder).startswith(str(settings.output_dir.resolve())) or not folder.is_dir():
+        raise HTTPException(status_code=404, detail="Run not found.")
+
+    from resume_gen.profile import load_profile
+    from resume_gen.render.docx_renderer import render_cover_letter, render_resume
+    from resume_gen.render.pdf_export import to_pdf
+
+    target = _read_json(folder / "target_role.json") or {}
+    ts = time.strftime("%Y%m%d_%H%M%S")
+    backup = folder / f"pre_rewrite_{ts}"
+
+    if req.kind == "resume":
+        rewrite = _read_json(folder / "hermes_rewrite.json")
+        if not rewrite:
+            raise HTTPException(status_code=400, detail="No résumé rewrite saved — run Review first.")
+        from resume_gen.models import Resume
+        try:
+            obj = Resume(**rewrite)
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Saved rewrite is invalid: {e}")
+        doc_base = _doc_base(folder, target, "Resume")
+        json_name, docx_name = "resume.json", f"{doc_base}_Resume.docx"
+        backup.mkdir(exist_ok=True)
+        for name in (json_name, docx_name, f"{doc_base}_Resume.pdf"):
+            src = folder / name
+            if src.exists():
+                shutil.copy2(src, backup / name)
+        (folder / json_name).write_text(obj.model_dump_json(indent=2), encoding="utf-8")
+        paths = {"resume_json": str(folder / json_name)}
+        try:
+            docx = render_resume(obj, folder / docx_name, load_profile())
+            paths["resume_docx"] = str(docx)
+            paths["resume_pdf"] = str(to_pdf(docx))
+        except Exception as e:
+            paths["render_error"] = str(e)
+        return {"applied": True, "kind": "resume", "backup": backup.name,
+                "paths": paths, "resume": obj.model_dump()}
+
+    # kind == "cover"
+    rewrite = _read_json(folder / "hermes_cover_rewrite.json")
+    if not rewrite:
+        raise HTTPException(status_code=400, detail="No cover-letter rewrite saved — run Review first.")
+    from resume_gen.models import CoverLetter
+    try:
+        obj = CoverLetter(**rewrite)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Saved cover rewrite is invalid: {e}")
+    doc_base = _doc_base(folder, target, "Cover")
+    json_name, docx_name = "cover_letter.json", f"{doc_base}_Cover.docx"
+    backup.mkdir(exist_ok=True)
+    for name in (json_name, docx_name, f"{doc_base}_Cover.pdf"):
+        src = folder / name
+        if src.exists():
+            shutil.copy2(src, backup / name)
+    (folder / json_name).write_text(obj.model_dump_json(indent=2), encoding="utf-8")
+    paths = {"cover_letter_json": str(folder / json_name)}
+    try:
+        docx = render_cover_letter(obj, folder / docx_name)
+        paths["cover_letter_docx"] = str(docx)
+        paths["cover_letter_pdf"] = str(to_pdf(docx))
+    except Exception as e:
+        paths["render_error"] = str(e)
+    return {"applied": True, "kind": "cover", "backup": backup.name,
+            "paths": paths, "cover_letter": obj.model_dump()}
+
+
+class HermesScrape(BaseModel):
     role: str
     location: str = ""
     limit: int = 15
 
 
-@app.post("/scrape/claude")
-def scrape_claude(req: ClaudeScrape):
-    """Have Claude search the web for current jobs and queue the new ones."""
+@app.post("/scrape/hermes")
+def scrape_hermes(req: HermesScrape):
+    """Have the Hermes agent find current jobs and queue the new ones."""
     from resume_gen.intake.models import JobPosting
     from resume_gen.intake.store import commit, filter_new
-    from resume_gen.llm import anthropic_client
+    from resume_gen.llm import hermes_client
 
-    if not anthropic_client.available():
-        raise HTTPException(status_code=400, detail="ANTHROPIC_API_KEY is not set.")
+    if not hermes_client.available():
+        raise HTTPException(status_code=400, detail="HERMES_API_KEY is not set.")
     if not req.role.strip():
         raise HTTPException(status_code=400, detail="A role/keyword is required.")
     try:
-        found = anthropic_client.find_jobs(req.role, req.location, limit=max(1, min(req.limit, 30)))
+        found = hermes_client.find_jobs(req.role, req.location, limit=max(1, min(req.limit, 30)))
     except Exception as e:
         raise HTTPException(status_code=502, detail=str(e))
 
-    # Claude-found jobs are curated (you searched for them) — no keyword/Canada filter.
+    # Hermes-found jobs are curated (you searched for them) — no keyword/Canada filter.
     postings = []
     for j in found:
         url = (j.get("apply_url") or "").strip()
         postings.append(JobPosting(
-            source="claude", source_company="claude",
+            source="hermes", source_company="hermes",
             job_id=url or j.get("title", ""),
             company=(j.get("company") or "").strip(),
             title=(j.get("title") or "").strip(),

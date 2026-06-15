@@ -9,8 +9,24 @@
       "output": 0,
       "cost": 0.0,
       "calls": 0,
-      "seconds": 349.158,
-      "timed_calls": 24
+      "seconds": 1096.038,
+      "timed_calls": 74
+    },
+    "hermes-agent": {
+      "input": 0,
+      "output": 0,
+      "cost": 0.0,
+      "calls": 0,
+      "seconds": 371.627,
+      "timed_calls": 28
+    },
+    "split": {
+      "input": 0,
+      "output": 0,
+      "cost": 0.0,
+      "calls": 0,
+      "seconds": 0.887,
+      "timed_calls": 27
     }
   },
   "by_day": {
@@ -21,11 +37,27 @@
       "calls": 0,
       "seconds": 349.158,
       "timed_calls": 24
+    },
+    "2026-06-14": {
+      "input": 0,
+      "output": 0,
+      "cost": 0.0,
+      "calls": 0,
+      "seconds": 348.021,
+      "timed_calls": 25
+    },
+    "2026-06-15": {
+      "input": 0,
+      "output": 0,
+      "cost": 0.0,
+      "calls": 0,
+      "seconds": 771.373,
+      "timed_calls": 80
     }
   },
-  "total_seconds": 349.158,
-  "timed_calls": 24,
-  "last_seconds": 11.971,
-  "last_model": "qwen3:8b",
-  "last_label": "ApplicationEmail"
+  "total_seconds": 1468.552,
+  "timed_calls": 129,
+  "last_seconds": 26.221,
+  "last_model": "hermes-agent",
+  "last_label": "HermesQAResult"
 }

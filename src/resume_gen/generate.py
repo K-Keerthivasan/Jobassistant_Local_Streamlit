@@ -96,11 +96,17 @@ def generate_email(target: TargetRole, profile: dict | None = None, persona: dic
     return humanize_email(email)
 
 
-def generate_all(target: TargetRole, profile: dict | None = None, persona: dict | None = None, **kw):
-    """Generate all three artifacts, reusing one loaded profile + persona."""
+def generate_all(target: TargetRole, profile: dict | None = None, persona: dict | None = None,
+                 *, resume_model: str | None = None, letters_model: str | None = None, **kw):
+    """Generate all three artifacts, reusing one loaded profile + persona.
+
+    `resume_model` drives the résumé; `letters_model` drives the cover letter +
+    email. This lets callers split the work across engines (e.g. the résumé on
+    local Ollama, the prose letters on the Hermes agent). Either may be None to
+    fall back to the Ollama default."""
     profile = profile or load_profile()
     return {
-        "resume": generate_resume(target, profile, persona, **kw),
-        "cover_letter": generate_cover_letter(target, profile, persona, **kw),
-        "email": generate_email(target, profile, persona, **kw),
+        "resume": generate_resume(target, profile, persona, model=resume_model, **kw),
+        "cover_letter": generate_cover_letter(target, profile, persona, model=letters_model, **kw),
+        "email": generate_email(target, profile, persona, model=letters_model, **kw),
     }

@@ -1,7 +1,9 @@
-"""Track Claude (cloud) usage so you can monitor how much you're spending.
+"""Track AI engine usage (token counts + per-call timing) for the resource monitor.
 
-Persisted to data/usage.json. Cost is estimated from the per-model rates below
-(USD per 1M tokens); update PRICING if Anthropic's pricing changes.
+Persisted to data/usage.json. The current engines are local (Ollama + the Hermes
+agent), so there is no token cost — PRICING stays empty and cost is 0. If a
+token-priced engine is added later, register its (input $/1M, output $/1M) rate
+here and `record()` will estimate cost again.
 """
 
 from __future__ import annotations
@@ -13,19 +15,15 @@ from .config import ROOT
 
 _USAGE = ROOT / "data" / "usage.json"
 
-# (input $/1M, output $/1M)
-PRICING: dict[str, tuple[float, float]] = {
-    "claude-opus-4-8": (5.0, 25.0),
-    "claude-sonnet-4-6": (3.0, 15.0),
-    "claude-haiku-4-5": (1.0, 5.0),
-}
-_DEFAULT_RATE = (5.0, 25.0)
+# (input $/1M, output $/1M) per model. Empty while all engines are local/free.
+PRICING: dict[str, tuple[float, float]] = {}
+_DEFAULT_RATE = (0.0, 0.0)
 
 
 def _empty() -> dict:
     return {"total_input": 0, "total_output": 0, "total_cost": 0.0, "calls": 0,
             "by_model": {}, "by_day": {},
-            # Timing (all AI calls, Ollama + Claude):
+            # Timing (all AI calls, Ollama + Hermes):
             "total_seconds": 0.0, "timed_calls": 0,
             "last_seconds": 0.0, "last_model": "", "last_label": ""}
 
@@ -43,7 +41,8 @@ def _load() -> dict:
 
 
 def record(model: str, input_tokens: int, output_tokens: int, *, label: str = "") -> float:
-    """Add one Claude call's usage; returns the estimated cost in USD."""
+    """Add one engine call's token usage; returns the estimated cost in USD (0 for
+    local/free engines)."""
     pin, pout = PRICING.get(model, _DEFAULT_RATE)
     cost = input_tokens / 1e6 * pin + output_tokens / 1e6 * pout
 

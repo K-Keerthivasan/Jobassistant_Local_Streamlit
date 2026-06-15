@@ -1,5 +1,5 @@
 """LLM engines. `chat_structured` routes to the right one by model id:
-a `claude-*` model goes to the Anthropic (cloud) client, anything else to Ollama
+a `hermes*` model goes to the Hermes (local agent) client, anything else to Ollama
 (local). Both return a validated pydantic instance, so the rest of the pipeline
 doesn't care which engine produced it."""
 
@@ -17,12 +17,18 @@ T = TypeVar("T", bound=BaseModel)
 
 def chat_structured(system: str, user: str, schema: Type[T], *, model: str | None = None, **kw) -> T:
     model = model or settings.ollama_model
+    # "split"/"auto" are UI/pipeline meta-selections, not real model ids. pipeline.run
+    # resolves them per-artifact (résumé vs letters); if one reaches here it's a
+    # single-call site (e.g. a screening answer) with no artifact to split across, so
+    # run it on the default local model instead of passing a bogus id to Ollama.
+    if str(model).strip().lower() in ("split", "auto"):
+        model = settings.ollama_model
     kw.setdefault("timeout", settings.llm_timeout)  # cap every AI request
     start = time.perf_counter()
     try:
-        if str(model).startswith("claude"):
-            from . import anthropic_client
-            return anthropic_client.chat_structured(system, user, schema, model=model, **kw)
+        if str(model).startswith("hermes"):
+            from . import hermes_client
+            return hermes_client.chat_structured(system, user, schema, model=model, **kw)
         from . import ollama_client
         return ollama_client.chat_structured(system, user, schema, model=model, **kw)
     finally:

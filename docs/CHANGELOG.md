@@ -2,6 +2,77 @@
 
 Newest first. Dates are work dates.
 
+## 2026-06-15 — Split engine, Hermes review→rewrite (résumé + cover), page validation
+
+- **Per-artifact "Split" engine.** New sidebar option (default when Hermes is on):
+  the **résumé generates on local Ollama**, the **cover letter + email on the Hermes
+  agent**, then the truth-guard repairs all three — one LLM call per artifact, no extra
+  latency. Wiring: `generate.py` `generate_all(resume_model=, letters_model=)`;
+  `pipeline.py` `_resolve_engines("split")` → `(ollama_model, hermes_model)` (falls back
+  to all-local if Hermes is off) and `run(model=…)` reports the chosen `engines`;
+  `/generate`, `/jobs/{id}/generate`, `/repeatable/{key}/generate` pass `model` through
+  instead of mutating the global default. `cli.py --model split` too. `chat_structured`
+  treats `split`/`auto` reaching a single-call site (e.g. a screening answer) as the
+  local default, so they never hit Ollama as a bogus model id.
+- **Hermes review now proposes a truth-guarded rewrite** (was critique-only). `/review`:
+  if Hermes judges a rewrite warranted (`rewrite_recommended`), it returns a rewritten
+  résumé **and** cover letter, each re-run through the deterministic truth-guard
+  (`enforce` / `enforce_cover_letter`) so it improves wording/ordering/keywords but can
+  never invent employers, dates, metrics, or skills. UI shows two critique cards
+  (résumé + cover) each with an **Apply** button. **`POST /review/apply`** (`kind=resume|
+  cover`) backs up originals into `pre_rewrite_<ts>/` and re-renders that artifact's
+  DOCX/PDF. New `review.py`: `rewrite_resume`/`RewriteResult`, `review_cover_letter`,
+  `rewrite_cover_letter`/`CoverRewriteResult`. `/run` now returns `folder_name`.
+- **Page validation (deterministic, via `pypdf`).** After render, each PDF is checked for
+  page COUNT vs a limit (`COVER_MAX_PAGES`=1, `RESUME_MAX_PAGES`=2) and physical PAGE
+  SIZE (Letter vs A4 = `PAGE_SIZE`). New `render/pagecheck.py`; the renderer now sets the
+  page size explicitly. Surfaced in the generation **QA block** (`📄 Page check` line)
+  and the **review panel** (📄 Page validation card). Config: `PAGE_SIZE`,
+  `RESUME_MAX_PAGES`, `COVER_MAX_PAGES`. `pypdf` added to requirements + Dockerfile.
+- **Docker env fix:** the stack must be brought up with `--env-file .env` (root), e.g.
+  `docker compose --env-file .env -f docker/docker-compose.yml up -d --build`; without it
+  Compose looks for `.env` beside the compose file (`docker/`, absent) and
+  `${HERMES_API_KEY}`/`APIFY_TOKEN`/`N8N_WEBHOOK_URL` land EMPTY in the container.
+
+## 2026-06-14 — Hermes agent replaces the Claude engine; Repeatable tracking schema
+
+- **Engine swap: Claude → Hermes (local agent).** Removed the Anthropic/Claude cloud
+  engine entirely (deleted `llm/anthropic_client.py`, dropped the `anthropic` dependency
+  and `ANTHROPIC_API_KEY`). The secondary engine is now the locally-installed **Hermes
+  agent** via its OpenAI-compatible gateway (`POST {HERMES_BASE_URL}/chat/completions`,
+  default `http://localhost:8642/v1`, auth `HERMES_API_KEY` = the gateway's
+  `API_SERVER_KEY`). New `llm/hermes_client.py` (`chat_structured`/`available`/
+  `list_models`/`find_jobs`) asks for JSON-only output and extracts the first balanced
+  object, so the truth-guard pipeline is unchanged. `llm.chat_structured` now routes
+  `hermes*` → Hermes, else Ollama. Config: `HERMES_BASE_URL` / `HERMES_API_KEY` /
+  `HERMES_MODEL` (default `hermes-agent`). To enable: run the Hermes gateway's `api_server`
+  platform with `API_SERVER_KEY` set, then put that key in this app's `.env`.
+- **"Claude Scraping" → "Hermes Scraping"**: tab + route `POST /scrape/hermes`
+  (`hermes_client.find_jobs`); found jobs queue with source `hermes`. Sidebar engine
+  picker now shows **Auto · ⭐ priority → Hermes** / Local (Ollama) / 🤖 Hermes (agent).
+  `/models` returns the Hermes engine as `cloud` when the key is set. Usage monitor:
+  token-cost line hidden for local/free engines; generation-time line unchanged.
+- **🤖 Hermes resume review** (`review.py`, `POST /review`) — a separate, non-destructive
+  step: Ollama generates + the deterministic truth-guard repairs, then the **Hermes agent**
+  critiques the finished resume against the JD with its LLM. Returns `ResumeReview`
+  (overall_score, jd_match_score, verdict, strengths, weaknesses, missing_keywords,
+  suggestions, risk_flags); persisted to the run folder as `hermes_review.json`. UI: a
+  **"Review with Hermes"** button + scored panel under every generated application
+  (`renderApplication`). It reviews only — never rewrites — and is told not to suggest
+  fabrications. Pass a `folder_name` or inline `resume`+`target`.
+- **Enablement (done):** Hermes's `api_server` platform is configured in
+  `HERMES_HOME/.env` (`C:\Users\kkvas\AppData\Local\hermes\.env`):
+  `API_SERVER_ENABLED=true`, `API_SERVER_KEY=…`, `API_SERVER_HOST=0.0.0.0`,
+  `API_SERVER_PORT=8642`. Start with **`hermes gateway run`** (foreground) or
+  `hermes gateway start` (background service). That key is mirrored into this app's
+  `.env` as `HERMES_API_KEY`. Verified live: `/v1/models`, `/v1/chat/completions`, and a
+  full `review_resume` round-trip all return clean JSON.
+- **Repeatable tracking schema** ([docs/repeatable.md](repeatable.md)) — `RepeatableRole`
+  gained `job_id`, `status` (tracked/applied/interview/offer/closed), `sector`, and
+  free-form `tags`. `repeat_companies.json` reshaped to `{sectors, companies}` (fuller CA
+  set). `/repeatable` returns sector/status/tag facets; the Repeatable tab adds a
+  search+sector+status+tag filter bar and per-role inline editing.
+
 ## 2026-06-12 — Repeatable roles + email intake, Q&A tool, date filters
 
 - **🔁 Repeatable roles** ([docs/repeatable.md](repeatable.md)) — for companies you reapply
@@ -24,9 +95,8 @@ Newest first. Dates are work dates.
 
 ## 2026-06-11 (later 19) — bulk-jobs prompt, email editing, monthly Library
 
-- **[docs/claude-bulk-jobs-prompt.md](claude-bulk-jobs-prompt.md)**: a copy-paste prompt
-  for Claude.ai (with the Indeed/LinkedIn connector) to bulk-pull jobs and output a CSV
-  whose columns import directly here (RSS Scraping → ⬆ Upload CSV).
+- **Bulk-jobs prompt doc** (since removed): a copy-paste prompt for Claude.ai to
+  bulk-pull jobs and output a CSV importable here (RSS Scraping → ⬆ Upload CSV).
 - **Inline email edit** on every job row (**✉ add / ✉ edit**) → `POST /jobs/{key}/update`
   — for Job Bank etc. where the HR email is hidden; once set, the 📧 n8n path lights up.
 - **Library folds into monthly groups** (newest month first) with month headers; within

@@ -34,6 +34,26 @@ def _document_base(target: TargetRole) -> str:
     return f"{_slug(target.company, 18)}_{_slug(target.title, 28)}_KK"
 
 
+def _resolve_engines(model: str | None) -> tuple[str | None, str | None]:
+    """Map a requested engine selection to (resume_model, letters_model).
+
+    - "split": résumé on local Ollama, cover letter + email on the Hermes agent.
+      Falls back to all-local if Hermes isn't configured.
+    - any concrete model id (e.g. "qwen3:8b" or "hermes-agent"): every artifact
+      runs on that one engine.
+    - None/"": the Ollama default for everything.
+    """
+    m = (model or "").strip()
+    if m.lower() == "split":
+        from .llm import hermes_client
+        if hermes_client.available():
+            return settings.ollama_model, settings.hermes_model
+        return None, None  # Hermes off — quietly run everything local
+    if m:
+        return m, m
+    return None, None
+
+
 def run(
     target: TargetRole,
     *,
@@ -41,15 +61,26 @@ def run(
     profile: dict | None = None,
     strict: bool = False,
     persona: str | None = None,
+    model: str | None = None,
 ) -> dict:
     profile = profile or load_profile()
     chosen = select_persona(target, persona)
-    bundle = generate_all(target, profile, chosen)
+    resume_model, letters_model = _resolve_engines(model)
+    bundle = generate_all(target, profile, chosen,
+                          resume_model=resume_model, letters_model=letters_model)
     resume, cover, email = bundle["resume"], bundle["cover_letter"], bundle["email"]
 
-    # Truth-guard: repair identity/education/skills, flag fabricated metrics.
+    # Hermes-led QA: the main truthfulness judgment, run BEFORE the deterministic
+    # guard. It semantically audits every résumé claim against the profile and removes
+    # what isn't supported (no-op if Hermes is off). The guard below is the hard backstop.
+    from .hermes_qa import qa_resume
+
+    resume, hermes_qa_report = qa_resume(resume, profile)
+
+    # Truth-guard (final backstop): hard-enforce identity/education/skills, strip metrics.
     resume, qa = enforce(resume, profile, strict=strict, persona=chosen,
                          target_location=target.location)
+    qa["hermes_qa"] = hermes_qa_report
     # Same discipline for the cover letter + email: rebuild contact line, strip
     # invented years/metrics, fix name/sign-off. Surface what was scrubbed in QA.
     cover, cover_qa = enforce_cover_letter(cover, profile, target_location=target.location)
@@ -104,6 +135,15 @@ def run(
         except Exception as e:  # PDF is best-effort; docx always succeeds.
             paths["pdf_error"] = str(e)
 
+        # Page validation (count + physical size) once the PDFs exist.
+        from .render.pagecheck import page_report
+
+        qa["pages"] = page_report(
+            resume_pdf=paths.get("resume_pdf"),
+            cover_pdf=paths.get("cover_letter_pdf"),
+        )
+        (folder / "qa_report.json").write_text(json.dumps(qa, indent=2), encoding="utf-8")
+
     return {
         "folder": str(folder),
         "folder_name": folder.name,
@@ -112,6 +152,10 @@ def run(
         "email_subject": email.subject,
         "persona": (chosen or {}).get("id", ""),
         "persona_label": (chosen or {}).get("label", ""),
+        "engines": {
+            "resume": resume_model or settings.ollama_model,
+            "letters": letters_model or settings.ollama_model,
+        },
         "qa": qa,
         "qa_has_violations": has_violations(qa),
         # Full generated content, so the UI can preview without re-reading files.

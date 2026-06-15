@@ -37,13 +37,36 @@ def load_apply_profile() -> dict:
 # --------------------------------------------------------------------------- #
 # repeat companies
 # --------------------------------------------------------------------------- #
-def load_repeat_companies() -> list[str]:
+def _load_repeat() -> dict:
     if _REPEAT.exists():
         try:
-            return json.loads(_REPEAT.read_text(encoding="utf-8")).get("companies", [])
+            return json.loads(_REPEAT.read_text(encoding="utf-8"))
         except ValueError:
-            return []
-    return []
+            return {}
+    return {}
+
+
+def load_repeat_companies() -> list[str]:
+    return _load_repeat().get("companies", [])
+
+
+def load_sectors() -> dict[str, list[str]]:
+    """Map of sector name -> list of companies in it (from repeat_companies.json)."""
+    sectors = _load_repeat().get("sectors", {})
+    return sectors if isinstance(sectors, dict) else {}
+
+
+def sector_for(company: str) -> str:
+    """Best-effort sector for a company name (case-insensitive, word-ish match)."""
+    c = (company or "").lower().strip()
+    if not c:
+        return ""
+    for sector, members in load_sectors().items():
+        for name in members or []:
+            n = name.lower().strip()
+            if n and (n == c or re.search(rf"(?<![a-z]){re.escape(n)}(?![a-z])", c)):
+                return sector
+    return ""
 
 
 def is_repeat(company: str) -> bool:

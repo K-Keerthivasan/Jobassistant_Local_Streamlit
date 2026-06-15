@@ -14,7 +14,8 @@ A **repeatable role** is one recurring posting, keyed by **company + title**
 | `company`, `title`, `location` | who/what |
 | `description` | the **latest job description** — what regeneration runs against |
 | `apply_url`, `contact_email` | where to apply / HR email |
-| `persona`, `priority` | how to generate (persona id; ⭐ → Claude in Auto) |
+| `persona`, `priority` | how to generate (persona id; ⭐ → Hermes in Auto) |
+| `job_id`, `sector`, `tags`, `status` | source posting id; sector + free-form tags for filtering; status (tracked/applied/interview/offer/closed) |
 | `times_applied`, `last_applied` | running count + most-recent date |
 | `last_folder` / `last_folder_name` | the most recent generated application |
 
@@ -33,7 +34,7 @@ This works for **any** job — manual, collector, RSS, Job Bank, email.
 Lists every template, most-recently-applied first. Per role:
 
 - **⟳ Regenerate** — `POST /repeatable/{key}/generate` runs the normal pipeline against the
-  saved JD (persona from the sidebar, ⭐ priority → Claude), bumps `times_applied`, stamps
+  saved JD (persona from the sidebar, ⭐ priority → Hermes), bumps `times_applied`, stamps
   `last_applied`/`last_folder`, and returns **download links** (resume/cover PDF+DOCX, email).
 - **✎ Edit JD** — paste a refreshed posting, **Save JD** (`POST /repeatable/{key}/update`).
 - **📂 Last docs** — open the previous generation in Library.
@@ -66,8 +67,8 @@ Content-Type: application/json
 { "text": "<the email body>", "repeatable": true }
 ```
 
-Same parsing + matching. `model` is optional (defaults to local Ollama; pass a `claude-*`
-id to use Claude). Response: `{ parsed, queued, duplicate, job, matched_repeatable, repeatable_key }`.
+Same parsing + matching. `model` is optional (defaults to local Ollama; pass a `hermes`
+id to use the Hermes agent). Response: `{ parsed, queued, duplicate, job, matched_repeatable, repeatable_key }`.
 
 ## API summary
 
@@ -80,5 +81,5 @@ id to use Claude). Response: `{ parsed, queued, duplicate, job, matched_repeatab
 | `DELETE` | `/repeatable/{key}` | stop tracking |
 | `POST` | `/jobs/from-email` | parse an email → job, queue + match template |
 
-Engine selection reuses the sidebar **Auto / Local / Claude** picker (`resolveModel`):
-a role marked ⭐ priority regenerates with Claude, the rest with local Ollama.
+Engine selection reuses the sidebar **Auto / Local / Hermes** picker (`resolveModel`):
+a role marked ⭐ priority regenerates with the Hermes agent, the rest with local Ollama.

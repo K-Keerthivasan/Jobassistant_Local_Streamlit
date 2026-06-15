@@ -17,7 +17,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt || true \
     && pip install --no-cache-dir \
         pydantic pyyaml python-dotenv httpx \
-        python-docx fastapi "uvicorn[standard]" \
+        python-docx pypdf fastapi "uvicorn[standard]" \
         selenium beautifulsoup4 typer rich
 
 COPY . .

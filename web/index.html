@@ -79,6 +79,17 @@
   }
   .brand .name { font-weight: 700; color: #fff; font-size: 15px; line-height: 1.1; }
   .brand .tag { font-size: 11px; color: #7e8ba3; }
+  .rp-chip { display:inline-block; font-size:11px; font-weight:600; padding:2px 8px; border-radius:999px; background:var(--chip-bg,#eef1f6); color:var(--muted); white-space:nowrap; }
+  .hr-card { border:1px solid var(--line); border-radius:12px; padding:14px 16px; background:var(--soft-bg); }
+  .hr-scores { display:flex; align-items:center; gap:20px; flex-wrap:wrap; margin-bottom:10px; }
+  .hr-score { text-align:center; min-width:54px; }
+  .hr-num { font-size:26px; font-weight:800; line-height:1; }
+  .hr-lbl { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; }
+  .hr-verdict { flex:1; min-width:200px; font-weight:600; }
+  .hr-sec { margin-top:10px; }
+  .hr-sec .hr-h { font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.03em; color:var(--muted); margin-bottom:4px; }
+  .hr-sec .hr-h.crit { color:#d94646; }
+  .hr-sec ul { margin:0; padding-left:18px; } .hr-sec li { margin:2px 0; font-size:13px; }
   .nav { display: flex; flex-direction: column; gap: 2px; margin-top: 6px; }
   .nav button {
     display: flex; align-items: center; gap: 11px; width: 100%; text-align: left;
@@ -435,7 +446,7 @@
     <nav class="nav">
       <button data-view="generate" class="active"><span class="ic">✍️</span> Generate</button>
       <button data-view="scrape"><span class="ic">🛰️</span> RSS Scraping</button>
-      <button data-view="claude-scrape"><span class="ic">🤖</span> Claude Scraping</button>
+      <button data-view="hermes-scrape"><span class="ic">🤖</span> Hermes Scraping</button>
       <button data-view="scraper"><span class="ic">💼</span> Jobs</button>
       <button data-view="repeatable"><span class="ic">🔁</span> Repeatable</button>
       <button data-view="qa"><span class="ic">💬</span> Q&amp;A</button>
@@ -447,10 +458,10 @@
       <select id="persona" class="side-select"><option value="auto">Auto-detect</option></select>
       <label class="side-label">Engine (resume/cover generation)</label>
       <select id="model" class="side-select"></select>
-      <div class="health" id="usage-line" title="Claude cloud usage" style="margin-bottom:12px;display:none">
+      <div class="health" id="usage-line" title="Engine token cost" style="margin-bottom:12px;display:none">
         <span style="font-size:13px">☁ <span id="usage-cost">$0.0000</span> · <span id="usage-calls">0</span> calls</span>
       </div>
-      <div class="health" id="gentime-line" title="AI generation time (Ollama + Claude)" style="margin-bottom:12px;display:none">
+      <div class="health" id="gentime-line" title="AI generation time (Ollama + Hermes)" style="margin-bottom:12px;display:none">
         <span style="font-size:13px">⏱ last <span id="gentime-last">0s</span> · avg <span id="gentime-avg">0s</span></span>
       </div>
       <button class="theme-btn" id="theme-toggle"><span id="theme-ic">🌙</span> <span id="theme-lbl">Dark mode</span></button>
@@ -496,7 +507,7 @@
       <div class="sc-head">
         <div>
           <h1 class="page-h" style="margin:0">Repeatable roles</h1>
-          <p class="page-sub" style="margin:4px 0 0">Companies you reapply to (TD, RBC…). Each saved role keeps its latest job description. Hit <b>Regenerate</b> for a freshly tuned resume/cover/email, download, tweak, reapply. Flag a job 🔁 in <b>Jobs</b> to add it here.</p>
+          <p class="page-sub" style="margin:4px 0 0">Companies you reapply to (TD, RBC, Telus, Manulife, Purolator…), tracked as <b>Company · Title · Location · Job ID · Applied date · Status</b>. Each role keeps its latest JD plus a pre-saved resume — hit <b>Regenerate</b> for a freshly tuned copy, tweak, reapply. Filter by sector, status, or tag. Flag a job 🔁 in <b>Jobs</b> to add it here.</p>
         </div>
         <div class="sc-actions">
           <button class="btn subtle sm" id="rp-refresh">↻ Refresh</button>
@@ -516,6 +527,14 @@
           <span id="rp-email-status" style="font-size:13px;color:var(--muted)"></span>
         </div>
         <div id="rp-email-result"></div>
+      </div>
+
+      <div class="card" id="rp-filters" style="margin-bottom:12px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+        <input id="rp-q" placeholder="🔎 Search company / title / job ID…" style="flex:1;min-width:180px" />
+        <select id="rp-fsector" class="side-select" style="width:auto"><option value="">All sectors</option></select>
+        <select id="rp-fstatus" class="side-select" style="width:auto"><option value="">All statuses</option></select>
+        <select id="rp-ftag" class="side-select" style="width:auto"><option value="">All tags</option></select>
+        <span id="rp-count" style="font-size:13px;color:var(--muted)"></span>
       </div>
 
       <div id="rp-list"><div class="empty"><span class="spinner dark"></span></div></div>
@@ -598,25 +617,27 @@
         <a class="btn subtle sm" id="sk-capture" target="_blank" rel="noreferrer" title="Browser-capture dashboard (Tampermonkey collector)">Browser capture ↗</a>
       </div>
       <div class="card jl-sources" id="sk-setup"></div>
+      <div class="sec-title" style="margin:18px 0 8px">📋 Apply profile <span style="color:var(--faint);font-weight:500;text-transform:none">— data/apply_profile.json · click any field to copy</span></div>
+      <div class="card jl-sources" id="sk-applyprofile"></div>
       <div class="sec-title" style="margin:18px 0 8px">Scraped jobs</div>
       <div class="card jl-sources" id="sk-jobs"></div>
     </section>
 
-    <!-- ===== Claude Scraping ===== -->
-    <section class="view" id="view-claude-scrape">
-      <h1 class="page-h">🤖 Claude Scraping</h1>
-      <p class="page-sub">Claude searches the web for real, current jobs and queues them. This is a <b>cloud</b> task (uses your Anthropic key &amp; costs tokens) — finding jobs is separate from generating resumes. <span id="cs-enabled-note"></span></p>
+    <!-- ===== Hermes Scraping ===== -->
+    <section class="view" id="view-hermes-scrape">
+      <h1 class="page-h">🤖 Hermes Scraping</h1>
+      <p class="page-sub">The Hermes agent searches the web for real, current jobs and queues them — finding jobs is separate from generating resumes. Runs locally on your machine. <span id="cs-enabled-note"></span></p>
       <div class="card" style="max-width:680px">
         <div class="row">
           <div style="flex:2"><label class="fld">Role / keywords</label><input type="text" id="cs-role" placeholder="full-stack developer"></div>
           <div><label class="fld">Location</label><input type="text" id="cs-loc" placeholder="Ontario" value="Ontario"></div>
           <div style="width:90px"><label class="fld">Max</label><input type="number" id="cs-limit" value="15" min="1" max="30"></div>
         </div>
-        <button class="btn primary block" id="cs-go" style="margin-top:12px">🔎 Find jobs with Claude</button>
-        <div class="muted" style="font-size:12px;margin-top:8px">Found jobs are added to <b>Jobs</b> (source <code>claude</code>). Generate resumes there — local or Claude, by priority.</div>
+        <button class="btn primary block" id="cs-go" style="margin-top:12px">🔎 Find jobs with Hermes</button>
+        <div class="muted" style="font-size:12px;margin-top:8px">Found jobs are added to <b>Jobs</b> (source <code>hermes</code>). Generate resumes there — local or Hermes, by priority.</div>
       </div>
       <div class="sec-title" style="margin:18px 0 8px">Recently found</div>
-      <div class="card jl-sources" id="cs-results"><div class="muted">No Claude searches yet.</div></div>
+      <div class="card jl-sources" id="cs-results"><div class="muted">No Hermes searches yet.</div></div>
     </section>
 
     <!-- ===== Jobs (list) ===== -->
@@ -815,7 +836,7 @@ function showView(view) {
   if (view === 'scraper') loadJobs();
   if (view === 'repeatable') loadRepeatable();
   if (view === 'scrape') { renderSetup(); renderScrapedJobs(); }
-  if (view === 'claude-scrape') { $('cs-enabled-note').innerHTML = CLOUD_ENABLED ? '' : '<b style="color:var(--warn)">Set ANTHROPIC_API_KEY in .env to enable.</b>'; }
+  if (view === 'hermes-scrape') { $('cs-enabled-note').innerHTML = CLOUD_ENABLED ? '' : '<b style="color:var(--warn)">Set HERMES_API_KEY in .env (the Hermes gateway API_SERVER_KEY) to enable.</b>'; }
   if (view === 'library') loadLibrary();
 }
 document.querySelectorAll('.nav button').forEach(b => b.onclick = () => showView(b.dataset.view));
@@ -842,6 +863,8 @@ function renderHealth() {
   if (ollamaUp === null) { $('htext').textContent = 'checking…'; return; }
   if (!ollamaUp) { $('htext').textContent = 'Ollama offline'; return; }
   const m = activeModel();
+  if (m === 'split') { $('htext').textContent = 'Ollama résumé · 🤖 Hermes letters'; return; }
+  if (m === 'auto') { $('htext').textContent = 'Ollama · Auto (⭐→Hermes)'; return; }
   $('htext').textContent = m ? `Ollama · ${m}` : 'Ollama up';
 }
 async function loadHealth() {
@@ -849,13 +872,13 @@ async function loadHealth() {
   catch { ollamaUp = false; $('hdot').className = 'dot down'; $('htext').textContent = 'API offline'; return; }
   renderHealth();
 }
-let OLLAMA_DEFAULT = '', CLAUDE_DEFAULT = '', CLOUD_ENABLED = false;
+let OLLAMA_DEFAULT = '', HERMES_DEFAULT = '', CLOUD_ENABLED = false;
 async function loadModels() {
   try {
     const m = await api('/models');
     OLLAMA_DEFAULT = m.default;
     CLOUD_ENABLED = !!(m.cloud && m.cloud.length);
-    CLAUDE_DEFAULT = CLOUD_ENABLED ? m.cloud[0].id : '';
+    HERMES_DEFAULT = CLOUD_ENABLED ? m.cloud[0].id : '';
     const sel = $('model'); sel.innerHTML = '';
     const addOpt = (val, label, parent, selected) => {
       const o = document.createElement('option');
@@ -864,10 +887,11 @@ async function loadModels() {
     };
     const locals = (m.models && m.models.length) ? m.models : [m.default];
     if (CLOUD_ENABLED) {
-      addOpt('auto', 'Auto · ⭐ priority → Claude, else local', sel, true);
+      addOpt('split', 'Split · résumé local + letters 🤖 Hermes', sel, true);
+      addOpt('auto', 'Auto · ⭐ priority → Hermes, else local', sel, false);
       const g1 = document.createElement('optgroup'); g1.label = 'Local (Ollama)';
       locals.forEach(n => addOpt(n, n, g1, false)); sel.appendChild(g1);
-      const g2 = document.createElement('optgroup'); g2.label = '☁ Claude (cloud)';
+      const g2 = document.createElement('optgroup'); g2.label = '🤖 Hermes (agent)';
       m.cloud.forEach(c => addOpt(c.id, c.label, g2, false)); sel.appendChild(g2);
     } else {
       locals.forEach(n => addOpt(n, n, sel, n === m.default));
@@ -879,25 +903,29 @@ async function loadModels() {
 }
 
 // Resolve which model to use for a generation given the job's priority.
+// 'split' is passed through untouched — the backend routes the résumé to Ollama
+// and the cover letter + email to Hermes.
 function resolveModel(isPriority) {
   const v = $('model').value;
-  if (v === 'auto') return isPriority ? (CLAUDE_DEFAULT || OLLAMA_DEFAULT) : OLLAMA_DEFAULT;
+  if (v === 'auto') return isPriority ? (HERMES_DEFAULT || OLLAMA_DEFAULT) : OLLAMA_DEFAULT;
   return v;
 }
+// True if a resolved engine selection involves the Hermes agent (whole-run or split).
+function usesHermes(model) { const m = (model || ''); return m.startsWith('hermes') || m === 'split'; }
 
 async function loadUsage() {
   try {
     const u = await api('/usage');
-    // Claude cost line — only when the cloud engine is enabled.
+    // Token-cost line — only when an engine actually accrues cost (local/Hermes is free).
     const line = $('usage-line');
-    if (u.enabled) {
+    if (u.enabled && (u.total_cost || 0) > 0) {
       line.style.display = '';
       $('usage-cost').textContent = '$' + (u.total_cost || 0).toFixed(4);
       $('usage-calls').textContent = u.calls || 0;
     } else {
       line.style.display = 'none';
     }
-    // AI timing line — shown for any engine (Ollama or Claude) once we have data.
+    // AI timing line — shown for any engine (Ollama or Hermes) once we have data.
     const tline = $('gentime-line');
     if (u.timed_calls) {
       tline.style.display = '';
@@ -955,10 +983,31 @@ function qaCount(qa) {
   return ['identity_fixed','skills_dropped','fabricated_numbers','experience_fixed','unmatched_experience','ungrounded_in_bullets']
     .reduce((n,k) => n + ((qa[k]||[]).length), 0);
 }
+// A compact page-validation warning (count overflow / wrong page size). Empty when fine.
+function pageWarn(pages) {
+  if (!pages) return '';
+  const probs = [];
+  for (const key of ['resume', 'cover_letter']) {
+    const p = pages[key]; if (!p || !p.available) continue;
+    if (!p.pages_ok) probs.push(`${p.label} is ${p.pages} page${p.pages>1?'s':''} (max ${p.limit})`);
+    if (!p.size_ok) probs.push(`${p.label} is ${p.page_size}, expected ${p.expected_size}`);
+  }
+  return probs.length
+    ? `<div class="qa dirty" style="margin-top:6px"><span class="tag">📄 Page check</span> ${esc(probs.join('; '))}</div>` : '';
+}
+// Hermes-led QA result (the semantic audit that runs before the deterministic guard).
+function hermesQALine(hq) {
+  if (!hq || !hq.ran) return '';
+  const f = hq.unsupported_findings || [];
+  if (!f.length)
+    return `<div class="qa clean" style="margin-top:6px"><span class="tag">🤖 Hermes QA</span> — every claim checked against your profile; nothing unsupported.</div>`;
+  return `<div class="qa dirty" style="margin-top:6px"><span class="tag">🤖 Hermes QA removed unsupported claims</span><ul>${f.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div>`;
+}
 function renderQA(qa, hasViol) {
   if (!qa) return '';
+  const extra = hermesQALine(qa.hermes_qa) + pageWarn(qa.pages);
   if (!hasViol && !qaCount(qa))
-    return `<div class="qa clean"><span class="tag">✓ Truth-guard</span> — all facts verified against your profile.</div>`;
+    return `<div class="qa clean"><span class="tag">✓ Truth-guard</span> — all facts verified against your profile.</div>` + extra;
   let items = [];
   (qa.identity_fixed || []).forEach(f => items.push(`<li><span class="tag">identity</span>: ${esc(f)}</li>`));
   if ((qa.skills_dropped || []).length)
@@ -972,7 +1021,7 @@ function renderQA(qa, hasViol) {
   (qa.fabricated_numbers || []).forEach(f =>
     items.push(`<li><span class="tag">fabricated number</span> (${esc(f.company)}): ${esc((f.numbers||[]).join(', '))}</li>`));
   if (!items.length) items.push('<li>see qa_report.json</li>');
-  return `<div class="qa dirty"><span class="tag">Truth-guard caught issues:</span><ul>${items.join('')}</ul></div>`;
+  return `<div class="qa dirty"><span class="tag">Truth-guard caught issues:</span><ul>${items.join('')}</ul></div>` + extra;
 }
 
 const FILE_LABELS = {resume_pdf:'Resume PDF',resume_docx:'Resume DOCX',cover_letter_pdf:'Cover PDF',
@@ -1073,8 +1122,145 @@ function wirePreview(root) {
 // Build the full application block (QA + files + preview) into a container.
 function renderApplication(container, data, filesHTML) {
   const viol = data.qa_has_violations ?? (qaCount(data.qa) > 0);
-  container.innerHTML = renderQA(data.qa, viol) + filesHTML + previewBlock(data);
+  container.innerHTML = renderQA(data.qa, viol) + reviewBlock(data) + filesHTML + previewBlock(data);
   wirePreview(container);
+  wireReview(container, data);
+}
+
+/* ---------- Hermes review (LLM critique of the generated resume) ---------- */
+function reviewBlock(data) {
+  const note = CLOUD_ENABLED
+    ? 'Ask the Hermes agent to critique this resume against the job description (alignment, gaps, missing keywords, suggestions). If it judges a rewrite necessary, it proposes a truth-guarded rewritten résumé you can apply with one click — it never invents facts.'
+    : 'Set <code>HERMES_API_KEY</code> in .env (the Hermes gateway key) to enable the Hermes review.';
+  return `<div class="hr-review" style="margin:6px 0 14px">
+    <button class="btn subtle sm" data-act="hr-review" ${CLOUD_ENABLED?'':'disabled'}>🤖 Review with Hermes</button>
+    <span class="muted" style="font-size:12px;margin-left:8px">${note}</span>
+    <div class="hr-review-out" style="margin-top:10px"></div>
+  </div>`;
+}
+function wireReview(container, data) {
+  const btn = container.querySelector('[data-act="hr-review"]');
+  if (!btn) return;
+  btn.onclick = async () => {
+    const out = container.querySelector('.hr-review-out');
+    const label = btn.textContent; btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Hermes is reviewing…';
+    out.innerHTML = '';
+    const body = data.folder_name ? { folder_name: data.folder_name }
+               : { resume: data.resume, target: data.target };
+    try {
+      const r = await api('/review', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+      out.innerHTML = renderReview(r, data.folder_name);
+      wireApplyRewrite(out, data);
+      loadUsage();
+    } catch (e) {
+      out.innerHTML = `<div class="qa dirty">${esc(e.message)}</div>`;
+    } finally { btn.disabled = false; btn.textContent = label; }
+  };
+}
+// Wire every "Apply rewrite" button (résumé and/or cover letter) in the review panel.
+function wireApplyRewrite(out, data) {
+  out.querySelectorAll('[data-act="hr-apply"]').forEach(ab => {
+    const kind = ab.dataset.kind || 'resume';
+    if (!data.folder_name) {  // inline review (not a saved run) — nothing to re-render
+      ab.disabled = true; ab.title = 'Generate/save this application first to apply a rewrite.';
+      return;
+    }
+    ab.onclick = async () => {
+      const lbl = ab.textContent; ab.disabled = true; ab.innerHTML = '<span class="spinner"></span> Applying…';
+      try {
+        const res = await api('/review/apply', { method: 'POST', headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({ folder_name: data.folder_name, kind }) });
+        if (res.resume) data.resume = res.resume;            // reflect in the live preview
+        if (res.cover_letter) data.cover_letter = res.cover_letter;
+        ab.textContent = '✓ Applied · DOCX/PDF re-rendered';
+        toast(`Rewrite applied. Originals backed up in ${res.backup}.`);
+      } catch (e) {
+        ab.disabled = false; ab.textContent = lbl; toast('Apply failed: ' + e.message, true);
+      }
+    };
+  });
+}
+function scoreColor(n) { n = Number(n)||0; return n>=75 ? '#1a9e5f' : n>=50 ? '#b8860b' : '#d94646'; }
+// The full review panel: a critique card for the résumé, one for the cover letter,
+// and a deterministic page-validation card.
+function renderReview(r, folderName) {
+  if (!r) return '';
+  const resumeCard = reviewCard(r, {
+    title: '📃 Résumé', label: 'résumé', kind: 'resume', folderName,
+    recommended: r.rewrite_recommended, rewrite: r.rewrite, changes: r.rewrite_changes,
+    qaViol: r.rewrite_qa_has_violations, error: r.rewrite_error,
+  });
+  let coverCard = '';
+  if (r.cover_review) {
+    coverCard = reviewCard(r.cover_review, {
+      title: '✉️ Cover letter', label: 'cover letter', kind: 'cover', folderName,
+      recommended: r.cover_review.rewrite_recommended, rewrite: r.cover_rewrite,
+      changes: r.cover_rewrite_changes, error: r.cover_review_error,
+      qaViol: !!(r.cover_rewrite_qa && r.cover_rewrite_qa.claims_stripped),
+    });
+  } else if (r.cover_review_error) {
+    coverCard = `<div class="hr-card"><div class="hr-h crit">✉️ Cover letter review failed</div><div class="muted">${esc(r.cover_review_error)}</div></div>`;
+  }
+  return resumeCard + coverCard + pagesCard(r.pages);
+}
+// One critique card (shared by résumé + cover letter). `rev` is a ResumeReview dump;
+// `opts` carries the title and this artifact's rewrite payload + apply kind.
+function reviewCard(rev, opts) {
+  if (!rev) return '';
+  opts = opts || {};
+  const list = (title, items, cls) => (items && items.length)
+    ? `<div class="hr-sec"><div class="hr-h ${cls||''}">${title}</div><ul>${items.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div>` : '';
+  const chips = items => (items && items.length)
+    ? items.map(k=>`<span class="rp-chip">${esc(k)}</span>`).join(' ') : '<span class="muted">none</span>';
+  return `<div class="hr-card">
+    ${opts.title ? `<div class="hr-h" style="font-size:13px;margin-bottom:8px">${opts.title}</div>` : ''}
+    <div class="hr-scores">
+      <div class="hr-score"><div class="hr-num" style="color:${scoreColor(rev.overall_score)}">${rev.overall_score|0}</div><div class="hr-lbl">overall</div></div>
+      <div class="hr-score"><div class="hr-num" style="color:${scoreColor(rev.jd_match_score)}">${rev.jd_match_score|0}</div><div class="hr-lbl">JD match</div></div>
+      <div class="hr-verdict">${esc(rev.verdict||'')}</div>
+    </div>
+    ${list('✅ Strengths', rev.strengths)}
+    ${list('⚠️ Weaknesses', rev.weaknesses)}
+    <div class="hr-sec"><div class="hr-h">🔑 Missing keywords</div><div style="display:flex;gap:6px;flex-wrap:wrap">${chips(rev.missing_keywords)}</div></div>
+    ${list('💡 Suggestions', rev.suggestions)}
+    ${list('🚩 Risk flags — verify before sending', rev.risk_flags, 'crit')}
+    ${rewriteSection(opts)}
+  </div>`;
+}
+// Hermes-proposed rewrite for one artifact (only when it judged one necessary).
+// Truth-guarded server-side; applying re-renders the DOCX/PDF and backs up originals.
+function rewriteSection(o) {
+  if (o.error) return `<div class="hr-sec"><div class="hr-h crit">✍️ Rewrite failed</div><div class="muted">${esc(o.error)}</div></div>`;
+  if (!o.recommended) return '';
+  if (!o.rewrite) return `<div class="hr-sec"><div class="hr-h">✍️ Rewrite</div><div class="muted">Hermes suggested a rewrite but none was produced.</div></div>`;
+  const changes = (o.changes && o.changes.length)
+    ? `<ul>${o.changes.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`
+    : '<div class="muted">Presentation tweaks only.</div>';
+  const scrub = o.qaViol
+    ? '<div class="muted" style="margin-top:6px">⚠️ The truth-guard removed unsupported claims the rewrite introduced — facts preserved.</div>' : '';
+  const hint = o.folderName ? '' : '<div class="muted" style="margin-top:6px">Generate/save this application to enable Apply.</div>';
+  return `<div class="hr-sec" style="border-top:1px solid var(--line);padding-top:10px;margin-top:10px">
+    <div class="hr-h">✍️ Hermes ${esc(o.label||'')} rewrite — truth-guarded, facts unchanged</div>
+    ${changes}${scrub}
+    <button class="btn primary sm" data-act="hr-apply" data-kind="${esc(o.kind)}" style="margin-top:10px">⬆ Apply rewrite (re-render DOCX/PDF)</button>
+    <span class="muted" style="font-size:12px;margin-left:8px">Backs up the originals first.</span>${hint}
+  </div>`;
+}
+// Deterministic page validation: count vs limit + physical Letter/A4 size.
+function pagesCard(pages) {
+  if (!pages) return '';
+  const row = (p) => {
+    if (!p || !p.available) return '';
+    const cIcon = p.pages_ok ? '✅' : '⚠️', sIcon = p.size_ok ? '✅' : '⚠️';
+    return `<div class="hr-sec" style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">
+      <b>${esc(p.label)}</b>
+      <span>${cIcon} ${p.pages}/${p.limit} page${p.limit>1?'s':''}${p.pages_ok?'':' — too long, tighten it'}</span>
+      <span>${sIcon} ${esc(p.page_size)}${p.size_ok?'':` (expected ${esc(p.expected_size)})`}</span>
+    </div>`;
+  };
+  const rows = row(pages.resume) + row(pages.cover_letter);
+  if (!rows) return '';
+  return `<div class="hr-card"><div class="hr-h" style="font-size:13px;margin-bottom:6px">📄 Page validation</div>${rows}</div>`;
 }
 
 /* ---------- Generate ---------- */
@@ -1239,40 +1425,92 @@ function qaRenderAnswers(answers) {
 }
 
 /* ---------- Repeatable roles ---------- */
-let rpRoles = [];
+let rpRoles = [], rpFacets = { sectors: [], statuses: [], tags: [] };
+const RP_STATUSES = ['tracked', 'applied', 'interview', 'offer', 'closed'];
 async function loadRepeatable() {
   const box = $('rp-list');
   box.innerHTML = '<div class="empty"><span class="spinner dark"></span></div>';
   try {
-    const { roles } = await api('/repeatable');
-    rpRoles = roles || [];
+    const r = await api('/repeatable');
+    rpRoles = r.roles || [];
+    rpFacets = { sectors: r.sectors || [], statuses: r.statuses || [], tags: r.tags || [] };
+    rpFillFilters();
     rpRender();
   } catch (e) { box.innerHTML = `<div class="qa dirty">${esc(e.message)}</div>`; }
 }
+function rpFillFilters() {
+  const keep = (sel) => sel.value;
+  const fill = (sel, vals, all) => {
+    const cur = keep(sel);
+    sel.innerHTML = `<option value="">${all}</option>` + vals.map(v => `<option>${esc(v)}</option>`).join('');
+    if ([...sel.options].some(o => o.value === cur)) sel.value = cur;
+  };
+  fill($('rp-fsector'), rpFacets.sectors, 'All sectors');
+  fill($('rp-fstatus'), rpFacets.statuses.length ? rpFacets.statuses : RP_STATUSES, 'All statuses');
+  fill($('rp-ftag'), rpFacets.tags, 'All tags');
+}
+function rpFiltered() {
+  const q = ($('rp-q').value || '').toLowerCase().trim();
+  const fs = $('rp-fsector').value, fst = $('rp-fstatus').value, ft = $('rp-ftag').value;
+  return rpRoles.filter(r => {
+    if (fs && r.sector !== fs) return false;
+    if (fst && (r.status || 'tracked') !== fst) return false;
+    if (ft && !(r.tags || []).includes(ft)) return false;
+    if (q) {
+      const hay = `${r.company} ${r.title} ${r.location} ${r.job_id} ${(r.tags||[]).join(' ')}`.toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+}
+const RP_STATUS_COLORS = { tracked:'#7e8ba3', applied:'#2d7ff9', interview:'#b8860b', offer:'#1a9e5f', closed:'#9aa3b2' };
 function rpRender() {
   const box = $('rp-list');
   if (!rpRoles.length) {
+    $('rp-count').textContent = '';
     box.innerHTML = `<div class="empty"><div class="big">🔁</div>No repeatable roles yet. In <b>Jobs</b>, click the 🔁 on a job you reapply to often, or paste a job email above.</div>`;
     return;
   }
-  box.innerHTML = rpRoles.map((r, i) => {
+  const rows = rpFiltered();
+  $('rp-count').textContent = `${rows.length} of ${rpRoles.length}`;
+  if (!rows.length) { box.innerHTML = `<div class="empty">No roles match these filters.</div>`; return; }
+  box.innerHTML = rows.map((r) => {
+    const i = rpRoles.indexOf(r);
     const applied = r.times_applied ? `applied ${r.times_applied}×${r.last_applied ? ' · last ' + esc(r.last_applied) : ''}` : 'never generated yet';
     const jd = (r.description || '').trim();
+    const st = r.status || 'tracked';
+    const chips = [
+      `<span class="rp-chip" style="background:${RP_STATUS_COLORS[st]||'#7e8ba3'}1a;color:${RP_STATUS_COLORS[st]||'#7e8ba3'}">${esc(st)}</span>`,
+      r.sector ? `<span class="rp-chip">${esc(r.sector)}</span>` : '',
+      r.job_id ? `<span class="rp-chip" title="Source job ID">#${esc(r.job_id)}</span>` : '',
+      ...(r.tags || []).map(t => `<span class="rp-chip">🏷 ${esc(t)}</span>`),
+    ].join('');
     return `<div class="card rp-card" data-i="${i}" style="margin-bottom:12px">
       <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap">
         <div style="min-width:0">
           <div style="font-weight:700;font-size:15px">${esc(r.title || 'Untitled')}${r.priority ? ' ⭐' : ''}</div>
           <div class="muted" style="font-size:13px">${esc(r.company || '')}${r.location ? ' · ' + esc(r.location) : ''} · <span style="color:var(--accent)">${applied}</span></div>
+          <div class="rp-chips" style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">${chips}</div>
         </div>
         <div class="jl-rowbtns">
           ${r.last_folder_name ? `<button class="btn ghost sm" data-rpa="open" data-i="${i}" title="Open the last generated docs">📂 Last docs</button>` : ''}
           ${r.apply_url ? `<a class="btn subtle sm" href="${esc(r.apply_url)}" target="_blank" rel="noreferrer">Open ↗</a>` : ''}
-          <button class="btn subtle sm" data-rpa="edit" data-i="${i}">✎ Edit JD</button>
+          <button class="btn subtle sm" data-rpa="edit" data-i="${i}">✎ Edit</button>
           <button class="btn primary sm" data-rpa="gen" data-i="${i}">⟳ Regenerate</button>
           <button class="btn danger sm" data-rpa="del" data-i="${i}" title="Stop tracking this role">🗑</button>
         </div>
       </div>
-      <details style="margin-top:10px"${jd ? '' : ' open'}>
+      <details style="margin-top:10px">
+        <summary style="cursor:pointer;font-size:13px;color:var(--muted)">Tracking & tags</summary>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;align-items:flex-end">
+          <label style="font-size:12px;color:var(--muted)">Status<br><select class="rp-status side-select" data-i="${i}" style="width:auto">${RP_STATUSES.map(s => `<option${s===st?' selected':''}>${s}</option>`).join('')}</select></label>
+          <label style="font-size:12px;color:var(--muted)">Sector<br><input class="rp-sector" data-i="${i}" value="${esc(r.sector||'')}" placeholder="Banking…" style="width:140px" /></label>
+          <label style="font-size:12px;color:var(--muted)">Job ID<br><input class="rp-jobid" data-i="${i}" value="${esc(r.job_id||'')}" placeholder="source id" style="width:140px" /></label>
+          <label style="font-size:12px;color:var(--muted);flex:1;min-width:160px">Tags (comma-separated)<br><input class="rp-tags" data-i="${i}" value="${esc((r.tags||[]).join(', '))}" placeholder="remote, referral, urgent" style="width:100%" /></label>
+          <button class="btn ghost sm" data-rpa="savemeta" data-i="${i}">Save</button>
+        </div>
+      </details>
+      <details style="margin-top:8px"${jd ? '' : ' open'}>
         <summary style="cursor:pointer;font-size:13px;color:var(--muted)">Job description (${jd ? jd.length + ' chars' : 'empty — add one'})</summary>
         <textarea class="rp-jd" data-i="${i}" style="min-height:120px;margin-top:8px" placeholder="Paste the latest job description here…">${esc(jd)}</textarea>
         <div style="margin-top:6px"><button class="btn ghost sm" data-rpa="save" data-i="${i}">Save JD</button></div>
@@ -1282,11 +1520,26 @@ function rpRender() {
   }).join('');
   box.querySelectorAll('[data-rpa="gen"]').forEach(b => b.onclick = () => rpGenerate(rpRoles[+b.dataset.i], b));
   box.querySelectorAll('[data-rpa="save"]').forEach(b => b.onclick = () => rpSaveJd(rpRoles[+b.dataset.i], b));
+  box.querySelectorAll('[data-rpa="savemeta"]').forEach(b => b.onclick = () => rpSaveMeta(rpRoles[+b.dataset.i], b));
   box.querySelectorAll('[data-rpa="edit"]').forEach(b => b.onclick = () => {
-    const d = b.closest('.rp-card').querySelector('details'); if (d) { d.open = true; d.querySelector('textarea')?.focus(); }
+    b.closest('.rp-card').querySelectorAll('details').forEach(d => d.open = true);
   });
   box.querySelectorAll('[data-rpa="open"]').forEach(b => b.onclick = () => openLibrary(rpRoles[+b.dataset.i].last_folder_name));
   box.querySelectorAll('[data-rpa="del"]').forEach(b => b.onclick = () => rpDelete(rpRoles[+b.dataset.i], b));
+}
+async function rpSaveMeta(role, btn) {
+  const i = rpRoles.indexOf(role), box = $('rp-list');
+  const status = box.querySelector(`.rp-status[data-i="${i}"]`)?.value || 'tracked';
+  const sector = box.querySelector(`.rp-sector[data-i="${i}"]`)?.value.trim() || '';
+  const job_id = box.querySelector(`.rp-jobid[data-i="${i}"]`)?.value.trim() || '';
+  const tags = box.querySelector(`.rp-tags[data-i="${i}"]`)?.value || '';
+  btn.disabled = true;
+  try {
+    await api(`/repeatable/${enc(role.key)}/update`, { method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ status, sector, job_id, tags }) });
+    Object.assign(role, { status, sector, job_id, tags: tags.split(',').map(s=>s.trim()).filter(Boolean) });
+    toast('Saved.'); loadRepeatable();
+  } catch (e) { toast('Save failed: ' + e.message, true); } finally { btn.disabled = false; }
 }
 async function rpSaveJd(role, btn) {
   const ta = $('rp-list').querySelector(`textarea.rp-jd[data-i="${rpRoles.indexOf(role)}"]`);
@@ -1301,7 +1554,7 @@ async function rpGenerate(role, btn) {
   const out = $('rp-list').querySelector(`.rp-out[data-i="${rpRoles.indexOf(role)}"]`);
   const model = resolveModel(!!role.priority);
   const label = btn.textContent; btn.disabled = true;
-  btn.innerHTML = '<span class="spinner"></span>' + ((model||'').startsWith('claude') ? ' ☁' : '');
+  btn.innerHTML = '<span class="spinner"></span>' + (usesHermes(model) ? ' 🤖' : '');
   out.innerHTML = '<div class="empty" style="padding:18px"><span class="spinner dark"></span><div style="margin-top:8px">Regenerating a fresh tuned copy…</div></div>';
   try {
     const res = await api(`/repeatable/${enc(role.key)}/generate`, { method: 'POST', headers: {'Content-Type':'application/json'},
@@ -1324,6 +1577,8 @@ async function rpDelete(role, btn) {
   catch (e) { toast('Delete failed: ' + e.message, true); btn.disabled = false; }
 }
 $('rp-refresh').onclick = () => loadRepeatable();
+['rp-fsector', 'rp-fstatus', 'rp-ftag'].forEach(id => $(id).onchange = rpRender);
+$('rp-q').oninput = rpRender;
 $('rp-email-go').onclick = async () => {
   const text = $('rp-email-text').value.trim();
   if (!text) { toast('Paste an email first.', true); return; }
@@ -1575,7 +1830,7 @@ function renderJobs() {
     const canSelect = j.id && !j.gen;
     return `<tr>
       <td class="jl-ck">${canSelect ? `<input type="checkbox" class="jl-rowck" data-k="${esc(j.id)}" ${jl.sel.has(j.id)?'checked':''}>` : ''}</td>
-      <td>${j.id?`<span class="jl-star ${j.priority?'on':''}" data-act="star" data-i="${i}" title="${j.priority?'Priority (Auto → Claude)':'Mark priority'}" style="cursor:pointer">${j.priority?'⭐':'☆'}</span> `:''}<span class="t" data-act="detail" data-i="${i}" style="cursor:pointer" title="View details">${esc(j.title)}</span>${j.id?`<span class="jl-emailbtn ${j.email?'on':''}" data-act="email" data-i="${i}" title="${j.email?'Email: '+esc(j.email)+' — click to edit':'Add an HR email (for the n8n email path)'}" style="cursor:pointer">${j.email?'📧':'✉️'}</span><span data-act="repeatable" data-i="${i}" title="${j.repeatable?'Repeatable role — saved. Click to remove':'Mark as a repeatable role (reapply often)'}" style="cursor:pointer;margin-left:4px;opacity:${j.repeatable?1:.3}">🔁</span>`:''}</td>
+      <td>${j.id?`<span class="jl-star ${j.priority?'on':''}" data-act="star" data-i="${i}" title="${j.priority?'Priority (Auto → Hermes)':'Mark priority'}" style="cursor:pointer">${j.priority?'⭐':'☆'}</span> `:''}<span class="t" data-act="detail" data-i="${i}" style="cursor:pointer" title="View details">${esc(j.title)}</span>${j.id?`<span class="jl-emailbtn ${j.email?'on':''}" data-act="email" data-i="${i}" title="${j.email?'Email: '+esc(j.email)+' — click to edit':'Add an HR email (for the n8n email path)'}" style="cursor:pointer">${j.email?'📧':'✉️'}</span><span data-act="repeatable" data-i="${i}" title="${j.repeatable?'Repeatable role — saved. Click to remove':'Mark as a repeatable role (reapply often)'}" style="cursor:pointer;margin-left:4px;opacity:${j.repeatable?1:.3}">🔁</span>`:''}</td>
       <td class="muted">${esc(j.company)}${j.repeat?` <span class="jl-rep" title="Repeat company — saved details reused">🔁</span>`:''}</td>
       <td class="muted">${esc(j.location)}</td>
       <td><span class="jl-src">${esc(j.source || '—')}</span></td>
@@ -1702,14 +1957,14 @@ function syncBulkBtn() {
 async function genJob(job, btn) {
   const label = btn.textContent; btn.disabled = true; btn.textContent = '⏳';
   const model = resolveModel(!!job.priority);
-  const viaClaude = (model || '').startsWith('claude');
-  if (viaClaude) btn.textContent = '⏳☁';
+  const viaHermes = usesHermes(model);
+  if (viaHermes) btn.textContent = '⏳🤖';
   try {
     const result = await api(`/jobs/${job.id}/generate`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ persona: activePersona(), strict: true, pdf: true, model }),
     });
-    toast(`Generated${viaClaude ? ' · Claude' : ''}${result.persona_label ? ' · ' + result.persona_label : ''}.`);
+    toast(`Generated${viaHermes ? ' · Hermes' : ''}${result.persona_label ? ' · ' + result.persona_label : ''}.`);
     openModalFor(result); loadJobs(); loadLibrary(); renderScrapedJobs(); loadUsage();
   } catch (e) {
     toast('Generation failed: ' + e.message, true); btn.disabled = false; btn.textContent = label;
@@ -1740,7 +1995,7 @@ $('jl-bulk').onclick = async () => {
   let ok = 0, fail = 0;
   for (let i = 0; i < keys.length; i++) {
     const model = resolveModel(!!(byId[keys[i]] || {}).priority);
-    btn.textContent = `⏳ Generating ${i+1}/${keys.length}${(model||'').startsWith('claude')?' ☁':''}…`;
+    btn.textContent = `⏳ Generating ${i+1}/${keys.length}${usesHermes(model)?' 🤖':''}…`;
     try {
       await api(`/jobs/${keys[i]}/generate`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -1756,24 +2011,24 @@ $('jl-bulk').onclick = async () => {
 /* Jobs: refresh the list */
 $('jl-refresh').onclick = () => loadJobs();
 
-/* Claude Scraping: Claude searches the web for jobs and queues them */
+/* Hermes Scraping: the Hermes agent searches the web for jobs and queues them */
 $('cs-go').onclick = async (e) => {
   const role = $('cs-role').value.trim();
   if (!role) { toast('Enter a role / keywords.', true); return; }
   const btn = e.currentTarget, label = btn.textContent;
-  btn.disabled = true; btn.textContent = '🔎☁ Claude is searching…';
+  btn.disabled = true; btn.textContent = '🔎🤖 Hermes is searching…';
   const box = $('cs-results'); box.innerHTML = '<span class="spinner dark"></span> Searching the web…';
   try {
-    const res = await api('/scrape/claude', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    const res = await api('/scrape/hermes', { method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ role, location: $('cs-loc').value.trim(), limit: Number($('cs-limit').value) || 15 }) });
-    toast(`Claude found ${res.found}, queued ${res.queued} new.`);
+    toast(`Hermes found ${res.found}, queued ${res.queued} new.`);
     box.innerHTML = (res.new_jobs && res.new_jobs.length)
       ? res.new_jobs.map(j => `<div class="src-row"><span style="flex:1">${esc(j.title)}</span><span class="muted">${esc(j.company)}${j.location?' · '+esc(j.location):''}</span></div>`).join('')
       : '<div class="muted">No new jobs (already in your queue, or none found). Try different keywords.</div>';
     loadJobs(); loadUsage();
   } catch (err) {
     box.innerHTML = `<div class="qa dirty">${esc(err.message)}</div>`;
-    toast('Claude scraping failed: ' + err.message, true);
+    toast('Hermes scraping failed: ' + err.message, true);
   } finally { btn.disabled = false; btn.textContent = label; }
 };
 
@@ -1878,9 +2133,15 @@ async function renderSetup() {
          <span class="muted">${f.canada_only ? 'Canada only · ' : ''}${(f.title_keywords||[]).length} title keyword(s)${f.require_email?' · email required':''}</span></div>` +
       sec('Repeat companies <span style="color:var(--faint);font-weight:500;text-transform:none">— data/repeat_companies.json</span>') +
       `<div>${repeats}</div>` +
-      sec('Saved company details') + saved +
-      sec('Apply profile <span style="color:var(--faint);font-weight:500;text-transform:none">— data/apply_profile.json · click any field to copy</span>') +
-      `<div>${pfChips(p)}</div>`;
+      sec('Saved company details') + saved;
+
+    // Apply profile lives in its own card/section (see #sk-applyprofile).
+    const apPanel = $('sk-applyprofile');
+    if (apPanel) {
+      apPanel.innerHTML = pfChips(p);
+      apPanel.querySelectorAll('.pf-copy').forEach(b =>
+        b.onclick = () => copyVal(b.dataset.copy, b.dataset.label));
+    }
 
     panel.querySelectorAll('[data-rmsrc]').forEach(b => b.onclick = async () => {
       if (!confirm('Remove this source?')) return;
@@ -1895,8 +2156,6 @@ async function renderSetup() {
         (t === 'greenhouse' || t === 'lever') ? 'Company token (e.g. gitlab)' :
         t === 'rss' ? 'RSS feed URL' : 'Page / Workday URL';
     };
-    panel.querySelectorAll('.pf-copy').forEach(b =>
-      b.onclick = () => copyVal(b.dataset.copy, b.dataset.label));
     $('add-src-type').onchange = syncAddForm; syncAddForm();
     $('add-src-btn').onclick = async () => {
       const type = $('add-src-type').value, val = $('add-src-val').value.trim();

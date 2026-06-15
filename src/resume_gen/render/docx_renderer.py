@@ -14,6 +14,7 @@ from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
 from docx.shared import Pt, RGBColor
 
+from ..config import settings
 from ..models import CoverLetter, Resume
 
 ACCENT = RGBColor(0x1F, 0x4E, 0x79)  # deep blue, like the samples
@@ -78,11 +79,18 @@ def _base_styles(doc: Document) -> None:
     pf.line_spacing = 1.12
     pf.widow_control = True  # no single orphaned line across a page break
 
-    # 0.75" margins: comfortable, ATS-safe, and lets content breathe over two pages.
-    from docx.shared import Inches
+    # Explicit page size so output is deterministic and validatable (Letter | A4).
+    from docx.shared import Inches, Mm
 
+    sec = doc.sections[0]
+    if (settings.page_size or "letter").lower() == "a4":
+        sec.page_width, sec.page_height = Mm(210), Mm(297)
+    else:
+        sec.page_width, sec.page_height = Inches(8.5), Inches(11)
+
+    # 0.75" margins: comfortable, ATS-safe, and lets content breathe over two pages.
     for m in ("top_margin", "bottom_margin", "left_margin", "right_margin"):
-        setattr(doc.sections[0], m, Inches(0.75))
+        setattr(sec, m, Inches(0.75))
 
 
 def _bottom_border(paragraph) -> None:

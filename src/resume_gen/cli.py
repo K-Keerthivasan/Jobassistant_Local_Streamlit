@@ -67,7 +67,8 @@ def generate(
     location: str = typer.Option("", help="Job location."),
     pdf: bool = typer.Option(True, "--pdf/--no-pdf", help="Also export PDFs."),
     strict: bool = typer.Option(False, "--strict", help="Strip fabricated metrics, not just flag them."),
-    model: str = typer.Option(None, "--model", help="Override OLLAMA_MODEL for this run."),
+    model: str = typer.Option(None, "--model", help="Engine for this run: a model id, "
+                              "or 'split' (résumé on Ollama, cover letter + email on Hermes)."),
 ):
     """Generate resume + cover letter + email for one target role."""
     if job:
@@ -80,11 +81,10 @@ def generate(
             raise typer.BadParameter("Provide a job description via --jd or --jd-file.")
         target = TargetRole(company=company, title=title, description=description, location=location)
 
-    if model:
-        settings.ollama_model = model
+    engine = model or settings.ollama_model
     console.print(f"Generating for [bold]{target.title}[/] @ [bold]{target.company}[/] "
-                  f"using [cyan]{settings.ollama_model}[/] …")
-    result = run(target, make_pdf=pdf, strict=strict)
+                  f"using [cyan]{engine}[/] …")
+    result = run(target, make_pdf=pdf, strict=strict, model=model)
 
     console.print(f"\n[green]Done.[/] Output: [bold]{result['folder']}[/]")
     for k, v in result["paths"].items():

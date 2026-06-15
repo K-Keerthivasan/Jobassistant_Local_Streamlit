@@ -66,7 +66,7 @@ def load_sources(path: Path | None = None) -> dict:
 
 # Sources you curate by hand — you already chose these, so don't keyword/location
 # filter them out of your own queue.
-_CURATED_SOURCES = {"collector", "manual", "csv", "claude"}
+_CURATED_SOURCES = {"collector", "manual", "csv", "hermes"}
 
 
 def _keep(job: JobPosting, keywords: list[str], require_email: bool,

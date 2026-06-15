@@ -1,17 +1,34 @@
 {
+  "sectors": {
+    "Banking": ["TD", "RBC", "Scotiabank", "CIBC", "BMO"],
+    "Telecom": ["Rogers", "Bell", "TELUS"],
+    "Retail": ["Walmart", "Loblaw", "Shoppers Drug Mart", "Canadian Tire", "Best Buy"],
+    "Insurance": ["Manulife", "Sun Life", "Intact", "Canada Life"],
+    "Logistics": ["Amazon", "Purolator", "Canada Post", "FedEx"],
+    "Tech": ["Shopify"]
+  },
   "companies": [
     "TD",
     "RBC",
-    "CIBC",
     "Scotiabank",
+    "CIBC",
     "BMO",
-    "Walmart",
-    "Best Buy",
-    "Bell",
     "Rogers",
-    "Telus",
-    "Shopify",
+    "Bell",
+    "TELUS",
+    "Walmart",
     "Loblaw",
-    "Canadian Tire"
+    "Shoppers Drug Mart",
+    "Canadian Tire",
+    "Best Buy",
+    "Manulife",
+    "Sun Life",
+    "Intact",
+    "Canada Life",
+    "Amazon",
+    "Purolator",
+    "Canada Post",
+    "FedEx",
+    "Shopify"
   ]
 }

@@ -61,6 +61,5 @@ facts.
 - [`docs/personas.md`](docs/personas.md) — role personas and how selection works
 - [`docs/auto-apply.md`](docs/auto-apply.md) — semi-auto apply (email → n8n, Playwright portal autofill)
 - [`docs/repeatable.md`](docs/repeatable.md) — repeatable roles (reapply templates) + email-alert intake
-- [`docs/claude-bulk-jobs-prompt.md`](docs/claude-bulk-jobs-prompt.md) — Claude.ai + Indeed/LinkedIn connector → bulk jobs CSV to import
 - [`docs/api.md`](docs/api.md) — HTTP API reference (for n8n and other devices)
 - [`docs/CHANGELOG.md`](docs/CHANGELOG.md) — updates & patches

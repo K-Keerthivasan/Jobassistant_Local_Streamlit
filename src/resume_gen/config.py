@@ -36,9 +36,21 @@ class Settings:
     ollama_model: str = os.getenv("OLLAMA_MODEL", "qwen3:8b")
     ollama_temperature: float = float(os.getenv("OLLAMA_TEMPERATURE", "0.2"))
 
-    # Max seconds any single AI request (Ollama or Claude) may run before it is
+    # Hermes (local agent) — the secondary engine, via its OpenAI-compatible
+    # gateway. HERMES_API_KEY is the gateway's API_SERVER_KEY; the engine is only
+    # offered when it's set. In Docker, point HERMES_BASE_URL at host.docker.internal.
+    hermes_base_url: str = os.getenv("HERMES_BASE_URL", "http://localhost:8642/v1")
+    hermes_api_key: str = os.getenv("HERMES_API_KEY", os.getenv("API_SERVER_KEY", ""))
+    hermes_model: str = os.getenv("HERMES_MODEL", "hermes-agent")
+
+    # Max seconds any single AI request (Ollama or Hermes) may run before it is
     # aborted with a clean error. Local models on CPU can be slow — keep generous.
     llm_timeout: float = float(os.getenv("LLM_TIMEOUT", "300"))
+
+    # Hermes-led QA: a semantic truthfulness pass over the generated résumé BEFORE the
+    # deterministic truth-guard (which always runs last as the hard backstop). Only runs
+    # when Hermes is available; set HERMES_QA=0 to disable and use the guard alone.
+    hermes_qa: bool = os.getenv("HERMES_QA", "1").strip().lower() not in ("0", "false", "no", "off")
 
     # Paths
     profile_path: Path = field(
@@ -55,6 +67,11 @@ class Settings:
     # PDF export
     pdf_engine: str = os.getenv("PDF_ENGINE", "auto")  # auto | docx2pdf | libreoffice
     libreoffice_bin: str = os.getenv("LIBREOFFICE_BIN", "soffice")
+
+    # Page validation: physical page size + max page count per document.
+    page_size: str = os.getenv("PAGE_SIZE", "letter").lower()  # letter | a4
+    resume_max_pages: int = int(os.getenv("RESUME_MAX_PAGES", "2"))
+    cover_max_pages: int = int(os.getenv("COVER_MAX_PAGES", "1"))
 
     # API
     api_host: str = os.getenv("API_HOST", "0.0.0.0")

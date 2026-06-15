@@ -21,8 +21,13 @@ services:
       PDF_ENGINE: libreoffice
       # Apify token for scraper sources (set APIFY_TOKEN in your .env).
       APIFY_TOKEN: ${APIFY_TOKEN:-}
-      # Claude cloud generation engine (set ANTHROPIC_API_KEY in your .env to enable).
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      # Hermes agent engine (host-installed). Reached via the host-gateway alias —
+      # hardcoded here (NOT ${HERMES_BASE_URL}) so the host .env's localhost value
+      # can't leak into the container, which must use host.docker.internal.
+      # The Hermes gateway must bind 0.0.0.0 (API_SERVER_HOST=0.0.0.0) to be reachable.
+      HERMES_BASE_URL: http://host.docker.internal:8642/v1
+      HERMES_API_KEY: ${HERMES_API_KEY:-}
+      HERMES_MODEL: ${HERMES_MODEL:-hermes-agent}
       # n8n webhook for the email-apply path (set N8N_WEBHOOK_URL in your .env).
       N8N_WEBHOOK_URL: ${N8N_WEBHOOK_URL:-}
     extra_hosts:

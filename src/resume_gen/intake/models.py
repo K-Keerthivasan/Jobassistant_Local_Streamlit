@@ -49,7 +49,7 @@ class QueuedJob(JobPosting):
     key_id: str = ""
     status: str = "new"       # new | generated | approved | sent | applied | skipped
     applied: bool = False     # marked applied (independent of generation status)
-    priority: bool = False    # ⭐ high-value job — generate with Claude in Auto mode
+    priority: bool = False    # ⭐ high-value job — generate with Hermes in Auto mode
     repeatable: bool = False  # 🔁 saved as a recurring-role template (reapply often)
     found_at: str = ""
     notes: str = Field(default="")
