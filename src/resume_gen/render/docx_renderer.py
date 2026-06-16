@@ -37,6 +37,32 @@ SKILL_GROUP_LABELS = {
 }
 
 
+def typo(k: float = 1.0) -> dict:
+    """Typography for the résumé at density ``k`` (1.0 == the original fixed
+    styling, so callers that don't scale are byte-identical). Higher k → larger
+    body font, looser line spacing, more section spacing, and wider margins, all
+    of which make the SAME real content occupy more vertical space. The auto-fit
+    search (render/autofit.py) picks the k that fills close to two pages."""
+    c = lambda v, lo, hi: max(lo, min(hi, v))   # clamp
+    # Font grows only gently (a 14pt résumé looks amateur); line spacing, paragraph
+    # spacing and margins carry most of the vertical expansion.
+    return {
+        "body": round(c(11.0 * (1 + (k - 1) * 0.45), 9.5, 12.5), 2),
+        "line": round(c(1.12 + (k - 1) * 0.85, 1.0, 1.5), 3),
+        "after": round(c(3.0 + (k - 1) * 12, 1.5, 9), 2),
+        "margin_in": round(c(0.75 + (k - 1) * 0.6, 0.6, 1.0), 3),
+        "heading_size": round(c(11.5 * (1 + (k - 1) * 0.4), 10.5, 13.5), 2),
+        "head_before": round(c(12.0 + (k - 1) * 14, 8, 22), 2),
+        "head_after": round(c(4.0 + (k - 1) * 5, 2, 9), 2),
+        "bullet_after": round(c(3.0 + (k - 1) * 10, 1.5, 9), 2),
+        "bullet_line": round(c(1.1 + (k - 1) * 0.85, 1.0, 1.45), 3),
+        "exp_before": round(c(7.0 + (k - 1) * 10, 4, 16), 2),
+        "skills_size": round(c(10.5 * (1 + (k - 1) * 0.4), 9.5, 12.0), 2),
+        "skills_after": round(c(2.0 + (k - 1) * 8, 1, 8), 2),
+        "small_size": round(c(10.0 * (1 + (k - 1) * 0.4), 9.0, 11.5), 2),  # dates, years
+    }
+
+
 def _group_skills(skills, profile):
     """Bucket the resume's flat skill list into the master-profile categories,
     preserving the resume's relevance order within each category. Returns a list
@@ -69,14 +95,15 @@ def _group_skills(skills, profile):
 # --------------------------------------------------------------------------- #
 # low-level helpers
 # --------------------------------------------------------------------------- #
-def _base_styles(doc: Document) -> None:
+def _base_styles(doc: Document, t: dict | None = None) -> None:
+    t = t or typo(1.0)
     style = doc.styles["Normal"]
     style.font.name = FONT
-    style.font.size = Pt(11)
+    style.font.size = Pt(t["body"])
     style.font.color.rgb = DARK
     pf = style.paragraph_format
-    pf.space_after = Pt(3)
-    pf.line_spacing = 1.12
+    pf.space_after = Pt(t["after"])
+    pf.line_spacing = t["line"]
     pf.widow_control = True  # no single orphaned line across a page break
 
     # Explicit page size so output is deterministic and validatable (Letter | A4).
@@ -88,9 +115,9 @@ def _base_styles(doc: Document) -> None:
     else:
         sec.page_width, sec.page_height = Inches(8.5), Inches(11)
 
-    # 0.75" margins: comfortable, ATS-safe, and lets content breathe over two pages.
+    # Margins (0.75" at density 1.0): comfortable, ATS-safe; widen to fill 2 pages.
     for m in ("top_margin", "bottom_margin", "left_margin", "right_margin"):
-        setattr(sec, m, Inches(0.75))
+        setattr(sec, m, Inches(t["margin_in"]))
 
 
 def _bottom_border(paragraph) -> None:
@@ -117,22 +144,24 @@ def _run(paragraph, text, *, bold=False, size=11, color=DARK, italic=False):
     return r
 
 
-def _heading(doc: Document, text: str):
+def _heading(doc: Document, text: str, t: dict | None = None):
+    t = t or typo(1.0)
     p = doc.add_paragraph()
-    p.paragraph_format.space_before = Pt(12)
-    p.paragraph_format.space_after = Pt(4)
+    p.paragraph_format.space_before = Pt(t["head_before"])
+    p.paragraph_format.space_after = Pt(t["head_after"])
     p.paragraph_format.keep_with_next = True  # heading never sits alone at page bottom
-    _run(p, text.upper(), bold=True, size=11.5, color=ACCENT)
+    _run(p, text.upper(), bold=True, size=t["heading_size"], color=ACCENT)
     _bottom_border(p)
     return p
 
 
-def _bullet(doc: Document, text: str):
+def _bullet(doc: Document, text: str, t: dict | None = None):
+    t = t or typo(1.0)
     p = doc.add_paragraph(style="List Bullet")
-    p.paragraph_format.space_after = Pt(3)
+    p.paragraph_format.space_after = Pt(t["bullet_after"])
     p.paragraph_format.left_indent = Pt(14)
-    p.paragraph_format.line_spacing = 1.1
-    _run(p, text)
+    p.paragraph_format.line_spacing = t["bullet_line"]
+    _run(p, text, size=t["body"])
     return p
 
 
@@ -172,66 +201,68 @@ def _header(doc: Document, full_name: str, contact, *, headline: str = "") -> No
 # --------------------------------------------------------------------------- #
 # public: resume
 # --------------------------------------------------------------------------- #
-def render_resume(resume: Resume, out_path: Path, profile: dict | None = None) -> Path:
+def render_resume(resume: Resume, out_path: Path, profile: dict | None = None,
+                  density: float = 1.0) -> Path:
+    t = typo(density)
     doc = Document()
-    _base_styles(doc)
+    _base_styles(doc, t)
     _header(doc, resume.fullName, resume.contact, headline=resume.headline)
 
     if resume.summary:
-        _heading(doc, "Professional Summary")
+        _heading(doc, "Professional Summary", t)
         p = doc.add_paragraph()
-        _run(p, resume.summary)
+        _run(p, resume.summary, size=t["body"])
 
     if resume.skills:
-        _heading(doc, "Skills")
+        _heading(doc, "Skills", t)
         grouped = _group_skills(resume.skills, profile)
         if len(grouped) > 1 or (grouped and grouped[0][0]):
             # Categorized: one line per group, bold label + skills.
             for label, items in grouped:
                 p = doc.add_paragraph()
-                p.paragraph_format.space_after = Pt(2)
-                _run(p, f"{label}: ", bold=True, size=10.5, color=ACCENT)
-                _run(p, "  •  ".join(items), size=10.5)
+                p.paragraph_format.space_after = Pt(t["skills_after"])
+                _run(p, f"{label}: ", bold=True, size=t["skills_size"], color=ACCENT)
+                _run(p, "  •  ".join(items), size=t["skills_size"])
         else:
             p = doc.add_paragraph()
-            _run(p, "  •  ".join(resume.skills))
+            _run(p, "  •  ".join(resume.skills), size=t["body"])
 
     if resume.experience:
-        _heading(doc, "Experience")
+        _heading(doc, "Experience", t)
         for e in resume.experience:
             head = doc.add_paragraph()
-            head.paragraph_format.space_before = Pt(7)
+            head.paragraph_format.space_before = Pt(t["exp_before"])
             head.paragraph_format.space_after = Pt(0)
             head.paragraph_format.keep_with_next = True
             _tab_right(head)
-            _run(head, e.role, bold=True, size=11)
+            _run(head, e.role, bold=True, size=t["body"])
             if e.company:
-                _run(head, f"  |  {e.company}", size=11)
+                _run(head, f"  |  {e.company}", size=t["body"])
             dates = f"{e.start} – {e.end}".strip(" –")
-            _run(head, f"\t{dates}", size=10, color=ACCENT)
+            _run(head, f"\t{dates}", size=t["small_size"], color=ACCENT)
             if e.location:
                 loc = doc.add_paragraph()
                 loc.paragraph_format.space_after = Pt(2)
                 loc.paragraph_format.keep_with_next = True
                 _run(loc, e.location, size=9.5, italic=True)
             for b in e.bullets:
-                _bullet(doc, b)
+                _bullet(doc, b, t)
 
     if resume.education:
-        _heading(doc, "Education")
+        _heading(doc, "Education", t)
         for ed in resume.education:
             p = doc.add_paragraph()
             p.paragraph_format.space_after = Pt(1)
             _tab_right(p)
-            _run(p, ed.credential, bold=True)
-            _run(p, f"  |  {ed.institution}")
+            _run(p, ed.credential, bold=True, size=t["body"])
+            _run(p, f"  |  {ed.institution}", size=t["body"])
             if ed.year:
-                _run(p, f"\t{ed.year}", size=10, color=ACCENT)
+                _run(p, f"\t{ed.year}", size=t["small_size"], color=ACCENT)
 
     if resume.certifications:
-        _heading(doc, "Certifications")
+        _heading(doc, "Certifications", t)
         for cert in resume.certifications:
-            _bullet(doc, cert)
+            _bullet(doc, cert, t)
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
     doc.save(str(out_path))

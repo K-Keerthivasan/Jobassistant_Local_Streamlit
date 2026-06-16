@@ -451,6 +451,7 @@
       <button data-view="repeatable"><span class="ic">🔁</span> Repeatable</button>
       <button data-view="qa"><span class="ic">💬</span> Q&amp;A</button>
       <button data-view="bulk"><span class="ic">⚡</span> Bulk Generate</button>
+      <button data-view="profile"><span class="ic">👤</span> Profile</button>
       <button data-view="library"><span class="ic">📚</span> Library</button>
     </nav>
     <div class="side-foot">
@@ -507,7 +508,7 @@
       <div class="sc-head">
         <div>
           <h1 class="page-h" style="margin:0">Repeatable roles</h1>
-          <p class="page-sub" style="margin:4px 0 0">Companies you reapply to (TD, RBC, Telus, Manulife, Purolator…), tracked as <b>Company · Title · Location · Job ID · Applied date · Status</b>. Each role keeps its latest JD plus a pre-saved resume — hit <b>Regenerate</b> for a freshly tuned copy, tweak, reapply. Filter by sector, status, or tag. Flag a job 🔁 in <b>Jobs</b> to add it here.</p>
+          <p class="page-sub" style="margin:4px 0 0">Companies you reapply to (TD, RBC, Telus, Manulife, Purolator…), tracked as <b>Company · Title · Location · Job ID · Applied date · Status</b>. Each role keeps its latest JD — update it anytime, then hit <b>Regenerate</b> for a freshly tuned copy. Use the <b>skills-to-emphasise</b> box to steer which (real) skills lead the résumé on each run, so it's never the same copy twice. Filter by sector, status, or tag. Flag a job 🔁 in <b>Jobs</b> to add it here.</p>
         </div>
         <div class="sc-actions">
           <button class="btn subtle sm" id="rp-refresh">↻ Refresh</button>
@@ -528,6 +529,9 @@
         </div>
         <div id="rp-email-result"></div>
       </div>
+
+      <div class="sec-title" style="margin:6px 0 8px">🔁 Repeat companies <span style="color:var(--faint);font-weight:500;text-transform:none">— click a company to filter the roles below (data/repeat_companies.json)</span></div>
+      <div class="card jl-sources" id="rp-companies" style="margin-bottom:12px"></div>
 
       <div class="card" id="rp-filters" style="margin-bottom:12px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
         <input id="rp-q" placeholder="🔎 Search company / title / job ID…" style="flex:1;min-width:180px" />
@@ -586,21 +590,45 @@
     <!-- ===== Bulk ===== -->
     <section class="view" id="view-bulk">
       <h1 class="page-h">Bulk generate</h1>
-      <p class="page-sub">Queue several roles and generate them in one run. Each application is built sequentially against your profile.</p>
+      <p class="page-sub">Queue several roles and generate them in one run. Add jobs with <b>➕ Bulk</b> from the <b>Jobs</b> or <b>RSS Scraping</b> tabs, pull a filtered batch with <b>From job queue</b>, or upload a CSV. <b>Filter</b> the list by text, status, readiness, or company, then <b>Generate all</b> (or just the filtered slice). Tick <b>Auto-generate</b> to start as soon as jobs land. Each application is built sequentially against your profile.</p>
 
       <div class="card" style="margin-bottom:18px">
         <div class="toolbar">
-          <button class="btn ghost sm" id="b-add">＋ Add role</button>
-          <button class="btn ghost sm" id="b-paste">📋 Paste multiple</button>
-          <button class="btn ghost sm" id="b-fetch">🔄 Fetch new jobs</button>
           <button class="btn ghost sm" id="b-queue">🛰️ From job queue</button>
+          <button class="btn ghost sm" id="b-csv" title="Load a CSV of jobs into the bulk list">⬆ Upload CSV</button>
+          <input type="file" id="b-csv-file" accept=".csv,text/csv" style="display:none">
+          <button class="btn ghost sm" id="b-csv-tpl" title="Download a sample CSV (the expected columns)">⬇ Template</button>
           <span class="sp"></span>
+          <label class="checks" style="margin:0" title="After fetch / queue-pull / CSV, generate everything automatically"><input type="checkbox" id="b-autogen" style="width:auto" /> Auto-generate</label>
           <label class="checks" style="margin:0"><input type="checkbox" id="b-strict" checked style="width:auto" /> Strict</label>
           <label class="checks" style="margin:0"><input type="checkbox" id="b-pdf" checked style="width:auto" /> PDF</label>
           <button class="btn primary sm" id="b-run">Generate all</button>
         </div>
+        <div class="toolbar" id="b-filterbar" style="margin-top:8px;display:none">
+          <input id="b-search" class="jl-inp" type="search" placeholder="Filter company, title, location, description…">
+          <select id="b-fstatus" class="jl-inp">
+            <option value="">All statuses</option>
+            <option value="queued">Queued</option>
+            <option value="running">Running</option>
+            <option value="done">Done</option>
+            <option value="failed">Failed</option>
+          </select>
+          <select id="b-fready" class="jl-inp">
+            <option value="">Ready &amp; incomplete</option>
+            <option value="ready">Ready to generate</option>
+            <option value="incomplete">Incomplete only</option>
+          </select>
+          <select id="b-fcompany" class="jl-inp"><option value="">All companies</option></select>
+          <span class="sp"></span>
+          <span class="muted" id="b-count" style="font-size:12px"></span>
+          <button class="btn subtle sm" id="b-dedupe" title="Remove duplicate company + title rows">Dedupe</button>
+          <button class="btn subtle sm" id="b-clrdone" title="Remove rows already generated">Clear done</button>
+          <button class="btn subtle sm" id="b-clrfailed" title="Remove failed rows">Clear failed</button>
+          <button class="btn danger sm" id="b-clrall" title="Remove every row">Clear all</button>
+        </div>
         <div class="progress" id="b-progress"><i></i></div>
         <div class="bulk-list" id="b-list"></div>
+        <div class="empty" id="b-filterempty" style="display:none"><div class="big">🔍</div>No roles match these filters.</div>
         <div class="empty" id="b-empty"><div class="big">⚡</div>No roles queued. Add one, paste several, or pull from the scraper queue.</div>
       </div>
     </section>
@@ -617,9 +645,18 @@
         <a class="btn subtle sm" id="sk-capture" target="_blank" rel="noreferrer" title="Browser-capture dashboard (Tampermonkey collector)">Browser capture ↗</a>
       </div>
       <div class="card jl-sources" id="sk-setup"></div>
-      <div class="sec-title" style="margin:18px 0 8px">📋 Apply profile <span style="color:var(--faint);font-weight:500;text-transform:none">— data/apply_profile.json · click any field to copy</span></div>
-      <div class="card jl-sources" id="sk-applyprofile"></div>
-      <div class="sec-title" style="margin:18px 0 8px">Scraped jobs</div>
+      <div class="sec-title" style="margin:18px 0 8px;display:flex;align-items:center;gap:10px">Scraped jobs
+        <select id="sk-days" class="jl-inp" style="width:auto;font-weight:500" title="Filter by posted date">
+          <option value="1">Today</option>
+          <option value="2">Last 2 days</option>
+          <option value="3">Last 3 days</option>
+          <option value="7">Last 7 days</option>
+          <option value="month">This month</option>
+          <option value="30">Last 30 days</option>
+          <option value="90">Last 3 months</option>
+          <option value="" selected>All time</option>
+        </select>
+      </div>
       <div class="card jl-sources" id="sk-jobs"></div>
     </section>
 
@@ -706,12 +743,27 @@
       </div>
     </section>
 
+    <!-- ===== Profile (apply profile + repeat companies + saved company details) ===== -->
+    <section class="view" id="view-profile">
+      <h1 class="page-h">Apply profile</h1>
+      <p class="page-sub">The data behind auto-apply: your autofill answers, the companies you reapply to often, and details the autofill assistant has saved. Used by the Playwright autofill assistant and the email-apply path. Click any field to copy.</p>
+      <div class="sec-title" style="margin:4px 0 8px">📋 Apply profile <span style="color:var(--faint);font-weight:500;text-transform:none">— data/apply_profile.json · click any field to copy</span></div>
+      <div class="card jl-sources" id="sk-applyprofile"></div>
+      <div class="sec-title" style="margin:18px 0 8px">Saved company details</div>
+      <div class="card jl-sources" id="pf-saved"></div>
+    </section>
+
     <!-- ===== Library ===== -->
     <section class="view" id="view-library">
       <h1 class="page-h">Library</h1>
-      <p class="page-sub">Every application you've generated. Click a card to preview the resume, cover letter, email, and truth-guard report.</p>
+      <p class="page-sub">Every job — both generated applications and ones still waiting to be generated. Click a generated card to preview the resume, cover letter, email, and truth-guard report; click a pending card to view the job and generate it.</p>
       <div class="lib-toolbar">
         <div class="search"><span class="mag">🔎</span><input type="text" id="lib-search" placeholder="Search by company or title…" /></div>
+        <select id="lib-gen" class="jl-inp" title="Filter by generation state">
+          <option value="">All jobs</option>
+          <option value="gen">Generated</option>
+          <option value="pending">Not generated</option>
+        </select>
         <select id="lib-days" class="jl-inp">
           <option value="">Any time</option><option value="1">Today</option>
           <option value="2">Last 2 days</option>
@@ -745,20 +797,6 @@
   </div>
 </div>
 
-<div class="overlay" id="paste-overlay">
-  <div class="modal" style="width:min(640px,100%)">
-    <div class="modal-h"><div class="mt">Paste multiple postings</div><button class="mx" id="paste-x">✕</button></div>
-    <div class="modal-b">
-      <p style="margin:0 0 12px;color:var(--muted);font-size:13px">
-        Separate each posting with a line containing only <code>---</code>.
-        Make the <b>first line</b> of each block <code>Company | Title | Location</code>; everything after is the description.
-      </p>
-      <textarea id="paste-text" style="min-height:240px" placeholder="Acme Corp | Backend Engineer | Remote&#10;We are looking for…&#10;---&#10;Globex | Data Analyst | Toronto, ON&#10;Join our analytics team…"></textarea>
-      <button class="btn primary block" id="paste-add">Add to queue</button>
-    </div>
-  </div>
-</div>
-
 <div class="overlay" id="sc-modal">
   <div class="modal" style="width:min(620px,100%)">
     <div class="modal-h"><div class="mt">Add a job manually</div><button class="mx" id="sc-modal-x">✕</button></div>
@@ -781,10 +819,11 @@
 
 <div class="overlay" id="g-pick">
   <div class="modal" style="width:min(680px,100%)">
-    <div class="modal-h"><div class="mt">Load a job into the form</div><button class="mx" id="g-pick-x">✕</button></div>
+    <div class="modal-h"><div class="mt" id="g-pick-h">Load a job into the form</div><button class="mx" id="g-pick-x">✕</button></div>
     <div class="modal-b">
       <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px">
         <input id="g-pick-search" class="jl-inp" style="flex:1 1 200px;min-width:0" type="search" placeholder="Search title, company, location…">
+        <select id="g-pick-source" class="jl-inp" style="flex:0 0 auto" title="Filter by where the job came from"><option value="">All sources</option></select>
         <select id="g-pick-days" class="jl-inp" style="flex:0 0 auto">
           <option value="1">Today</option>
           <option value="2">Last 2 days</option>
@@ -795,8 +834,12 @@
           <option value="90">Last 3 months</option>
           <option value="">All time</option>
         </select>
+        <button class="btn ghost sm" id="g-pick-allbtn" style="display:none">Select all</button>
       </div>
       <div id="g-pick-list" style="max-height:420px;overflow:auto"></div>
+      <div id="g-pick-foot" style="display:none;margin-top:12px;text-align:right">
+        <button class="btn primary sm" id="g-pick-add" disabled>Add selected (0)</button>
+      </div>
     </div>
   </div>
 </div>
@@ -836,6 +879,7 @@ function showView(view) {
   if (view === 'scraper') loadJobs();
   if (view === 'repeatable') loadRepeatable();
   if (view === 'scrape') { renderSetup(); renderScrapedJobs(); }
+  if (view === 'profile') renderSetup();   // fills #sk-applyprofile, #pf-repeats, #pf-saved
   if (view === 'hermes-scrape') { $('cs-enabled-note').innerHTML = CLOUD_ENABLED ? '' : '<b style="color:var(--warn)">Set HERMES_API_KEY in .env (the Hermes gateway API_SERVER_KEY) to enable.</b>'; }
   if (view === 'library') loadLibrary();
 }
@@ -1024,39 +1068,24 @@ function renderQA(qa, hasViol) {
   return `<div class="qa dirty"><span class="tag">Truth-guard caught issues:</span><ul>${items.join('')}</ul></div>` + extra;
 }
 
-const FILE_LABELS = {resume_pdf:'Resume PDF',resume_docx:'Resume DOCX',cover_letter_pdf:'Cover PDF',
-  cover_letter_docx:'Cover DOCX',email_txt:'Email',resume_json:'resume.json',
-  cover_letter_json:'cover_letter.json',qa_report:'qa_report.json'};
-function filesFromPaths(paths) {
-  if (!paths) return '';
-  const order = ['resume_pdf','resume_docx','cover_letter_pdf','cover_letter_docx','email_txt','resume_json','qa_report'];
-  let links = order.filter(k => paths[k]).map(k =>
-    `<a href="/file?path=${enc(paths[k])}" target="_blank">${FILE_LABELS[k]||k}</a>`).join('');
-  if (paths.pdf_error) links += `<span class="perr">PDF failed: ${esc(paths.pdf_error)}</span>`;
-  return `<div class="files">${links}</div>`;
+// Downloadable artifacts for a run. Nothing is stored on disk — each link hits
+// /download/<run_id>/<artifact>, which renders (PDF/DOCX) or serves (JSON/email)
+// the artifact on demand. `download` attr forces a save rather than navigation.
+const RUN_ARTIFACTS = [
+  ['resume.pdf','Resume PDF'], ['resume.docx','Resume DOCX'],
+  ['cover.pdf','Cover PDF'], ['cover.docx','Cover DOCX'],
+  ['email.txt','Email'], ['resume.json','resume.json'],
+  ['cover_letter.json','cover_letter.json'], ['qa_report.json','qa_report.json'],
+  ['target_role.json','target_role.json'],
+];
+function runIdOf(data) {
+  return (data && (data.run_id || data.folder_name || data.folder)) || '';
 }
-function filesFromMap(files) {
-  if (!files) return '';
-  // Prefer a friendly order; fall back to filename.
-  const pretty = {'resume.pdf':'Resume PDF','resume.docx':'Resume DOCX','cover_letter.pdf':'Cover PDF',
-    'cover_letter.docx':'Cover DOCX','email.txt':'Email','resume.json':'resume.json','qa_report.json':'qa_report.json'};
-  const fileLabel = (name) => pretty[name] ||
-    (/_Resume\.pdf$/i.test(name) ? 'Resume PDF' :
-     /_Resume\.docx$/i.test(name) ? 'Resume DOCX' :
-     /_Cover\.pdf$/i.test(name) ? 'Cover PDF' :
-     /_Cover\.docx$/i.test(name) ? 'Cover DOCX' : name);
-  const rank = Object.keys(pretty);
-  const entries = Object.entries(files).sort((a,b) => {
-    const score = (name) => /_Resume\.pdf$/i.test(name) || name === 'resume.pdf' ? 0 :
-      /_Resume\.docx$/i.test(name) || name === 'resume.docx' ? 1 :
-      /_Cover\.pdf$/i.test(name) || name === 'cover_letter.pdf' ? 2 :
-      /_Cover\.docx$/i.test(name) || name === 'cover_letter.docx' ? 3 :
-      rank.indexOf(name) >= 0 ? rank.indexOf(name) + 4 : 99;
-    const ia = score(a[0]), ib = score(b[0]);
-    return ia - ib;
-  });
-  const links = entries.map(([name, path]) =>
-    `<a href="/file?path=${enc(path)}" target="_blank">${esc(fileLabel(name))}</a>`).join('');
+function filesForRun(data) {
+  const runId = typeof data === 'string' ? data : runIdOf(data);
+  if (!runId) return '';
+  const links = RUN_ARTIFACTS.map(([art, label]) =>
+    `<a href="/download/${enc(runId)}/${art}" download>${label}</a>`).join('');
   return `<div class="files">${links}</div>`;
 }
 
@@ -1277,7 +1306,7 @@ $('g-go').onclick = async () => {
   box.innerHTML = '<div class="empty"><span class="spinner dark"></span><div style="margin-top:10px">Generating — this can take a minute…</div></div>';
   try {
     const res = await api('/generate', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
-    renderApplication(box, res, filesFromPaths(res.paths));
+    renderApplication(box, res, filesForRun(res));
     toast('Generated' + (res.persona_label ? ` · ${res.persona_label} persona` : ' · neutral'));
     loadUsage();
   } catch (e) {
@@ -1285,42 +1314,99 @@ $('g-go').onclick = async () => {
   } finally { btn.disabled = false; btn.textContent = 'Generate application'; }
 };
 
-/* Generate: load a job from the list into the form (no copy-paste) */
-const gPick = { rows: [] };
+/* Job picker — three modes: 'generate' (load one into the form), 'qa' (pick one
+   for screening Q&A), and 'bulk' (multi-select many → add to the Bulk list). */
+const gPick = { rows: [], sel: new Set() };
+// Rebuild the source dropdown from the sources actually present in the loaded
+// jobs (dynamic — never hardcoded). Preserves the current selection if it survives.
+function gSyncPickSources() {
+  const sel = $('g-pick-source'); if (!sel) return;
+  const cur = sel.value;
+  const names = [...new Set((gPick.all || []).map(j => (j.source || '').trim()).filter(Boolean))].sort();
+  sel.innerHTML = '<option value="">All sources</option>' +
+    names.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('');
+  sel.value = names.includes(cur) ? cur : '';
+}
 function gRenderPick(all) {
-  if (all) gPick.all = all;
+  if (all) { gPick.all = all; gSyncPickSources(); }
   const q = $('g-pick-search').value.trim().toLowerCase();
   const daysVal = $('g-pick-days').value;
+  const source = $('g-pick-source').value;
+  const bulk = gPick.mode === 'bulk';
   const rows = gPick.rows = (gPick.all || []).filter(j => {
-    if (!inRange((j.found_at || '').slice(0, 10), daysVal)) return false;
+    if (source && (j.source || '').trim() !== source) return false;
+    if (!inRange(jobDate(j), daysVal)) return false;
     return !q || [j.title, j.company, j.location].join(' ').toLowerCase().includes(q);
   });
   $('g-pick-list').innerHTML = rows.length ? rows.map((j, i) => `
-    <div class="g-pick-row" data-i="${i}" style="padding:10px 12px;border:1px solid var(--line);border-radius:10px;margin-bottom:8px;cursor:pointer">
-      <div style="font-weight:600">${esc(j.title || 'Untitled')}${(j.contact_email||'').trim()?' 📧':''}</div>
-      <div style="font-size:13px;color:var(--muted)">${esc([j.company, j.location].filter(Boolean).join(' · '))} · <span class="jl-st ${esc(j.status)}">${esc(j.status)}</span> · ${esc((j.found_at||'').slice(0,10))}</div>
-    </div>`).join('') : '<div class="empty">No jobs yet. Fetch or scrape some in the Jobs tab.</div>';
+    <div class="g-pick-row" data-i="${i}" style="display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border:1px solid var(--line);border-radius:10px;margin-bottom:8px;cursor:pointer">
+      ${bulk ? `<input type="checkbox" class="g-pick-ck" ${gPick.sel.has(j.key_id)?'checked':''} style="width:auto;margin-top:3px;pointer-events:none">` : ''}
+      <div style="flex:1">
+        <div style="font-weight:600">${esc(j.title || 'Untitled')}${(j.contact_email||'').trim()?' 📧':''}</div>
+        <div style="font-size:13px;color:var(--muted)">${esc([j.company, j.location].filter(Boolean).join(' · '))} · <span class="jl-st ${esc(j.status)}">${esc(j.status)}</span> · ${esc(jobDate(j))}</div>
+      </div>
+    </div>`).join('') : '<div class="empty">No jobs match. Adjust the day filter or search.</div>';
   $('g-pick-list').querySelectorAll('.g-pick-row').forEach(el => el.onclick = () => {
     const j = gPick.rows[+el.dataset.i];
+    if (bulk) {
+      if (j.key_id == null) return;
+      if (gPick.sel.has(j.key_id)) gPick.sel.delete(j.key_id); else gPick.sel.add(j.key_id);
+      const ck = el.querySelector('.g-pick-ck'); if (ck) ck.checked = gPick.sel.has(j.key_id);
+      gUpdatePickFoot();
+      return;
+    }
     if (gPick.mode === 'qa') { qaSetJob(j); $('g-pick').classList.remove('show'); return; }
     $('g-company').value = j.company || ''; $('g-title').value = j.title || '';
     $('g-location').value = j.location || ''; $('g-description').value = j.description || '';
     $('g-pick').classList.remove('show');
     toast(`Loaded "${j.title || 'job'}" into the form.`);
   });
+  $('g-pick-foot').style.display = bulk ? '' : 'none';
+  $('g-pick-allbtn').style.display = bulk ? '' : 'none';
+  $('g-pick-h').textContent = bulk ? 'Add jobs from the queue to Bulk'
+    : gPick.mode === 'qa' ? 'Pick a job for screening Q&A' : 'Load a job into the form';
+  gUpdatePickFoot();
+}
+function gUpdatePickFoot() {
+  const n = gPick.sel.size, b = $('g-pick-add');
+  if (b) { b.textContent = `Add selected (${n})`; b.disabled = !n; }
 }
 async function openPick(mode) {
   gPick.mode = mode || 'generate';
+  gPick.sel = new Set();
   $('g-pick').classList.add('show');
   $('g-pick-list').innerHTML = '<div class="empty"><span class="spinner dark"></span></div>';
-  try { const { jobs } = await api('/jobs'); gRenderPick(jobs); $('g-pick-search').focus(); }
-  catch (e) { $('g-pick-list').innerHTML = `<div class="qa dirty">${esc(e.message)}</div>`; }
+  try {
+    const { jobs } = await api('/jobs' + (mode === 'bulk' ? '?status=new' : ''));
+    gRenderPick(jobs); $('g-pick-search').focus();
+  } catch (e) { $('g-pick-list').innerHTML = `<div class="qa dirty">${esc(e.message)}</div>`; }
 }
 $('g-fromjob').onclick = () => openPick('generate');
 $('g-pick-search').oninput = () => gRenderPick();
 $('g-pick-days').onchange = () => gRenderPick();
+$('g-pick-source').onchange = () => gRenderPick();
 $('g-pick-x').onclick = () => $('g-pick').classList.remove('show');
 $('g-pick').onclick = (e) => { if (e.target === $('g-pick')) $('g-pick').classList.remove('show'); };
+// Bulk mode: select-all (filtered) + add selected to the Bulk list.
+$('g-pick-allbtn').onclick = () => {
+  const ids = gPick.rows.map(j => j.key_id).filter(x => x != null);
+  const turnOn = !ids.every(id => gPick.sel.has(id));
+  ids.forEach(id => turnOn ? gPick.sel.add(id) : gPick.sel.delete(id));
+  gRenderPick();
+};
+$('g-pick-add').onclick = () => {
+  let added = 0;
+  (gPick.all || []).forEach(j => {
+    if (j.key_id != null && gPick.sel.has(j.key_id)) {
+      bulkAdd({ company: j.company||'', title: j.title||'', location: j.location||'', description: j.description||'' }, false);
+      added++;
+    }
+  });
+  $('g-pick').classList.remove('show');
+  if (!added) { toast('No jobs selected.', true); return; }
+  toast(`Added ${added} job${added===1?'':'s'} to the bulk list.`);
+  if ($('b-autogen').checked) runBulk();
+};
 
 /* ---------- Q&A (screening questions) ---------- */
 let qaJob = null;   // {key_id, priority, ...} when a queued job is selected
@@ -1426,6 +1512,8 @@ function qaRenderAnswers(answers) {
 
 /* ---------- Repeatable roles ---------- */
 let rpRoles = [], rpFacets = { sectors: [], statuses: [], tags: [] };
+let rpCompanies = [];          // repeat-companies list (clickable company filter tags)
+let rpCompanyFilter = '';      // active company tag ('' = all)
 const RP_STATUSES = ['tracked', 'applied', 'interview', 'offer', 'closed'];
 async function loadRepeatable() {
   const box = $('rp-list');
@@ -1436,7 +1524,39 @@ async function loadRepeatable() {
     rpFacets = { sectors: r.sectors || [], statuses: r.statuses || [], tags: r.tags || [] };
     rpFillFilters();
     rpRender();
+    rpRenderCompanies();   // repeat-companies chips (best-effort)
   } catch (e) { box.innerHTML = `<div class="qa dirty">${esc(e.message)}</div>`; }
+}
+// Repeat companies list (data/repeat_companies.json) — these companies post the
+// same/similar roles you reapply to. Lives in the Repeatable tab.
+async function rpRenderCompanies() {
+  const el = $('rp-companies'); if (!el) return;
+  try {
+    const ap = await api('/apply-profile');
+    rpCompanies = ap.repeat_companies || [];
+  } catch { rpCompanies = []; }
+  rpDrawCompanies();
+}
+// Render the repeat companies as clickable filter tags — click one to show only
+// its roles, "All" to clear. Counts come from the loaded repeatable roles.
+function rpDrawCompanies() {
+  const el = $('rp-companies'); if (!el) return;
+  if (!rpCompanies.length) {
+    el.innerHTML = '<span class="muted">None yet — add companies you reapply to in data/repeat_companies.json.</span>';
+    return;
+  }
+  const counts = {};
+  rpRoles.forEach(r => { const c = r.company || ''; if (c) counts[c] = (counts[c] || 0) + 1; });
+  const chip = (label, co, active) =>
+    `<span class="rp-cochip" data-co="${esc(co)}" style="display:inline-block;padding:3px 11px;margin:0 6px 6px 0;border-radius:999px;cursor:pointer;font-size:12px;border:1px solid ${active ? 'var(--accent)' : 'var(--line)'};${active ? 'background:var(--accent);color:#fff' : 'color:var(--muted)'}">${esc(label)}</span>`;
+  el.innerHTML =
+    chip('All', '', rpCompanyFilter === '') +
+    rpCompanies.map(c => chip(counts[c] ? `${c} · ${counts[c]}` : c, c, rpCompanyFilter === c)).join('');
+  el.querySelectorAll('.rp-cochip').forEach(ch => ch.onclick = () => {
+    rpCompanyFilter = ch.dataset.co || '';
+    rpDrawCompanies();   // refresh active highlight
+    rpRender();          // re-filter the grouped list
+  });
 }
 function rpFillFilters() {
   const keep = (sel) => sel.value;
@@ -1453,6 +1573,7 @@ function rpFiltered() {
   const q = ($('rp-q').value || '').toLowerCase().trim();
   const fs = $('rp-fsector').value, fst = $('rp-fstatus').value, ft = $('rp-ftag').value;
   return rpRoles.filter(r => {
+    if (rpCompanyFilter && (r.company || '') !== rpCompanyFilter) return false;
     if (fs && r.sector !== fs) return false;
     if (fst && (r.status || 'tracked') !== fst) return false;
     if (ft && !(r.tags || []).includes(ft)) return false;
@@ -1474,7 +1595,7 @@ function rpRender() {
   const rows = rpFiltered();
   $('rp-count').textContent = `${rows.length} of ${rpRoles.length}`;
   if (!rows.length) { box.innerHTML = `<div class="empty">No roles match these filters.</div>`; return; }
-  box.innerHTML = rows.map((r) => {
+  const rpCard = (r) => {
     const i = rpRoles.indexOf(r);
     const applied = r.times_applied ? `applied ${r.times_applied}×${r.last_applied ? ' · last ' + esc(r.last_applied) : ''}` : 'never generated yet';
     const jd = (r.description || '').trim();
@@ -1497,8 +1618,11 @@ function rpRender() {
           ${r.apply_url ? `<a class="btn subtle sm" href="${esc(r.apply_url)}" target="_blank" rel="noreferrer">Open ↗</a>` : ''}
           <button class="btn subtle sm" data-rpa="edit" data-i="${i}">✎ Edit</button>
           <button class="btn primary sm" data-rpa="gen" data-i="${i}">⟳ Regenerate</button>
-          <button class="btn danger sm" data-rpa="del" data-i="${i}" title="Stop tracking this role">🗑</button>
+          <button class="btn danger sm" data-rpa="del" data-i="${i}" title="Remove this role from Repeatable (asks first; keeps generated files)">🚫 Unrepeat</button>
         </div>
+      </div>
+      <div style="margin-top:8px">
+        <input class="rp-skills jl-inp" data-i="${i}" placeholder="Skills to emphasise this regenerate (optional, comma-separated)" style="width:100%;font-size:12px" title="Re-orders and surfaces these skills in the résumé — only ones you genuinely have (truth-guard strips anything else). Leave blank for the default tailoring.">
       </div>
       <details style="margin-top:10px">
         <summary style="cursor:pointer;font-size:13px;color:var(--muted)">Tracking & tags</summary>
@@ -1517,7 +1641,24 @@ function rpRender() {
       </details>
       <div class="rp-out" data-i="${i}"></div>
     </div>`;
-  }).join('');
+  };
+  // Sort by COMPANY (these companies post the same/similar roles), companies A→Z,
+  // and roles A→Z by title within each company.
+  const byCompany = {};
+  rows.forEach(r => { const c = r.company || '—'; (byCompany[c] = byCompany[c] || []).push(r); });
+  box.innerHTML = Object.keys(byCompany)
+    .sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()))
+    .map(co => {
+      const roles = byCompany[co].slice()
+        .sort((a, b) => (a.title || '').toLowerCase().localeCompare((b.title || '').toLowerCase()));
+      return `<div style="margin:0 0 18px">
+        <div style="display:flex;align-items:center;gap:10px;margin:18px 0 10px;padding-bottom:6px;border-bottom:2px solid var(--accent)">
+          <span style="font-weight:800;font-size:16px;color:var(--accent)">🏢 ${esc(co)}</span>
+          <span class="jl-src" style="margin:0">${roles.length} role${roles.length > 1 ? 's' : ''}</span>
+        </div>
+        ${roles.map(rpCard).join('')}
+      </div>`;
+    }).join('');
   box.querySelectorAll('[data-rpa="gen"]').forEach(b => b.onclick = () => rpGenerate(rpRoles[+b.dataset.i], b));
   box.querySelectorAll('[data-rpa="save"]').forEach(b => b.onclick = () => rpSaveJd(rpRoles[+b.dataset.i], b));
   box.querySelectorAll('[data-rpa="savemeta"]').forEach(b => b.onclick = () => rpSaveMeta(rpRoles[+b.dataset.i], b));
@@ -1551,15 +1692,17 @@ async function rpSaveJd(role, btn) {
   } catch (e) { toast('Save failed: ' + e.message, true); } finally { btn.disabled = false; }
 }
 async function rpGenerate(role, btn) {
-  const out = $('rp-list').querySelector(`.rp-out[data-i="${rpRoles.indexOf(role)}"]`);
+  const i = rpRoles.indexOf(role);
+  const out = $('rp-list').querySelector(`.rp-out[data-i="${i}"]`);
+  const skills_focus = ($('rp-list').querySelector(`.rp-skills[data-i="${i}"]`)?.value || '').trim();
   const model = resolveModel(!!role.priority);
   const label = btn.textContent; btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span>' + (usesHermes(model) ? ' 🤖' : '');
   out.innerHTML = '<div class="empty" style="padding:18px"><span class="spinner dark"></span><div style="margin-top:8px">Regenerating a fresh tuned copy…</div></div>';
   try {
     const res = await api(`/repeatable/${enc(role.key)}/generate`, { method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ model, persona: activePersona(), strict: true, pdf: true }) });
-    out.innerHTML = `<div style="margin-top:10px"><b>New docs ready</b> — download, tweak, reapply:</div>` + filesFromPaths(res.paths);
+      body: JSON.stringify({ model, persona: activePersona(), strict: true, pdf: true, skills_focus }) });
+    out.innerHTML = `<div style="margin-top:10px"><b>New docs ready</b> — download, tweak, reapply:</div>` + filesForRun(res);
     toast('Regenerated' + (res.persona_label ? ` · ${res.persona_label}` : ''));
     loadUsage();
     // refresh counts
@@ -1571,10 +1714,10 @@ async function rpGenerate(role, btn) {
   } finally { btn.disabled = false; btn.innerHTML = label; }
 }
 async function rpDelete(role, btn) {
-  if (!confirm(`Stop tracking "${role.title} @ ${role.company}" as a repeatable role?\n(Generated files are kept.)`)) return;
+  if (!confirm(`Unrepeat "${role.title} @ ${role.company}"?\n\nIt will be removed from Repeatable. Generated files are kept.`)) return;
   btn.disabled = true;
-  try { await api(`/repeatable/${enc(role.key)}`, { method: 'DELETE' }); toast('Removed.'); loadRepeatable(); }
-  catch (e) { toast('Delete failed: ' + e.message, true); btn.disabled = false; }
+  try { await api(`/repeatable/${enc(role.key)}`, { method: 'DELETE' }); toast('Unrepeated — removed from Repeatable.'); loadRepeatable(); }
+  catch (e) { toast('Unrepeat failed: ' + e.message, true); btn.disabled = false; }
 }
 $('rp-refresh').onclick = () => loadRepeatable();
 ['rp-fsector', 'rp-fstatus', 'rp-ftag'].forEach(id => $(id).onchange = rpRender);
@@ -1606,11 +1749,54 @@ $('rp-email-go').onclick = async () => {
 /* ---------- Bulk ---------- */
 let bulk = [];   // {company,title,location,description,status,result,editing}
 let bulkRunning = false;
+const bf = { q: '', status: '', ready: '', company: '' };   // bulk filters
+
+function bulkReady(j) {
+  return !!(j.company.trim() && j.title.trim() && j.description.trim());
+}
+function bulkMatch(j) {
+  if (bf.status && (j.status || 'queued') !== bf.status) return false;
+  if (bf.ready === 'ready' && !bulkReady(j)) return false;
+  if (bf.ready === 'incomplete' && bulkReady(j)) return false;
+  if (bf.company && (j.company || '').trim() !== bf.company) return false;
+  if (bf.q) {
+    const hay = `${j.company} ${j.title} ${j.location} ${j.description}`.toLowerCase();
+    if (!hay.includes(bf.q)) return false;
+  }
+  return true;
+}
+const bulkFiltered = () => bulk.filter(bulkMatch);
+const bulkActiveFilter = () => !!(bf.q || bf.status || bf.ready || bf.company);
+// Rows that "Generate all" will run: the ready ones, narrowed to the current
+// filter when one is active (so you can generate just a slice).
+const bulkTargets = () => (bulkActiveFilter() ? bulkFiltered() : bulk).filter(bulkReady);
+
+function bulkSyncCompanyOptions() {
+  const sel = $('b-fcompany'); if (!sel) return;
+  const cur = sel.value;
+  const names = [...new Set(bulk.map(j => (j.company || '').trim()).filter(Boolean))].sort();
+  sel.innerHTML = '<option value="">All companies</option>' +
+    names.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('');
+  sel.value = names.includes(cur) ? cur : '';
+  if (sel.value !== cur) bf.company = sel.value;
+}
 
 function bulkRender() {
   const list = $('b-list');
+  bulkSyncCompanyOptions();
+  $('b-filterbar').style.display = bulk.length ? '' : 'none';
   $('b-empty').style.display = bulk.length ? 'none' : '';
+  const ready = bulk.filter(bulkReady).length;
+  const shown = bulkFiltered().length;
+  const tgt = bulkTargets().length;
+  $('b-count').textContent = `${shown}/${bulk.length} shown · ${ready} ready` +
+    (bulkActiveFilter() ? ` · ${tgt} match filter` : '');
+  $('b-filterempty').style.display = (bulk.length && shown === 0) ? '' : 'none';
+  const runBtn = $('b-run');
+  if (runBtn && !bulkRunning) runBtn.textContent = bulkActiveFilter()
+    ? `Generate filtered (${tgt})` : `Generate all (${ready})`;
   list.innerHTML = bulk.map((j, i) => {
+    if (!bulkMatch(j)) return '';
     const title = (j.title || 'Untitled role');
     const sub = [j.company, j.location].filter(Boolean).join(' · ');
     const stIcon = { running: '<span class="spinner dark"></span>', done: '✓', failed: '✕', queued: '•' }[j.status] || '•';
@@ -1652,19 +1838,28 @@ function bulkAdd(job, open) {
   bulk.push(Object.assign({ company:'', title:'', location:'', description:'', status:'queued', editing: !!open }, job));
   bulkRender();
 }
-$('b-add').onclick = () => bulkAdd({}, true);
+// Add one job (from the Jobs list / RSS pull) to the Bulk generate list.
+function bulkAddFromJob(j) {
+  if (!j) return;
+  bulkAdd({ company: j.company || '', title: j.title || '', location: j.location || '', description: j.description || '' }, false);
+  toast(`Added "${j.title || 'job'}" to Bulk generate.`);
+}
 
-$('b-run').onclick = async () => {
+async function runBulk() {
   if (bulkRunning) return;
-  const jobs = bulk.filter(j => j.company.trim() && j.title.trim() && j.description.trim());
-  if (!jobs.length) { toast('Add at least one role with company, title, and description.', true); return; }
+  const jobs = bulkTargets();   // ready rows, narrowed to the active filter
+  if (!jobs.length) {
+    toast(bulkActiveFilter()
+      ? 'No ready rows match the current filter.'
+      : 'Add at least one role with company, title, and description.', true);
+    return;
+  }
   bulkRunning = true;
   const btn = $('b-run'); btn.disabled = true; btn.textContent = 'Generating…';
   const prog = $('b-progress'); prog.className = 'progress show'; prog.firstElementChild.style.width = '0%';
   const opts = { model: resolveModel(false), persona: activePersona(), strict: $('b-strict').checked, pdf: $('b-pdf').checked };
   let done = 0;
-  for (const j of bulk) {
-    if (!(j.company.trim() && j.title.trim() && j.description.trim())) continue;
+  for (const j of jobs) {
     j.status = 'running'; j.error = ''; bulkRender();
     try {
       j.result = await api('/generate', { method:'POST', headers:{'Content-Type':'application/json'},
@@ -1675,64 +1870,105 @@ $('b-run').onclick = async () => {
     done++; prog.firstElementChild.style.width = Math.round(done/jobs.length*100) + '%';
     bulkRender();
   }
-  bulkRunning = false; btn.disabled = false; btn.textContent = 'Generate all';
-  const ok = bulk.filter(j => j.status==='done').length;
+  bulkRunning = false; btn.disabled = false;
+  const ok = jobs.filter(j => j.status==='done').length;
+  bulkRender();   // refresh the dynamic button label
   toast(`Done — ${ok}/${jobs.length} generated.`);
   loadJobs(); loadLibrary();
-};
-
-/* paste-multiple */
-$('b-paste').onclick = () => { $('paste-text').value=''; $('paste-overlay').classList.add('show'); };
-$('paste-x').onclick = () => $('paste-overlay').classList.remove('show');
-$('paste-add').onclick = () => {
-  const raw = $('paste-text').value.trim();
-  if (!raw) { $('paste-overlay').classList.remove('show'); return; }
-  const blocks = raw.split(/\n\s*---+\s*\n/);
-  let n = 0;
-  blocks.forEach(block => {
-    const lines = block.trim().split('\n');
-    if (!lines.length || !lines[0].trim()) return;
-    const head = lines[0].split('|').map(s => s.trim());
-    bulkAdd({ company: head[0]||'', title: head[1]||'', location: head[2]||'',
-      description: lines.slice(1).join('\n').trim() }, false);
-    n++;
-  });
-  $('paste-overlay').classList.remove('show');
-  toast(`Added ${n} role${n===1?'':'s'}.`);
-};
-
-/* load whatever is already queued (status=new) into the bulk list */
-async function pullQueue(quiet) {
-  const { jobs } = await api('/jobs?status=new');
-  if (!jobs.length) { if (!quiet) toast('No new jobs in the scraper queue.'); return 0; }
-  jobs.forEach(j => bulkAdd({ company: j.company||'', title: j.title||'',
-    location: j.location||'', description: j.description||'' }, false));
-  if (!quiet) toast(`Pulled ${jobs.length} job${jobs.length===1?'':'s'} from queue.`);
-  return jobs.length;
 }
+$('b-run').onclick = runBulk;
 
-/* from scraper queue (read-only: shows jobs already pulled in) */
-$('b-queue').onclick = async () => {
-  try { await pullQueue(false); }
-  catch (e) { toast('Queue unavailable: ' + e.message, true); }
+/* Bulk filter controls + list-management actions. */
+$('b-search').oninput = (e) => { bf.q = e.target.value.trim().toLowerCase(); bulkRender(); };
+$('b-fstatus').onchange = (e) => { bf.status = e.target.value; bulkRender(); };
+$('b-fready').onchange = (e) => { bf.ready = e.target.value; bulkRender(); };
+$('b-fcompany').onchange = (e) => { bf.company = e.target.value; bulkRender(); };
+$('b-dedupe').onclick = () => {
+  const seen = new Set(); let removed = 0;
+  bulk = bulk.filter(j => {
+    const k = `${(j.company||'').trim().toLowerCase()}|${(j.title||'').trim().toLowerCase()}`;
+    if (k === '|') return true;             // keep blank rows you're still editing
+    if (seen.has(k)) { removed++; return false; }
+    seen.add(k); return true;
+  });
+  bulkRender(); toast(removed ? `Removed ${removed} duplicate${removed===1?'':'s'}.` : 'No duplicates found.');
+};
+$('b-clrdone').onclick = () => {
+  const n = bulk.filter(j => j.status==='done').length;
+  bulk = bulk.filter(j => j.status!=='done'); bulkRender();
+  toast(n ? `Cleared ${n} generated row${n===1?'':'s'}.` : 'No generated rows.');
+};
+$('b-clrfailed').onclick = () => {
+  const n = bulk.filter(j => j.status==='failed').length;
+  bulk = bulk.filter(j => j.status!=='failed'); bulkRender();
+  toast(n ? `Cleared ${n} failed row${n===1?'':'s'}.` : 'No failed rows.');
+};
+$('b-clrall').onclick = () => {
+  if (!bulk.length) return;
+  if (!confirm(`Remove all ${bulk.length} rows from the bulk list?`)) return;
+  bulk = []; bulkRender();
 };
 
-/* fetch new jobs: run intake (pulls from the browser scraper + other sources),
-   then load the freshly queued jobs into the bulk list */
-$('b-fetch').onclick = async (e) => {
-  const btn = e.currentTarget;
-  btn.disabled = true; const label = btn.textContent; btn.textContent = '⏳ Fetching…';
-  try {
-    const res = await api('/intake/run', { method: 'POST' });
-    const got = await pullQueue(true);
-    const errs = (res.errors && res.errors.length) ? ` · ${res.errors.length} source error(s)` : '';
-    toast(`Scraped ${res.fetched}, queued ${res.committed} new · ${got} loaded${errs}.`);
-  } catch (err) {
-    toast('Fetch failed: ' + err.message, true);
-  } finally {
-    btn.disabled = false; btn.textContent = label;
+/* CSV → Bulk: parse a CSV (quoted fields, flexible column names) into bulk rows. */
+function parseCsvRows(text) {
+  const rows = []; let row = [], field = '', inQ = false;
+  text = String(text || '').replace(/\r\n?/g, '\n');
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inQ) {
+      if (c === '"') { if (text[i+1] === '"') { field += '"'; i++; } else inQ = false; }
+      else field += c;
+    } else if (c === '"') inQ = true;
+    else if (c === ',') { row.push(field); field = ''; }
+    else if (c === '\n') { row.push(field); rows.push(row); row = []; field = ''; }
+    else field += c;
   }
+  if (field.length || row.length) { row.push(field); rows.push(row); }
+  return rows.filter(r => r.some(x => (x || '').trim()));
+}
+function parseCsvJobs(text) {
+  const rows = parseCsvRows(text);
+  if (rows.length < 2) return [];
+  const header = rows[0].map(h => h.trim().toLowerCase());
+  const col = (...names) => { for (const n of names) { const k = header.indexOf(n); if (k >= 0) return k; } return -1; };
+  const ci = col('company','employer','organization','business'),
+        ti = col('title','job_title','position','role'),
+        li = col('location','city','place'),
+        di = col('description','description_summary','summary','jd'),
+        ui = col('apply_url','url','link','source_url','job_url'),
+        ei = col('contact_email','email','contact_emails','hr_email');
+  const out = [];
+  for (let r = 1; r < rows.length; r++) {
+    const row = rows[r], g = k => (k >= 0 && k < row.length ? (row[k] || '').trim() : '');
+    const company = g(ci), title = g(ti);
+    if (!company && !title) continue;
+    out.push({ company, title, location: g(li), description: g(di), apply_url: g(ui), contact_email: g(ei) });
+  }
+  return out;
+}
+$('b-csv').onclick = () => $('b-csv-file').click();
+$('b-csv-file').onchange = async (e) => {
+  const file = e.target.files && e.target.files[0]; if (!file) return;
+  try {
+    const rows = parseCsvJobs(await file.text());
+    if (!rows.length) { toast('No valid rows found. Need at least company or title.', true); return; }
+    rows.forEach(r => bulkAdd(r, false));
+    toast(`Loaded ${rows.length} row${rows.length===1?'':'s'} from CSV.`);
+    if ($('b-autogen').checked) runBulk();
+  } catch (err) { toast('CSV read failed: ' + err.message, true); }
+  finally { e.target.value = ''; }
 };
+$('b-csv-tpl').onclick = () => {
+  const csv = 'company,title,location,description,apply_url,contact_email\n'
+    + '"Acme Inc","Full-Stack Developer","Toronto, ON","Build React + Node apps. TypeScript, REST, Postgres. 0-3 yrs.","https://acme.com/jobs/123","jobs@acme.com"\n'
+    + '"Globex","Backend Developer","Remote","Python, FastAPI, Docker, AWS.","https://globex.com/careers/45",""\n';
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+  a.download = 'bulk_jobs_template.csv'; a.click(); URL.revokeObjectURL(a.href);
+};
+
+/* from scraper queue: filtered, multi-select picker → add chosen jobs to the bulk list */
+$('b-queue').onclick = () => openPick('bulk');
 
 /* ---------- Jobs (native list) ---------- */
 // Collector (capture dashboard) on the same host, port 8765. Tracks how the app
@@ -1743,10 +1979,28 @@ const jl = { all: [], rows: [], sort: { key: 'date', dir: 'desc' }, sel: new Set
 
 function jobFromApi(j) {
   const folder = j.status === 'generated' ? (j.notes || '').split(/[\\/]/).pop() : '';
+  const found = (j.found_at || '').slice(0, 10);
   return { id: j.key_id, title: j.title || 'Untitled', company: j.company || '',
-    location: j.location || '', source: j.source || '', date: (j.found_at || '').slice(0, 10),
+    location: j.location || '', source: j.source || '', date: jobDate(j), found,
     status: j.status, gen: j.status === 'generated', folder, email: (j.contact_email || '').trim(),
     applied: !!j.applied, repeat: !!j.repeat, priority: !!j.priority, repeatable: !!j.repeatable, apply_url: j.apply_url || '', description: j.description || '' };
+}
+
+// Source-of-truth date for a queue job: the real posted date when it parses to
+// a calendar date, else the day we found it. Job Bank / RSS posted dates are
+// normalized to ISO at intake; this also tolerates ISO timestamps from ATS feeds.
+function isoDay(s) {
+  s = (s || '').trim();
+  if (!s) return '';
+  const m = s.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (m) return m[1];
+  const t = Date.parse(s);
+  if (isNaN(t)) return '';
+  const d = new Date(t);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+function jobDate(j) {
+  return isoDay(j.posted) || (j.found_at || '').slice(0, 10);
 }
 
 // Start-of-day (local) cutoff for "the last N calendar days, including today".
@@ -1834,7 +2088,7 @@ function renderJobs() {
       <td class="muted">${esc(j.company)}${j.repeat?` <span class="jl-rep" title="Repeat company — saved details reused">🔁</span>`:''}</td>
       <td class="muted">${esc(j.location)}</td>
       <td><span class="jl-src">${esc(j.source || '—')}</span></td>
-      <td class="muted">${esc(j.date)}</td>
+      <td class="muted" title="${j.found && j.found !== j.date ? 'Found '+esc(j.found) : ''}">${esc(j.date)}</td>
       <td><span class="jl-st ${esc(j.status)}">${esc(j.status)}</span></td>
       <td>${j.id ? `<input type="checkbox" class="jl-applied" data-i="${i}" ${j.applied?'checked':''} title="Mark applied">` : (j.applied?'✓':'')}</td>
       <td><div class="jl-rowbtns">
@@ -1842,6 +2096,8 @@ function renderJobs() {
         ${(j.gen && j.email && j.id) ? `<button class="btn ghost sm" data-act="send" data-i="${i}" title="Send to n8n (email apply)">📧 n8n</button>` : ''}
         ${j.apply_url ? `<a class="btn subtle sm" href="${esc(j.apply_url)}" target="_blank" rel="noreferrer" title="Open the application portal">Open ↗</a>` : ''}
         ${(j.apply_url && j.id) ? `<button class="btn subtle sm" data-act="autofill" data-i="${i}" title="Copy the Playwright autofill command (runs on your host)">⌨ Autofill</button>` : ''}
+        ${j.id ? `<a class="btn subtle sm" href="/jobs/${enc(j.id)}/download" download title="Download this job as JSON">⬇ JSON</a>` : ''}
+        ${j.id ? `<button class="btn ghost sm" data-act="bulk" data-i="${i}" title="Add this job to the Bulk generate queue">➕ Bulk</button>` : ''}
         ${j.id ? `<button class="btn primary sm" data-act="gen" data-i="${i}">${j.gen?'Regenerate':'Generate'}</button>` : ''}
         ${j.gen ? `<button class="btn danger sm" data-act="del" data-i="${i}" title="Delete generated files">🗑</button>` : ''}
       </div></td>
@@ -1853,6 +2109,7 @@ function renderJobs() {
     cb.checked ? jl.sel.add(cb.dataset.k) : jl.sel.delete(cb.dataset.k);
     syncBulkBtn();
   });
+  body.querySelectorAll('[data-act="bulk"]').forEach(b => b.onclick = () => bulkAddFromJob(jl.rows[+b.dataset.i]));
   body.querySelectorAll('[data-act="gen"]').forEach(b => b.onclick = () => genJob(jl.rows[+b.dataset.i], b));
   body.querySelectorAll('[data-act="preview"]').forEach(b => b.onclick = () => {
     const f = jl.rows[+b.dataset.i].folder; if (f) openLibrary(f);
@@ -1975,6 +2232,9 @@ async function genJob(job, btn) {
 ['jl-search','jl-status','jl-source','jl-channel','jl-applied','jl-repeat','jl-days'].forEach(id => {
   $(id).addEventListener(id === 'jl-search' ? 'input' : 'change', renderJobs);
 });
+// Persist the Jobs day filter across reloads.
+try { const d = localStorage.getItem('jl-days'); if (d !== null) $('jl-days').value = d; } catch {}
+$('jl-days').addEventListener('change', () => { try { localStorage.setItem('jl-days', $('jl-days').value); } catch {} });
 document.querySelectorAll('.jl-sort').forEach(th => th.onclick = () => {
   const k = th.dataset.sort;
   jl.sort = { key: k, dir: jl.sort.key === k && jl.sort.dir === 'asc' ? 'desc' : 'asc' };
@@ -2044,6 +2304,9 @@ $('sk-fetch').onclick = async (e) => {
   finally { btn.disabled = false; btn.textContent = label; }
 };
 
+/* Scrape tab: re-render the scraped list when the day filter changes */
+$('sk-days').onchange = renderScrapedJobs;
+
 /* Scrape tab: import a CSV (e.g. from n8n) into the queue */
 $('sk-csv').onclick = () => $('sk-csv-file').click();
 $('sk-csv-file').onchange = async (e) => {
@@ -2064,8 +2327,10 @@ async function renderScrapedJobs() {
   try {
     const { jobs } = await api('/jobs');
     if (!jobs.length) { box.innerHTML = '<div class="muted">No jobs scraped yet. Add a source above and hit Fetch new jobs.</div>'; return; }
+    const daysVal = ($('sk-days') || {}).value || '';
     const bySrc = {};
-    const rows = jobs.map(jobFromApi);
+    const rows = jobs.map(jobFromApi).filter(j => inRange(j.date, daysVal));
+    if (!rows.length) { box.innerHTML = '<div class="muted">No jobs match this date filter.</div>'; return; }
     rows.forEach(j => { (bySrc[j.source || 'other'] = bySrc[j.source || 'other'] || []).push(j); });
     box.innerHTML = Object.entries(bySrc).sort((a, b) => b[1].length - a[1].length).map(([src, js]) =>
       `<div style="margin-bottom:14px">
@@ -2078,6 +2343,7 @@ async function renderScrapedJobs() {
            <div class="jl-rowbtns">
              <button class="btn subtle sm" data-skact="view" data-id="${esc(j.id)}">View</button>
              ${j.gen ? `<button class="btn ghost sm" data-skact="preview" data-id="${esc(j.id)}">Preview</button>` : ''}
+             <button class="btn ghost sm" data-skact="bulk" data-id="${esc(j.id)}" title="Add this job to the Bulk generate queue">➕ Bulk</button>
              <button class="btn primary sm" data-skact="gen" data-id="${esc(j.id)}">${j.gen?'Regenerate':'Generate'}</button>
              <button class="btn danger sm" data-skact="delete" data-id="${esc(j.id)}">Delete</button>
            </div>
@@ -2088,17 +2354,21 @@ async function renderScrapedJobs() {
     box.querySelectorAll('[data-skact="preview"]').forEach(b => b.onclick = () => {
       const j = byId[b.dataset.id]; if (j?.folder) openLibrary(j.folder);
     });
+    box.querySelectorAll('[data-skact="bulk"]').forEach(b => b.onclick = () => bulkAddFromJob(byId[b.dataset.id]));
     box.querySelectorAll('[data-skact="gen"]').forEach(b => b.onclick = () => genJob(b.dataset.id, b));
     box.querySelectorAll('[data-skact="delete"]').forEach(b => b.onclick = () => deleteScrapedJob(byId[b.dataset.id], b));
   } catch (e) { box.innerHTML = `<div class="muted">Unavailable: ${esc(e.message)}</div>`; }
 }
 
-/* Scrape tab: sources (add/remove), filters, repeat companies, saved companies, apply profile */
+/* Scrape tab: job sources (add/remove) + filters. Profile tab: saved companies + apply profile. */
 async function renderSetup() {
   const panel = $('sk-setup');
   panel.innerHTML = '<span class="spinner dark"></span>';
   try {
-    const [src, ap, co] = await Promise.all([api('/sources'), api('/apply-profile'), api('/companies')]);
+    const [src, ap, co, st] = await Promise.all([
+      api('/sources'), api('/apply-profile'), api('/companies'), api('/source-types')]);
+    const stypes = st.addable || [];                     // dynamic source-type catalogue
+    const stMap = Object.fromEntries(stypes.map(t => [t.type, t]));
     const f = src.filters || {};
     const sec = (t) => `<div class="sec-title" style="margin:14px 0 8px">${t}</div>`;
     const sources = (src.sources || []).map((s, i) =>
@@ -2108,34 +2378,28 @@ async function renderSetup() {
     const addForm =
       `<div class="src-row" style="gap:6px;margin-top:8px;flex-wrap:wrap">
          <select id="add-src-type" class="jl-inp" style="width:auto">
-           <option value="jobbank">Job Bank (Canada)</option>
-           <option value="rss">RSS feed</option>
-           <option value="greenhouse">Greenhouse</option>
-           <option value="lever">Lever</option>
-           <option value="workday">Workday</option>
-           <option value="generic">Generic page</option>
+           ${stypes.map(t => `<option value="${esc(t.type)}">${esc(t.label)}</option>`).join('')}
          </select>
-         <input id="add-src-val" class="jl-inp" style="flex:1;min-width:160px" placeholder="Job Bank search keyword (e.g. software developer)">
+         <input id="add-src-val" class="jl-inp" style="flex:1;min-width:160px" placeholder="${esc((stypes[0]||{}).hint||'')}">
          <input id="add-src-loc" class="jl-inp" style="width:150px" placeholder="Location (optional)">
          <button class="btn primary sm" id="add-src-btn">＋ Add</button>
        </div>`;
-    const repeats = (ap.repeat_companies || []).map(c => `<span class="jl-src" style="margin:0 4px 4px 0">${esc(c)}</span>`).join('')
-      || '<span class="muted">none</span>';
     const saved = (co.companies || []).map(c =>
       `<div class="src-row"><span class="src-type">${esc(c.company||'')}</span><span class="muted">${esc(c.ats||'')} ${c.last_apply_url||c.careers_url?'· saved URL':''}</span></div>`).join('')
       || '<div class="muted">None saved yet — the autofill assistant saves company details as you use it.</div>';
     const p = ap.profile || {};
+    // RSS tab: only the job-source config + filters belong here.
     panel.innerHTML =
       sec('Job sources <span style="color:var(--faint);font-weight:500;text-transform:none">— fetched by “🔄 Fetch new jobs”</span>') +
       sources + addForm +
       `<div class="src-row" style="border-top:1px solid var(--line);margin-top:8px;padding-top:10px">
          <span class="src-type">filters</span>
-         <span class="muted">${f.canada_only ? 'Canada only · ' : ''}${(f.title_keywords||[]).length} title keyword(s)${f.require_email?' · email required':''}</span></div>` +
-      sec('Repeat companies <span style="color:var(--faint);font-weight:500;text-transform:none">— data/repeat_companies.json</span>') +
-      `<div>${repeats}</div>` +
-      sec('Saved company details') + saved;
+         <span class="muted">${f.canada_only ? 'Canada only · ' : ''}${(f.title_keywords||[]).length} title keyword(s)${f.require_email?' · email required':''}</span></div>`;
 
-    // Apply profile lives in its own card/section (see #sk-applyprofile).
+    // Profile tab: saved company details (apply profile rendered below). Repeat
+    // companies now live in the Repeatable tab (rpRenderCompanies).
+    const savedPanel = $('pf-saved'); if (savedPanel) savedPanel.innerHTML = saved;
+
     const apPanel = $('sk-applyprofile');
     if (apPanel) {
       apPanel.innerHTML = pfChips(p);
@@ -2149,20 +2413,18 @@ async function renderSetup() {
       catch (e) { toast('Remove failed: ' + e.message, true); }
     });
     const syncAddForm = () => {
-      const t = $('add-src-type').value;
-      $('add-src-loc').style.display = t === 'jobbank' ? '' : 'none';
-      $('add-src-val').placeholder =
-        t === 'jobbank' ? 'Job Bank search keyword (e.g. software developer)' :
-        (t === 'greenhouse' || t === 'lever') ? 'Company token (e.g. gitlab)' :
-        t === 'rss' ? 'RSS feed URL' : 'Page / Workday URL';
+      const t = stMap[$('add-src-type').value] || {};
+      $('add-src-loc').style.display = t.needs_location ? '' : 'none';
+      $('add-src-val').placeholder = t.hint || 'Value';
     };
     $('add-src-type').onchange = syncAddForm; syncAddForm();
     $('add-src-btn').onclick = async () => {
       const type = $('add-src-type').value, val = $('add-src-val').value.trim();
       if (!val) { toast('Enter a value.', true); return; }
-      const body = type === 'jobbank' ? { type, search: val, location: $('add-src-loc').value.trim() }
-        : (type === 'greenhouse' || type === 'lever') ? { type, company: val }
-        : { type, url: val };
+      const meta = stMap[type] || {};
+      const field = meta.input || 'url';          // search | company | url
+      const body = { type, [field]: val };
+      if (meta.needs_location) body.location = $('add-src-loc').value.trim();
       try {
         await api('/sources/add', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
         toast('Source added. Hit “🔄 Fetch new jobs” to pull it in.');
@@ -2200,12 +2462,31 @@ $('s-add').onclick = async () => {
 
 /* ---------- Library (all generated applications) ---------- */
 let libCache = [];
+// Unified timestamp (ms) for a library item — from a run's created_at or a job's
+// posted/found_at. 0 when unparseable (sorts last, never excluded by the day filter).
+function libTs(s) { const t = Date.parse(s || ''); return isNaN(t) ? 0 : t; }
+
+// The Library lists EVERYTHING: generated applications (the runs table) AND every
+// queued job not yet generated. Two sources, merged into one unified card list.
 async function loadLibrary() {
   const grid = $('lib-grid'); if (!grid) return;
   grid.innerHTML = '<div class="empty"><span class="spinner dark"></span></div>';
   try {
-    const { outputs } = await api('/outputs');
-    libCache = outputs;
+    const [out, jr] = await Promise.all([api('/outputs'), api('/jobs')]);
+    const generated = (out.outputs || []).map(o => ({
+      folder: o.folder, company: o.company || '', title: o.title || '',
+      persona: o.persona || '', has_pdf: !!o.has_pdf, generated: true,
+      ts: libTs(o.created_at),
+    }));
+    const pending = (jr.jobs || []).filter(j => j.status !== 'generated').map(j => {
+      const job = jobFromApi(j);            // shape openJobDetail() expects
+      return {
+        folder: '', key_id: j.key_id, company: job.company, title: job.title,
+        persona: '', has_pdf: false, generated: false, status: job.status,
+        ts: libTs(j.posted) || libTs(j.found_at), job,
+      };
+    });
+    libCache = [...generated, ...pending];
     libFilter();
   } catch (e) { grid.innerHTML = `<div class="qa dirty">${esc(e.message)}</div>`; }
 }
@@ -2213,33 +2494,40 @@ function libFilter() {
   const q = $('lib-search').value.trim().toLowerCase();
   const days = $('lib-days').value ? Number($('lib-days').value) : null;
   const sort = $('lib-sort').value;
+  const gen = $('lib-gen').value;                       // '' | 'gen' | 'pending'
   const dupKey = o => ((o.company||'') + '|' + (o.title||'')).toLowerCase();
   const counts = {}; libCache.forEach(o => { counts[dupKey(o)] = (counts[dupKey(o)]||0) + 1; });
   let items = libCache.filter(o => {
-    if (days !== null && (Date.now() - o.mtime * 1000) / 86400000 > days) return false;
+    if (gen === 'gen' && !o.generated) return false;
+    if (gen === 'pending' && o.generated) return false;
+    if (days !== null && o.ts && (Date.now() - o.ts) / 86400000 > days) return false;
     return !q || (o.title||'').toLowerCase().includes(q) || (o.company||'').toLowerCase().includes(q)
-      || (o.persona||'').toLowerCase().includes(q) || o.folder.toLowerCase().includes(q);
+      || (o.persona||'').toLowerCase().includes(q) || (o.folder||'').toLowerCase().includes(q);
   });
   $('lib-empty').style.display = items.length ? 'none' : '';
   const dups = Object.values(counts).filter(n => n > 1).length;
-  $('lib-count').textContent = libCache.length ? `${items.length} of ${libCache.length}${dups?` · ${dups} duplicate`:''}` : '';
+  const nGen = libCache.filter(o => o.generated).length;
+  $('lib-count').textContent = libCache.length
+    ? `${items.length} of ${libCache.length} · ${nGen} generated, ${libCache.length-nGen} pending${dups?` · ${dups} duplicate`:''}` : '';
 
   // Fold into monthly "folders" (newest month first); sort WITHIN each month.
-  const mKey = o => { const d = new Date(o.mtime*1000); return d.getFullYear()*12 + d.getMonth(); };
-  const mLabel = o => new Date(o.mtime*1000).toLocaleString(undefined, { month: 'long', year: 'numeric' });
+  const mKey = o => { const d = new Date(o.ts || 0); return d.getFullYear()*12 + d.getMonth(); };
+  const mLabel = o => o.ts ? new Date(o.ts).toLocaleString(undefined, { month: 'long', year: 'numeric' }) : 'Undated';
   const within = sort === 'company'
-    ? (a,b) => (a.company||'').toLowerCase().localeCompare((b.company||'').toLowerCase()) || b.mtime-a.mtime
+    ? (a,b) => (a.company||'').toLowerCase().localeCompare((b.company||'').toLowerCase()) || b.ts-a.ts
     : sort === 'persona'
-    ? (a,b) => (a.persona||'~').toLowerCase().localeCompare((b.persona||'~').toLowerCase()) || b.mtime-a.mtime
-    : (a,b) => b.mtime - a.mtime;
+    ? (a,b) => (a.persona||'~').toLowerCase().localeCompare((b.persona||'~').toLowerCase()) || b.ts-a.ts
+    : (a,b) => b.ts - a.ts;
   const groups = {};
   items.forEach(o => { (groups[mKey(o)] = groups[mKey(o)] || []).push(o); });
   const card = o => `
-    <div class="lib-card" data-folder="${esc(o.folder)}">
-      <button class="x" data-del="${esc(o.folder)}" title="Delete">🗑</button>
-      <div class="ttl">${esc(o.title || o.folder)}${counts[dupKey(o)]>1?' <span class="pill" style="background:var(--warn-bg);color:var(--warn)">dup ×'+counts[dupKey(o)]+'</span>':''}</div>
+    <div class="lib-card" data-folder="${esc(o.folder)}" data-key="${esc(o.key_id||'')}" data-gen="${o.generated?1:0}" style="${o.generated?'':'opacity:.82'}">
+      ${o.generated?`<button class="x" data-del="${esc(o.folder)}" title="Delete">🗑</button>`:''}
+      <div class="ttl">${esc(o.title || o.folder || 'Untitled')}${counts[dupKey(o)]>1?' <span class="pill" style="background:var(--warn-bg);color:var(--warn)">dup ×'+counts[dupKey(o)]+'</span>':''}</div>
       <div class="co">${esc(o.company || '—')}</div>
-      <div class="meta">${o.persona?'<span class="pill">'+esc(o.persona)+'</span>':''}${o.has_pdf?'<span class="pill">PDF</span>':''}<span>${new Date(o.mtime*1000).toLocaleDateString()}</span></div>
+      <div class="meta">${o.generated
+        ? (o.persona?'<span class="pill">'+esc(o.persona)+'</span>':'')+(o.has_pdf?'<span class="pill">PDF</span>':'')
+        : '<span class="pill" style="background:var(--soft-bg);color:var(--muted)">not generated</span>'}<span>${o.ts?new Date(o.ts).toLocaleDateString():'—'}</span></div>
     </div>`;
   $('lib-grid').innerHTML = Object.keys(groups).map(Number).sort((a,b)=>b-a).map(mk => {
     const g = groups[mk].sort(within);
@@ -2247,11 +2535,17 @@ function libFilter() {
       g.map(card).join('');
   }).join('');
   $('lib-grid').querySelectorAll('.lib-card').forEach(c => {
-    c.onclick = () => openLibrary(c.dataset.folder);
-    const x = c.querySelector('.x'); x.onclick = (e) => { e.stopPropagation(); deleteRun(x.dataset.del); };
+    if (c.dataset.gen === '1') {
+      c.onclick = () => openLibrary(c.dataset.folder);
+      const x = c.querySelector('.x'); if (x) x.onclick = (e) => { e.stopPropagation(); deleteRun(x.dataset.del); };
+    } else {
+      const item = items.find(o => !o.generated && (o.key_id||'') === c.dataset.key);
+      c.onclick = () => openJobDetail(item && item.job);
+    }
   });
 }
 $('lib-search').oninput = libFilter;
+$('lib-gen').onchange = libFilter;
 $('lib-days').onchange = libFilter;
 $('lib-sort').onchange = libFilter;
 $('lib-refresh').onclick = loadLibrary;
@@ -2264,7 +2558,7 @@ async function openLibrary(folder) {
     const data = await api('/run?folder=' + enc(folder));
     const t = data.target || {};
     openModalShell(t.title || folder, [t.company, t.location].filter(Boolean).join(' · '), folder);
-    renderApplication($('modal-body'), data, filesFromMap(data.files));
+    renderApplication($('modal-body'), data, filesForRun(data));
   } catch (e) { $('modal-body').innerHTML = `<div class="qa dirty">${esc(e.message)}</div>`; }
 }
 async function deleteRun(folder) {
@@ -2288,7 +2582,7 @@ function openModalFor(data) {
   if (!data) return;
   const t = data.target || {};
   openModalShell(t.title || 'Application', [t.company, t.location].filter(Boolean).join(' · '));
-  renderApplication($('modal-body'), data, filesFromPaths(data.paths));
+  renderApplication($('modal-body'), data, filesForRun(data));
 }
 
 /* Job detail modal: info + editable email + actions (Jobs tab) */
@@ -2327,7 +2621,6 @@ function openJobDetail(j) {
 }
 $('modal-x').onclick = () => $('overlay').classList.remove('show');
 $('overlay').onclick = (e) => { if (e.target === $('overlay')) $('overlay').classList.remove('show'); };
-$('paste-overlay').onclick = (e) => { if (e.target === $('paste-overlay')) $('paste-overlay').classList.remove('show'); };
 document.addEventListener('keydown', e => { if (e.key === 'Escape') document.querySelectorAll('.overlay.show').forEach(o => o.classList.remove('show')); });
 
 /* ---------- Theme toggle ---------- */

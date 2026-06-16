@@ -82,37 +82,46 @@ def is_repeat(company: str) -> bool:
 
 
 # --------------------------------------------------------------------------- #
-# per-company saved details
+# per-company saved details (SQLite-backed; see db.py)
+#
+# The old `data/companies/*.json` files are migrated into the `companies` table
+# once, on first start. `_COMPANIES` is kept only so that migration can find them.
 # --------------------------------------------------------------------------- #
 def get_company(company: str) -> dict | None:
-    f = _COMPANIES / f"{slug(company)}.json"
-    if not f.exists():
+    from . import db
+
+    with db.connect() as conn:
+        row = conn.execute(
+            "SELECT data FROM companies WHERE slug = ?", (slug(company),)
+        ).fetchone()
+    if not row:
         return None
     try:
-        return json.loads(f.read_text(encoding="utf-8"))
+        return json.loads(row["data"])
     except ValueError:
         return None
 
 
 def save_company(company: str, data: dict) -> dict:
     """Merge `data` into the saved record for this company (create if new)."""
-    _COMPANIES.mkdir(parents=True, exist_ok=True)
+    from . import db
+
     existing = get_company(company) or {"company": company}
     existing.update({k: v for k, v in (data or {}).items() if v not in (None, "")})
     existing["company"] = company
-    (_COMPANIES / f"{slug(company)}.json").write_text(
-        json.dumps(existing, indent=2), encoding="utf-8"
-    )
+    with db.connect() as conn:
+        db._upsert_company_row(conn, slug(company), existing)
     return existing
 
 
 def list_companies() -> list[dict]:
-    if not _COMPANIES.exists():
-        return []
+    from . import db
+
     out = []
-    for f in _COMPANIES.glob("*.json"):
-        try:
-            out.append(json.loads(f.read_text(encoding="utf-8")))
-        except ValueError:
-            continue
+    with db.connect() as conn:
+        for r in conn.execute("SELECT data FROM companies ORDER BY company"):
+            try:
+                out.append(json.loads(r["data"]))
+            except ValueError:
+                continue
     return out

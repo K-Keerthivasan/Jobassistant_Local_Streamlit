@@ -63,6 +63,12 @@ class Settings:
     intake_dir: Path = field(
         default_factory=lambda: _path(os.getenv("INTAKE_DIR", "data/intake"))
     )
+    # SQLite database: review queue, dedup set, repeatable roles, company memory,
+    # and the output-run index. Lives under data/ (mounted in Docker) so it
+    # persists. The JSON stores are migrated into it once, on first start.
+    db_path: Path = field(
+        default_factory=lambda: _path(os.getenv("DB_PATH", "data/resume.db"))
+    )
 
     # PDF export
     pdf_engine: str = os.getenv("PDF_ENGINE", "auto")  # auto | docx2pdf | libreoffice

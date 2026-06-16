@@ -5,7 +5,7 @@ Each template stores the latest job description plus a running count and the
 folder of the last generated application, so re-applying is one click: regenerate
 a freshly tuned resume/cover/email from the saved JD, download, tweak, re-submit.
 
-Stored one JSON per role under data/repeatable/<slug>.json. Keyed by
+Persisted in SQLite (table ``repeatable_roles``, see db.py), keyed by
 slug(company + title) so each distinct role is its own template.
 """
 
@@ -17,9 +17,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
-from ..config import ROOT
-
-_DIR = ROOT / "data" / "repeatable"
+from . import db
 
 
 def _slug(text: str) -> str:
@@ -73,38 +71,39 @@ class RepeatableRole(BaseModel):
     updated_at: str = ""
 
 
-def _path(key: str):
-    return _DIR / f"{key}.json"
-
-
 def get_role(key: str) -> RepeatableRole | None:
-    f = _path(key)
-    if not f.exists():
+    with db.connect() as conn:
+        row = conn.execute(
+            "SELECT data FROM repeatable_roles WHERE key = ?", (key,)
+        ).fetchone()
+    if not row:
         return None
     try:
-        return RepeatableRole.model_validate_json(f.read_text(encoding="utf-8"))
+        return RepeatableRole.model_validate_json(row["data"])
     except ValueError:
         return None
 
 
 def _write(role: RepeatableRole) -> RepeatableRole:
-    _DIR.mkdir(parents=True, exist_ok=True)
     role.updated_at = datetime.now().isoformat(timespec="seconds")
-    _path(role.key).write_text(role.model_dump_json(indent=2), encoding="utf-8")
+    with db.connect() as conn:
+        db._upsert_role_row(conn, json.loads(role.model_dump_json()))
     return role
 
 
 def list_roles() -> list[RepeatableRole]:
-    if not _DIR.exists():
-        return []
+    with db.connect() as conn:
+        cur = conn.execute(
+            """SELECT data FROM repeatable_roles
+               ORDER BY COALESCE(last_applied,'') DESC, COALESCE(updated_at,'') DESC"""
+        )
+        rows = cur.fetchall()
     out: list[RepeatableRole] = []
-    for f in _DIR.glob("*.json"):
+    for r in rows:
         try:
-            out.append(RepeatableRole.model_validate_json(f.read_text(encoding="utf-8")))
+            out.append(RepeatableRole.model_validate_json(r["data"]))
         except ValueError:
             continue
-    # Most recently applied first, then most recently touched.
-    out.sort(key=lambda r: (r.last_applied or "", r.updated_at or ""), reverse=True)
     return out
 
 
@@ -163,11 +162,9 @@ def mark_applied(key: str, folder: str = "", folder_name: str = "") -> Repeatabl
 
 
 def delete_role(key: str) -> bool:
-    f = _path(key)
-    if f.exists():
-        f.unlink()
-        return True
-    return False
+    with db.connect() as conn:
+        cur = conn.execute("DELETE FROM repeatable_roles WHERE key = ?", (key,))
+        return cur.rowcount > 0
 
 
 def match_role(company: str, title: str) -> RepeatableRole | None:

@@ -1,20 +1,15 @@
-"""End-to-end: TargetRole -> generated + rendered artifacts on disk.
+"""End-to-end: TargetRole -> one generated application, stored in the DB.
 
-Output layout (one folder per application):
-  output/<Company>_<Title>_<date>/
-    resume.json          (validated schema output, for QA / re-render)
-    <Company>_<Title>_KK_Resume.docx / .pdf
-    <Company>_<Title>_KK_Cover.docx / .pdf
-    email.txt
-    target_role.json
+Nothing is written to disk. ``run`` returns (and persists to the ``runs`` table)
+a bundle holding the validated resume/cover-letter/email JSON, the QA report, and
+the target. The resume/cover DOCX + PDF are rendered on demand only when the user
+downloads them (render/ondemand.py, served by the /download route).
 """
 
 from __future__ import annotations
 
-import json
 import re
-from datetime import date
-from pathlib import Path
+from datetime import date, datetime
 
 from .config import settings
 from .generate import generate_all
@@ -22,7 +17,6 @@ from .guard import enforce, enforce_cover_letter, enforce_email, has_violations
 from .models import TargetRole
 from .profile import load_profile
 from .personas import select_persona
-from .render.docx_renderer import render_cover_letter, render_resume
 
 
 def _slug(text: str, maxlen: int = 40) -> str:
@@ -62,12 +56,14 @@ def run(
     strict: bool = False,
     persona: str | None = None,
     model: str | None = None,
+    skills_focus: list[str] | None = None,
 ) -> dict:
     profile = profile or load_profile()
     chosen = select_persona(target, persona)
     resume_model, letters_model = _resolve_engines(model)
     bundle = generate_all(target, profile, chosen,
-                          resume_model=resume_model, letters_model=letters_model)
+                          resume_model=resume_model, letters_model=letters_model,
+                          skills_focus=skills_focus)
     resume, cover, email = bundle["resume"], bundle["cover_letter"], bundle["email"]
 
     # Hermes-led QA: the main truthfulness judgment, run BEFORE the deterministic
@@ -88,15 +84,27 @@ def run(
     qa["cover_letter"] = cover_qa
     qa["email"] = email_qa
 
-    folder = settings.output_dir / f"{_slug(target.company)}_{_slug(target.title)}_{date.today():%Y%m%d}"
-    folder.mkdir(parents=True, exist_ok=True)
-
-    paths: dict[str, str] = {}
+    # Nothing is written to disk. The whole application is stored in the DB
+    # (table `runs`); the resume/cover PDFs + DOCX are rendered on demand only
+    # when the user hits Download (see render/ondemand.py + the /download route).
+    run_id = f"{_slug(target.company)}_{_slug(target.title)}_{date.today():%Y%m%d}"
+    created_at = datetime.now().isoformat(timespec="seconds")
 
     doc_base = _document_base(target)
+
+    # Auto-fit the résumé's typographic density so its REAL content fills ~2 pages
+    # (no fabrication — only font/spacing/margins scale), then page-validate. Renders
+    # to a temp dir only; nothing persists. Gated on make_pdf; fail-safe → density 1.0.
+    resume_density = 1.0
+    if make_pdf:
+        from .render.autofit import fit_resume
+        resume_density, qa["pages"] = fit_resume(resume, cover, doc_base, profile)
+
     target_data = target.model_dump()
+    target_data["persona"] = (chosen or {}).get("id", "")
     target_data["persona_label"] = (chosen or {}).get("label", "")
     target_data["document_base_name"] = doc_base
+    target_data["resume_density"] = resume_density   # re-applied at download render
     target_data["document_files"] = {
         "resume_docx": f"{doc_base}_Resume.docx",
         "resume_pdf": f"{doc_base}_Resume.pdf",
@@ -104,50 +112,11 @@ def run(
         "cover_letter_pdf": f"{doc_base}_Cover.pdf",
     }
 
-    (folder / "target_role.json").write_text(
-        json.dumps(target_data, indent=2), encoding="utf-8"
-    )
-    (folder / "resume.json").write_text(resume.model_dump_json(indent=2), encoding="utf-8")
-    paths["resume_json"] = str(folder / "resume.json")
-
-    # Structured cover letter too, so the UI / a re-render can read it back.
-    (folder / "cover_letter.json").write_text(cover.model_dump_json(indent=2), encoding="utf-8")
-    paths["cover_letter_json"] = str(folder / "cover_letter.json")
-
-    (folder / "qa_report.json").write_text(json.dumps(qa, indent=2), encoding="utf-8")
-    paths["qa_report"] = str(folder / "qa_report.json")
-
-    resume_docx = render_resume(resume, folder / f"{doc_base}_Resume.docx", profile)
-    cover_docx = render_cover_letter(cover, folder / f"{doc_base}_Cover.docx")
-    paths["resume_docx"] = str(resume_docx)
-    paths["cover_letter_docx"] = str(cover_docx)
-
-    email_txt = folder / "email.txt"
-    email_txt.write_text(f"Subject: {email.subject}\n\n{email.body}\n", encoding="utf-8")
-    paths["email_txt"] = str(email_txt)
-
-    if make_pdf:
-        from .render.pdf_export import to_pdf
-
-        try:
-            paths["resume_pdf"] = str(to_pdf(resume_docx))
-            paths["cover_letter_pdf"] = str(to_pdf(cover_docx))
-        except Exception as e:  # PDF is best-effort; docx always succeeds.
-            paths["pdf_error"] = str(e)
-
-        # Page validation (count + physical size) once the PDFs exist.
-        from .render.pagecheck import page_report
-
-        qa["pages"] = page_report(
-            resume_pdf=paths.get("resume_pdf"),
-            cover_pdf=paths.get("cover_letter_pdf"),
-        )
-        (folder / "qa_report.json").write_text(json.dumps(qa, indent=2), encoding="utf-8")
-
-    return {
-        "folder": str(folder),
-        "folder_name": folder.name,
-        "paths": paths,
+    bundle = {
+        "run_id": run_id,
+        "folder": run_id,        # back-compat: callers store this in job/role notes
+        "folder_name": run_id,
+        "created_at": created_at,
         "keywordsMatched": resume.keywordsMatched,
         "email_subject": email.subject,
         "persona": (chosen or {}).get("id", ""),
@@ -158,9 +127,14 @@ def run(
         },
         "qa": qa,
         "qa_has_violations": has_violations(qa),
-        # Full generated content, so the UI can preview without re-reading files.
+        # Full generated content — the only copy. Preview + on-demand render read this.
         "resume": resume.model_dump(),
         "cover_letter": cover.model_dump(),
         "email": email.model_dump(),
         "target": target_data,
     }
+
+    from .intake import runs as runs_store
+
+    runs_store.save_run(bundle)
+    return bundle

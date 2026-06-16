@@ -9,8 +9,8 @@
       "output": 0,
       "cost": 0.0,
       "calls": 0,
-      "seconds": 1096.038,
-      "timed_calls": 74
+      "seconds": 1681.327,
+      "timed_calls": 104
     },
     "hermes-agent": {
       "input": 0,
@@ -51,13 +51,13 @@
       "output": 0,
       "cost": 0.0,
       "calls": 0,
-      "seconds": 771.373,
-      "timed_calls": 80
+      "seconds": 1356.662,
+      "timed_calls": 110
     }
   },
-  "total_seconds": 1468.552,
-  "timed_calls": 129,
-  "last_seconds": 26.221,
-  "last_model": "hermes-agent",
-  "last_label": "HermesQAResult"
+  "total_seconds": 2053.841,
+  "timed_calls": 159,
+  "last_seconds": 13.794,
+  "last_model": "qwen3:8b",
+  "last_label": "ApplicationEmail"
 }

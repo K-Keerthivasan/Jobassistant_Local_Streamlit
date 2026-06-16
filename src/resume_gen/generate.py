@@ -76,8 +76,20 @@ def _context(profile: dict | None, target: TargetRole, persona: dict | None = No
     )
 
 
-def generate_resume(target: TargetRole, profile: dict | None = None, persona: dict | None = None, **kw) -> Resume:
+def generate_resume(target: TargetRole, profile: dict | None = None, persona: dict | None = None,
+                    *, skills_focus: list[str] | None = None, **kw) -> Resume:
     user = _context(profile, target, persona)
+    if skills_focus:
+        # Per-run emphasis (e.g. from a repeatable role). Re-orders/surfaces these
+        # areas; it must NOT invent — the truth-guard strips anything ungrounded.
+        focus = ", ".join(s for s in skills_focus if s)
+        user += (
+            "\n\nSKILLS EMPHASIS: For THIS resume, prioritise and surface these areas "
+            f"where the candidate genuinely has them (from CANDIDATE_PROFILE): {focus}. "
+            "Order the skills list to lead with them and pick experience bullets that "
+            "showcase them. Do NOT add any skill, tool, or claim the candidate does not "
+            "actually have — only re-order and emphasise real ones."
+        )
     return chat_structured(RESUME_SYSTEM, user, Resume, **kw)
 
 
@@ -97,16 +109,19 @@ def generate_email(target: TargetRole, profile: dict | None = None, persona: dic
 
 
 def generate_all(target: TargetRole, profile: dict | None = None, persona: dict | None = None,
-                 *, resume_model: str | None = None, letters_model: str | None = None, **kw):
+                 *, resume_model: str | None = None, letters_model: str | None = None,
+                 skills_focus: list[str] | None = None, **kw):
     """Generate all three artifacts, reusing one loaded profile + persona.
 
     `resume_model` drives the résumé; `letters_model` drives the cover letter +
     email. This lets callers split the work across engines (e.g. the résumé on
     local Ollama, the prose letters on the Hermes agent). Either may be None to
-    fall back to the Ollama default."""
+    fall back to the Ollama default. `skills_focus` (résumé only) re-orders and
+    emphasises specific real skills for this run."""
     profile = profile or load_profile()
     return {
-        "resume": generate_resume(target, profile, persona, model=resume_model, **kw),
+        "resume": generate_resume(target, profile, persona, model=resume_model,
+                                  skills_focus=skills_focus, **kw),
         "cover_letter": generate_cover_letter(target, profile, persona, model=letters_model, **kw),
         "email": generate_email(target, profile, persona, model=letters_model, **kw),
     }

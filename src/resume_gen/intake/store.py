@@ -1,86 +1,123 @@
-"""Dedup store + review queue, persisted as JSON under settings.intake_dir.
+"""Dedup store + review queue, persisted in SQLite (see db.py).
 
-  intake/seen.json        -> set of job keys we've already processed
-  intake/queue/<key>.json -> one QueuedJob awaiting review/generation/send
+Tables used:
+  seen  -> set of job keys we've already processed
+  jobs  -> one QueuedJob row per queued job (full model in the `data` column)
+
+The public functions keep the signatures they had when this was JSON-backed, so
+nothing in the API layer changes.
 """
 
 from __future__ import annotations
 
 import json
+import re
 from datetime import datetime
 
-from ..config import settings
+from . import db
 from .models import JobPosting, QueuedJob
 
-_SEEN = settings.intake_dir / "seen.json"
-_QUEUE = settings.intake_dir / "queue"
+# Repost-heavy feeds: Job Bank / RSS list the SAME role under many posting IDs, so
+# the posting-id key alone doesn't dedup them. For these we also collapse by
+# content identity (company + title + location). Curated sources (collector /
+# manual / csv / email / hermes) are left alone — you may legitimately add the
+# same company+title by hand.
+_CONTENT_DEDUP_SOURCES = {"jobbank", "rss"}
+
+
+def _content_id(j) -> str:
+    n = lambda s: re.sub(r"\s+", " ", (s or "").strip().lower())
+    return f"{j.source}|{n(j.company)}|{n(j.title)}|{n(j.location)}"
+
+
+def _queue_content_ids() -> set[str]:
+    """Content identities already in the queue (for the dedup-by-content sources),
+    so a reposted role isn't queued again on the next fetch."""
+    out: set[str] = set()
+    with db.connect() as conn:
+        for r in conn.execute("SELECT data FROM jobs"):
+            try:
+                d = QueuedJob.model_validate_json(r["data"])
+            except ValueError:
+                continue
+            if d.source in _CONTENT_DEDUP_SOURCES:
+                out.add(_content_id(d))
+    return out
+
+
+def _row_to_job(row) -> QueuedJob | None:
+    try:
+        return QueuedJob.model_validate_json(row["data"])
+    except ValueError:
+        return None
 
 
 def _load_seen() -> set[str]:
-    if _SEEN.exists():
-        try:
-            return set(json.loads(_SEEN.read_text(encoding="utf-8")))
-        except ValueError:
-            return set()
-    return set()
-
-
-def _save_seen(seen: set[str]) -> None:
-    _SEEN.parent.mkdir(parents=True, exist_ok=True)
-    _SEEN.write_text(json.dumps(sorted(seen), indent=2), encoding="utf-8")
+    with db.connect() as conn:
+        return {r["key"] for r in conn.execute("SELECT key FROM seen")}
 
 
 def filter_new(jobs: list[JobPosting]) -> list[JobPosting]:
-    """Keep only postings whose key we haven't seen before (dedup within the
-    batch too, so the same job from two sources isn't queued twice)."""
+    """Keep only postings we haven't queued before. Dedups on the posting key
+    (across runs via `seen`, and within the batch). For repost-heavy feeds
+    (Job Bank / RSS) it ALSO collapses by content identity (company + title +
+    location), keeping the freshest copy, so the same role reposted under a new
+    posting id isn't queued again."""
     seen = _load_seen()
-    out, batch = [], set()
-    for j in jobs:
-        if j.key in seen or j.key in batch:
+    existing_content = _queue_content_ids()
+    out, batch_keys, batch_content = [], set(), set()
+    # Newest-posted first so the copy we keep for a reposted role is the freshest.
+    for j in sorted(jobs, key=lambda x: x.posted or "", reverse=True):
+        if j.key in seen or j.key in batch_keys:
             continue
-        batch.add(j.key)
+        if j.source in _CONTENT_DEDUP_SOURCES:
+            cid = _content_id(j)
+            if cid in existing_content or cid in batch_content:
+                continue
+            batch_content.add(cid)
+        batch_keys.add(j.key)
         out.append(j)
     return out
 
 
 def commit(jobs: list[JobPosting]) -> list[QueuedJob]:
     """Mark jobs as seen and write each to the review queue as status='new'."""
-    seen = _load_seen()
-    _QUEUE.mkdir(parents=True, exist_ok=True)
     now = datetime.now().isoformat(timespec="seconds")
     queued: list[QueuedJob] = []
-    for j in jobs:
-        q = QueuedJob(**j.model_dump(), key_id=j.key, status="new", found_at=now)
-        (_QUEUE / f"{j.key}.json").write_text(q.model_dump_json(indent=2), encoding="utf-8")
-        seen.add(j.key)
-        queued.append(q)
-    _save_seen(seen)
+    with db.connect() as conn:
+        for j in jobs:
+            q = QueuedJob(**j.model_dump(), key_id=j.key, status="new", found_at=now)
+            db._upsert_job_row(conn, json.loads(q.model_dump_json()))
+            conn.execute("INSERT OR IGNORE INTO seen(key) VALUES (?)", (j.key,))
+            queued.append(q)
     return queued
 
 
 def list_queue(status: str | None = None) -> list[QueuedJob]:
-    if not _QUEUE.exists():
-        return []
-    items: list[QueuedJob] = []
-    for f in _QUEUE.glob("*.json"):
-        try:
-            q = QueuedJob.model_validate_json(f.read_text(encoding="utf-8"))
-        except ValueError:
-            continue
-        if status is None or q.status == status:
-            items.append(q)
-    items.sort(key=lambda q: q.found_at, reverse=True)
+    with db.connect() as conn:
+        if status is None:
+            cur = conn.execute("SELECT data FROM jobs ORDER BY found_at DESC")
+        else:
+            cur = conn.execute(
+                "SELECT data FROM jobs WHERE status = ? ORDER BY found_at DESC",
+                (status,),
+            )
+        items = [j for j in (_row_to_job(r) for r in cur.fetchall()) if j is not None]
     return items
 
 
 def get_job(key_id: str) -> QueuedJob | None:
-    f = _QUEUE / f"{key_id}.json"
-    if not f.exists():
-        return None
-    try:
-        return QueuedJob.model_validate_json(f.read_text(encoding="utf-8"))
-    except ValueError:
-        return None
+    with db.connect() as conn:
+        row = conn.execute(
+            "SELECT data FROM jobs WHERE key_id = ?", (key_id,)
+        ).fetchone()
+    return _row_to_job(row) if row else None
+
+
+def _save(q: QueuedJob) -> QueuedJob:
+    with db.connect() as conn:
+        db._upsert_job_row(conn, json.loads(q.model_dump_json()))
+    return q
 
 
 def update_status(key_id: str, status: str, notes: str = "") -> QueuedJob | None:
@@ -90,8 +127,7 @@ def update_status(key_id: str, status: str, notes: str = "") -> QueuedJob | None
     q.status = status
     if notes:
         q.notes = notes
-    (_QUEUE / f"{key_id}.json").write_text(q.model_dump_json(indent=2), encoding="utf-8")
-    return q
+    return _save(q)
 
 
 def set_applied(key_id: str, applied: bool) -> QueuedJob | None:
@@ -99,8 +135,7 @@ def set_applied(key_id: str, applied: bool) -> QueuedJob | None:
     if q is None:
         return None
     q.applied = applied
-    (_QUEUE / f"{key_id}.json").write_text(q.model_dump_json(indent=2), encoding="utf-8")
-    return q
+    return _save(q)
 
 
 def set_priority(key_id: str, priority: bool) -> QueuedJob | None:
@@ -108,8 +143,7 @@ def set_priority(key_id: str, priority: bool) -> QueuedJob | None:
     if q is None:
         return None
     q.priority = priority
-    (_QUEUE / f"{key_id}.json").write_text(q.model_dump_json(indent=2), encoding="utf-8")
-    return q
+    return _save(q)
 
 
 def set_repeatable(key_id: str, repeatable: bool) -> QueuedJob | None:
@@ -117,24 +151,19 @@ def set_repeatable(key_id: str, repeatable: bool) -> QueuedJob | None:
     if q is None:
         return None
     q.repeatable = repeatable
-    (_QUEUE / f"{key_id}.json").write_text(q.model_dump_json(indent=2), encoding="utf-8")
-    return q
+    return _save(q)
 
 
 def delete_job(key_id: str, *, forget_seen: bool = True) -> QueuedJob | None:
-    """Remove a queued job. Optionally remove its key from seen.json so a future
+    """Remove a queued job. Optionally remove its key from `seen` so a future
     scrape can queue it again."""
     q = get_job(key_id)
     if q is None:
         return None
-    f = _QUEUE / f"{key_id}.json"
-    if f.exists():
-        f.unlink()
-    if forget_seen:
-        seen = _load_seen()
-        if key_id in seen:
-            seen.remove(key_id)
-            _save_seen(seen)
+    with db.connect() as conn:
+        conn.execute("DELETE FROM jobs WHERE key_id = ?", (key_id,))
+        if forget_seen:
+            conn.execute("DELETE FROM seen WHERE key = ?", (key_id,))
     return q
 
 
@@ -149,5 +178,4 @@ def update_fields(key_id: str, fields: dict) -> QueuedJob | None:
     for k, v in (fields or {}).items():
         if k in _EDITABLE:
             setattr(q, k, v)
-    (_QUEUE / f"{key_id}.json").write_text(q.model_dump_json(indent=2), encoding="utf-8")
-    return q
+    return _save(q)

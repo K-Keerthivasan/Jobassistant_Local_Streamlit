@@ -23,6 +23,11 @@ data/jobs/*
 data/sources.yaml
 data/intake/
 
+# SQLite store (queue, seen, repeatable roles, company memory, output index)
+data/resume.db
+data/resume.db-wal
+data/resume.db-shm
+
 # OS
 Thumbs.db
 .DS_Store

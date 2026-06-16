@@ -87,9 +87,6 @@ def generate(
     result = run(target, make_pdf=pdf, strict=strict, model=model)
 
     console.print(f"\n[green]Done.[/] Output: [bold]{result['folder']}[/]")
-    for k, v in result["paths"].items():
-        tag = "[red]" if k.endswith("error") else "[green]"
-        console.print(f"  {tag}{k}[/]: {v}")
 
     qa = result["qa"]
     if result["qa_has_violations"]:

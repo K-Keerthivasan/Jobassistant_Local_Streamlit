@@ -12,6 +12,8 @@ from __future__ import annotations
 import html as _html
 import os
 import re
+from datetime import datetime, timedelta
+from email.utils import parsedate_to_datetime
 from urllib.parse import urlparse
 
 import httpx
@@ -23,6 +25,62 @@ _TIMEOUT = 25.0
 _UA = {"User-Agent": "Mozilla/5.0 (compatible; resume-gen-intake/0.1)"}
 _EMAIL_RE = re.compile(r"[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}")
 _LOCALE_RE = re.compile(r"^[a-z]{2}-[A-Z]{2}$")
+
+# Absolute date formats seen on Job Bank ("June 13, 2026") and elsewhere.
+_DATE_FORMATS = (
+    "%Y-%m-%d", "%Y/%m/%d", "%B %d, %Y", "%b %d, %Y",
+    "%d %B %Y", "%d %b %Y", "%m/%d/%Y", "%d/%m/%Y",
+)
+
+
+def to_iso_date(value: str) -> str:
+    """Best-effort normalize a source's posted-date string to ISO 'YYYY-MM-DD'.
+
+    Handles ISO timestamps, RFC-822 (RSS <pubDate>), common absolute formats
+    (Job Bank), and relative phrases ("today", "2 days ago"). Returns the
+    original (trimmed) string when nothing parses, so no information is lost and
+    the UI can still fall back to found_at for filtering."""
+    s = re.sub(r"^\s*posted\s*(on\s*)?", "", str(value or "").strip(), flags=re.I)
+    if not s:
+        return ""
+
+    # Already an ISO date / timestamp prefix, e.g. 2026-06-13T10:00:00Z.
+    m = re.match(r"(\d{4})-(\d{2})-(\d{2})", s)
+    if m:
+        return m.group(0)
+
+    # Relative phrases.
+    low = s.lower()
+    if low in ("today", "just posted", "new"):
+        return datetime.now().date().isoformat()
+    if low == "yesterday":
+        return (datetime.now() - timedelta(days=1)).date().isoformat()
+    rel = re.match(r"(\d+)\s*(day|week|month|hour|minute)s?\s*ago", low)
+    if rel:
+        n = int(rel.group(1))
+        unit = rel.group(2)
+        delta = {
+            "minute": timedelta(minutes=n), "hour": timedelta(hours=n),
+            "day": timedelta(days=n), "week": timedelta(weeks=n),
+            "month": timedelta(days=30 * n),
+        }[unit]
+        return (datetime.now() - delta).date().isoformat()
+
+    # RFC-822 (RSS pubDate), e.g. "Mon, 15 Jun 2026 12:00:00 GMT".
+    try:
+        dt = parsedate_to_datetime(s)
+        if dt is not None:
+            return dt.date().isoformat()
+    except (TypeError, ValueError):
+        pass
+
+    for fmt in _DATE_FORMATS:
+        try:
+            return datetime.strptime(s, fmt).date().isoformat()
+        except ValueError:
+            continue
+
+    return s  # unparseable — keep the raw text
 
 
 def _html_to_text(s: str) -> str:
@@ -357,7 +415,7 @@ def fetch_rss(src: dict) -> list[JobPosting]:
             description=desc,
             apply_url=link,
             contact_email=_find_email(desc),
-            posted=posted,
+            posted=to_iso_date(posted),
         ))
     return out
 
@@ -422,28 +480,101 @@ def fetch_jobbank(src: dict) -> list[JobPosting]:
                 source="jobbank", source_company="jobbank",
                 job_id=jid or apply_url, company=company, title=title,
                 location=location_t, description=desc, apply_url=apply_url,
-                contact_email=email, posted=posted,
+                contact_email=email, posted=to_iso_date(posted),
             ))
     return out
 
 
+# --------------------------------------------------------------------------- #
+# Source registry — the single source of truth for which job sources exist, how
+# to fetch each, and how the UI should present/add them. Everything else (the
+# dispatcher, the /source-types endpoint, the "Add source" form, the queue
+# source filter) derives from here, so adding a new job site is a one-line entry.
+# --------------------------------------------------------------------------- #
+# Each entry:
+#   fetch        -> callable(src_dict) -> list[JobPosting]
+#   label        -> human name for the UI
+#   input        -> which single text field the simple "Add source" form maps to:
+#                   "search" | "company" | "url" | None (not addable via the form)
+#   hint         -> placeholder for that input
+#   needs_location -> show the optional Location field (Job Bank)
+#   aliases      -> alternate type strings that map to this source
+SOURCE_REGISTRY: dict[str, dict] = {
+    "jobbank": {
+        "fetch": lambda s: fetch_jobbank(s),
+        "label": "Job Bank (Canada)", "input": "search",
+        "hint": "Job Bank search keyword (e.g. software developer)",
+        "needs_location": True,
+    },
+    "rss": {
+        "fetch": lambda s: fetch_rss(s),
+        "label": "RSS / Atom feed", "input": "url", "hint": "RSS feed URL",
+        "needs_location": False, "aliases": ["atom"],
+    },
+    "greenhouse": {
+        "fetch": lambda s: fetch_greenhouse(s["company"]),
+        "label": "Greenhouse", "input": "company",
+        "hint": "Company token (e.g. gitlab)", "needs_location": False,
+    },
+    "lever": {
+        "fetch": lambda s: fetch_lever(s["company"]),
+        "label": "Lever", "input": "company",
+        "hint": "Company token (e.g. mistral)", "needs_location": False,
+    },
+    "workday": {
+        "fetch": lambda s: fetch_workday(s["url"], limit=int(s.get("limit", 20))),
+        "label": "Workday", "input": "url",
+        "hint": "Workday jobs URL", "needs_location": False,
+    },
+    "generic": {
+        "fetch": lambda s: fetch_generic(s["url"], company=s.get("company", "")),
+        "label": "Generic page", "input": "url",
+        "hint": "Job listing page URL", "needs_location": False,
+    },
+    "apify": {
+        "fetch": lambda s: fetch_apify(s),
+        "label": "Apify actor", "input": None,
+        "hint": "Actor id + APIFY_TOKEN (edit sources.yaml)", "needs_location": False,
+    },
+    "collector": {
+        "fetch": lambda s: fetch_collector(s),
+        "label": "Browser capture", "input": None,
+        "hint": "Saved from the browser userscript", "needs_location": False,
+        "aliases": ["scraper"],
+    },
+}
+
+# Reverse map of every accepted type string (incl. aliases) -> canonical key.
+_TYPE_ALIASES: dict[str, str] = {}
+for _key, _meta in SOURCE_REGISTRY.items():
+    _TYPE_ALIASES[_key] = _key
+    for _alias in _meta.get("aliases", []):
+        _TYPE_ALIASES[_alias] = _key
+
+
+def canonical_type(t: str) -> str | None:
+    """Map a (possibly aliased) source type string to its canonical key."""
+    return _TYPE_ALIASES.get((t or "").lower().strip())
+
+
+def source_types(addable_only: bool = False) -> list[dict]:
+    """Metadata for every known source type, for the UI to build forms/filters
+    dynamically. `addable_only` keeps just the ones the simple Add-source form
+    supports (those with a single text input)."""
+    out = []
+    for key, meta in SOURCE_REGISTRY.items():
+        if addable_only and not meta.get("input"):
+            continue
+        out.append({
+            "type": key, "label": meta["label"], "input": meta.get("input"),
+            "hint": meta.get("hint", ""), "needs_location": meta.get("needs_location", False),
+        })
+    return out
+
+
 def fetch_source(src: dict) -> list[JobPosting]:
-    """Dispatch one source-config entry to the right fetcher."""
-    t = (src.get("type") or "").lower()
-    if t == "jobbank":
-        return fetch_jobbank(src)
-    if t in ("rss", "atom"):
-        return fetch_rss(src)
-    if t == "greenhouse":
-        return fetch_greenhouse(src["company"])
-    if t == "lever":
-        return fetch_lever(src["company"])
-    if t == "workday":
-        return fetch_workday(src["url"], limit=int(src.get("limit", 20)))
-    if t == "generic":
-        return fetch_generic(src["url"], company=src.get("company", ""))
-    if t == "apify":
-        return fetch_apify(src)
-    if t in ("collector", "scraper"):
-        return fetch_collector(src)
-    raise ValueError(f"Unknown source type: {t!r}")
+    """Dispatch one source-config entry to the right fetcher (via the registry)."""
+    key = canonical_type(src.get("type") or "")
+    if key is None:
+        raise ValueError(f"Unknown source type: {src.get('type')!r}")
+    return SOURCE_REGISTRY[key]["fetch"](src)

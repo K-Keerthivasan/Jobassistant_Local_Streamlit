@@ -31,20 +31,21 @@ app = FastAPI(title="Automatic Resume Generator", version="0.1.0")
 WEB_DIR = Path(__file__).resolve().parents[1] / "web"
 
 
+@app.on_event("startup")
+def _init_db() -> None:
+    """Initialize the SQLite store and run the one-time JSON->DB migration
+    (idempotent: only backfills tables that are still empty)."""
+    from resume_gen.intake import db
+
+    db._ensure_init()
+
+
 def _artifact(d: Path, generic: str, pattern: str) -> Path | None:
     old = d / generic
     if old.exists():
         return old
     matches = sorted(d.glob(pattern), key=lambda p: p.stat().st_mtime, reverse=True)
     return matches[0] if matches else None
-
-
-def _document_pair(d: Path, kind: str) -> Path | None:
-    if kind == "resume":
-        return _artifact(d, "resume.pdf", "*_Resume.pdf") or _artifact(d, "resume.docx", "*_Resume.docx")
-    if kind == "cover_letter":
-        return _artifact(d, "cover_letter.pdf", "*_Cover.pdf") or _artifact(d, "cover_letter.docx", "*_Cover.docx")
-    return None
 
 
 @app.middleware("http")
@@ -121,6 +122,7 @@ class GenerateOptions(BaseModel):
     strict: bool = False
     model: str | None = None
     persona: str | None = None  # persona id, "auto"/None = auto-detect
+    skills_focus: list[str] | str | None = None  # résumé skills to emphasise this run
 
 
 class GenerateRequest(TargetRole, GenerateOptions):
@@ -180,73 +182,65 @@ def generate(req: GenerateRequest):
 
 @app.get("/outputs")
 def outputs():
-    """List previously generated application folders, newest first."""
-    out = settings.output_dir
-    if not out.exists():
-        return {"outputs": []}
-    items = []
-    for d in out.iterdir():
-        if not d.is_dir():
-            continue
-        target = {}
-        tr = d / "target_role.json"
-        if tr.exists():
-            try:
-                target = json.loads(tr.read_text(encoding="utf-8"))
-            except ValueError:
-                pass
-        items.append({
-            "folder": d.name,
-            "mtime": d.stat().st_mtime,
-            "company": target.get("company", ""),
-            "title": target.get("title", ""),
-            "persona": target.get("persona_label", ""),
-            "has_pdf": bool(_artifact(d, "resume.pdf", "*_Resume.pdf")),
-        })
-    items.sort(key=lambda x: x["mtime"], reverse=True)
-    return {"outputs": items}
+    """List generated applications, newest first, from the SQLite `runs` table.
+    Nothing lives on disk — each run is downloadable (rendered on demand)."""
+    from resume_gen.intake import runs as runs_store
 
-
-def _read_json(p: Path) -> dict | None:
-    if not p.exists():
-        return None
-    try:
-        return json.loads(p.read_text(encoding="utf-8"))
-    except ValueError:
-        return None
+    return {"outputs": runs_store.list_runs()}
 
 
 @app.get("/run")
 def get_run(folder: str):
-    """Return the full content of a past run for preview."""
-    d = (settings.output_dir / folder).resolve()
-    if not str(d).startswith(str(settings.output_dir.resolve())) or not d.is_dir():
+    """Return the full content of a past run for preview, from the `runs` table.
+    `folder` is the run id (kept as the param name for UI back-compat)."""
+    from resume_gen.intake import runs as runs_store
+    from resume_gen.render.ondemand import ARTIFACTS
+
+    bundle = runs_store.get_run(folder)
+    if bundle is None:
         raise HTTPException(status_code=404, detail="Run not found.")
-    email_txt = d / "email.txt"
-    email = {}
-    if email_txt.exists():
-        raw = email_txt.read_text(encoding="utf-8")
-        subject = ""
-        body = raw
-        if raw.startswith("Subject:"):
-            first, _, rest = raw.partition("\n")
-            subject = first[len("Subject:"):].strip()
-            body = rest.lstrip("\n")
-        email = {"subject": subject, "body": body}
-    files = {
-        f.name: str(f) for f in d.iterdir()
-        if f.suffix in (".docx", ".pdf", ".txt")
-    }
+    # Map each downloadable artifact to its /download URL, so the UI builds links
+    # without knowing the catalogue. Keys are the artifact ids.
+    files = {art: f"/download/{folder}/{art}" for art in ARTIFACTS}
     return {
         "folder": folder,
         "folder_name": folder,  # lets the UI target this run for review/rewrite-apply
-        "target": _read_json(d / "target_role.json") or {},
-        "resume": _read_json(d / "resume.json") or {},
-        "cover_letter": _read_json(d / "cover_letter.json") or {},
-        "email": email,
-        "qa": _read_json(d / "qa_report.json") or {},
+        "run_id": folder,
+        "target": bundle.get("target") or {},
+        "resume": bundle.get("resume") or {},
+        "cover_letter": bundle.get("cover_letter") or {},
+        "email": bundle.get("email") or {},
+        "qa": bundle.get("qa") or {},
+        "qa_has_violations": bundle.get("qa_has_violations", False),
+        "review": bundle.get("review"),
         "files": files,
     }
+
+
+@app.get("/download/{run_id}/{artifact}")
+def download_artifact(run_id: str, artifact: str):
+    """Render one artifact of a stored run on demand and stream it. PDFs/DOCX are
+    rendered into a temp dir and discarded — nothing is persisted to disk."""
+    from fastapi import Response
+
+    from resume_gen.intake import runs as runs_store
+    from resume_gen.render.ondemand import render_artifact
+
+    bundle = runs_store.get_run(run_id)
+    if bundle is None:
+        raise HTTPException(status_code=404, detail="Run not found.")
+    try:
+        content, filename, mime = render_artifact(bundle, artifact)
+    except KeyError:
+        raise HTTPException(status_code=404, detail=f"Unknown artifact '{artifact}'.")
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Render failed: {e}")
+    return Response(
+        content=content, media_type=mime,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @app.post("/intake/run")
@@ -280,6 +274,17 @@ def _save_sources_cfg(cfg: dict) -> None:
     _SOURCES_PATH.write_text(
         yaml.safe_dump(cfg, sort_keys=False, allow_unicode=True), encoding="utf-8"
     )
+
+
+@app.get("/source-types")
+def source_types():
+    """Every supported job-source type (from the adapter registry), with the
+    metadata the UI needs to build the Add-source form dynamically. Adding a new
+    job site is a one-line entry in intake/sources.py — it shows up here
+    automatically."""
+    from resume_gen.intake.sources import source_types as _types
+
+    return {"types": _types(), "addable": _types(addable_only=True)}
 
 
 @app.get("/sources")
@@ -822,8 +827,14 @@ def repeatable_generate(key: str, req: GenerateOptions | None = None):
     # Per-run persona overrides the saved one; fall back to the template's persona.
     persona = (req.persona if req and req.persona else None) or (role.persona or None)
     model = None if req is None else req.model
+    # Per-run skills emphasis (accept a list or a comma/semicolon string).
+    raw_focus = req.skills_focus if req else None
+    if isinstance(raw_focus, str):
+        raw_focus = [s.strip() for s in raw_focus.replace(";", ",").split(",") if s.strip()]
+    skills_focus = raw_focus or None
     try:
-        result = run(target, make_pdf=pdf, strict=strict, persona=persona, model=model)
+        result = run(target, make_pdf=pdf, strict=strict, persona=persona, model=model,
+                     skills_focus=skills_focus)
         mark_applied(key, folder=result["folder"], folder_name=result["folder_name"])
         return result
     except Exception as e:
@@ -939,14 +950,17 @@ def review(req: ReviewRequest):
     if not hermes_client.available():
         raise HTTPException(status_code=400, detail="HERMES_API_KEY is not set — the Hermes review engine is off.")
 
-    resume, cover, target, folder = req.resume, req.cover_letter, req.target, None
+    from resume_gen.intake import runs as runs_store
+
+    resume, cover, target, run_id = req.resume, req.cover_letter, req.target, None
     if req.folder_name:
-        folder = (settings.output_dir / Path(req.folder_name).name).resolve()
-        if not str(folder).startswith(str(settings.output_dir.resolve())) or not folder.is_dir():
+        bundle = runs_store.get_run(req.folder_name)
+        if bundle is None:
             raise HTTPException(status_code=404, detail="Run not found.")
-        resume = _read_json(folder / "resume.json") or {}
-        cover = _read_json(folder / "cover_letter.json") or {}
-        target = _read_json(folder / "target_role.json") or {}
+        run_id = req.folder_name
+        resume = bundle.get("resume") or {}
+        cover = bundle.get("cover_letter") or {}
+        target = bundle.get("target") or {}
     if not resume or not target:
         raise HTTPException(status_code=400, detail="Provide folder_name, or both resume and target.")
 
@@ -991,29 +1005,10 @@ def review(req: ReviewRequest):
         except Exception as e:
             data["cover_review_error"] = str(e)
 
-    # --- Deterministic page validation (count + Letter/A4) --------------------
-    if folder is not None:
-        from resume_gen.render.pagecheck import page_report
-
-        r_base = _doc_base(folder, target, "Resume")
-        c_base = _doc_base(folder, target, "Cover")
-        data["pages"] = page_report(
-            resume_pdf=folder / f"{r_base}_Resume.pdf",
-            cover_pdf=folder / f"{c_base}_Cover.pdf",
-        )
-
-    if folder is not None:  # persist alongside the run for later reference
-        try:
-            (folder / "hermes_review.json").write_text(
-                json.dumps(data, indent=2), encoding="utf-8")
-            if data.get("rewrite"):
-                (folder / "hermes_rewrite.json").write_text(
-                    json.dumps(data["rewrite"], indent=2), encoding="utf-8")
-            if data.get("cover_rewrite"):
-                (folder / "hermes_cover_rewrite.json").write_text(
-                    json.dumps(data["cover_rewrite"], indent=2), encoding="utf-8")
-        except OSError:
-            pass
+    # Persist the review (incl. any proposed rewrite) into the stored run, so the
+    # UI can show it again and /review/apply can act on it.
+    if run_id is not None:
+        runs_store.update_run(run_id, review=data)
     return data
 
 
@@ -1024,78 +1019,36 @@ class ApplyRewriteRequest(BaseModel):
 
 @app.post("/review/apply")
 def apply_rewrite(req: ApplyRewriteRequest):
-    """Apply a saved Hermes rewrite: back up the originals, replace the JSON, and
-    re-render the DOCX/PDF. `kind` selects résumé or cover letter. Reversible — originals
-    are copied into a `pre_rewrite_<timestamp>/` subfolder first."""
-    import time
-
+    """Apply a saved Hermes rewrite into the stored run: swap the resume/cover JSON
+    for the rewritten version (kept in the run's `review`). Reversible — the previous
+    content is stashed under the run's `pre_rewrite` key. No files; the new DOCX/PDF
+    are rendered on demand at download as usual."""
     if req.kind not in ("resume", "cover"):
         raise HTTPException(status_code=400, detail="kind must be 'resume' or 'cover'.")
-    folder = (settings.output_dir / Path(req.folder_name).name).resolve()
-    if not str(folder).startswith(str(settings.output_dir.resolve())) or not folder.is_dir():
+
+    from resume_gen.intake import runs as runs_store
+    from resume_gen.models import CoverLetter, Resume
+
+    bundle = runs_store.get_run(req.folder_name)
+    if bundle is None:
         raise HTTPException(status_code=404, detail="Run not found.")
+    review = bundle.get("review") or {}
 
-    from resume_gen.profile import load_profile
-    from resume_gen.render.docx_renderer import render_cover_letter, render_resume
-    from resume_gen.render.pdf_export import to_pdf
-
-    target = _read_json(folder / "target_role.json") or {}
-    ts = time.strftime("%Y%m%d_%H%M%S")
-    backup = folder / f"pre_rewrite_{ts}"
-
-    if req.kind == "resume":
-        rewrite = _read_json(folder / "hermes_rewrite.json")
-        if not rewrite:
-            raise HTTPException(status_code=400, detail="No résumé rewrite saved — run Review first.")
-        from resume_gen.models import Resume
-        try:
-            obj = Resume(**rewrite)
-        except Exception as e:
-            raise HTTPException(status_code=400, detail=f"Saved rewrite is invalid: {e}")
-        doc_base = _doc_base(folder, target, "Resume")
-        json_name, docx_name = "resume.json", f"{doc_base}_Resume.docx"
-        backup.mkdir(exist_ok=True)
-        for name in (json_name, docx_name, f"{doc_base}_Resume.pdf"):
-            src = folder / name
-            if src.exists():
-                shutil.copy2(src, backup / name)
-        (folder / json_name).write_text(obj.model_dump_json(indent=2), encoding="utf-8")
-        paths = {"resume_json": str(folder / json_name)}
-        try:
-            docx = render_resume(obj, folder / docx_name, load_profile())
-            paths["resume_docx"] = str(docx)
-            paths["resume_pdf"] = str(to_pdf(docx))
-        except Exception as e:
-            paths["render_error"] = str(e)
-        return {"applied": True, "kind": "resume", "backup": backup.name,
-                "paths": paths, "resume": obj.model_dump()}
-
-    # kind == "cover"
-    rewrite = _read_json(folder / "hermes_cover_rewrite.json")
+    field = "resume" if req.kind == "resume" else "cover_letter"
+    rewrite = review.get("rewrite" if req.kind == "resume" else "cover_rewrite")
     if not rewrite:
-        raise HTTPException(status_code=400, detail="No cover-letter rewrite saved — run Review first.")
-    from resume_gen.models import CoverLetter
+        raise HTTPException(status_code=400,
+                            detail=f"No {req.kind} rewrite saved — run Review first.")
+    Model = Resume if req.kind == "resume" else CoverLetter
     try:
-        obj = CoverLetter(**rewrite)
+        obj = Model(**rewrite)
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Saved cover rewrite is invalid: {e}")
-    doc_base = _doc_base(folder, target, "Cover")
-    json_name, docx_name = "cover_letter.json", f"{doc_base}_Cover.docx"
-    backup.mkdir(exist_ok=True)
-    for name in (json_name, docx_name, f"{doc_base}_Cover.pdf"):
-        src = folder / name
-        if src.exists():
-            shutil.copy2(src, backup / name)
-    (folder / json_name).write_text(obj.model_dump_json(indent=2), encoding="utf-8")
-    paths = {"cover_letter_json": str(folder / json_name)}
-    try:
-        docx = render_cover_letter(obj, folder / docx_name)
-        paths["cover_letter_docx"] = str(docx)
-        paths["cover_letter_pdf"] = str(to_pdf(docx))
-    except Exception as e:
-        paths["render_error"] = str(e)
-    return {"applied": True, "kind": "cover", "backup": backup.name,
-            "paths": paths, "cover_letter": obj.model_dump()}
+        raise HTTPException(status_code=400, detail=f"Saved rewrite is invalid: {e}")
+
+    pre = dict(bundle.get("pre_rewrite") or {})
+    pre[field] = bundle.get(field)  # stash the current version for undo
+    runs_store.update_run(req.folder_name, **{field: obj.model_dump(), "pre_rewrite": pre})
+    return {"applied": True, "kind": req.kind, field: obj.model_dump()}
 
 
 class HermesScrape(BaseModel):
@@ -1152,12 +1105,36 @@ def delete_queued_job(key_id: str, forget_seen: bool = True):
     return {"deleted": key_id, "job": q.model_dump(), "forget_seen": forget_seen}
 
 
-def _b64_file(p: Path) -> dict | None:
-    import base64
+@app.get("/jobs/{key_id}/download")
+def download_job(key_id: str):
+    """Download one queued job as a JSON file (its full record)."""
+    from fastapi import Response
 
-    if not p.exists():
-        return None
-    return {"filename": p.name, "content_base64": base64.b64encode(p.read_bytes()).decode()}
+    from resume_gen.intake.store import get_job
+
+    q = get_job(key_id)
+    if q is None:
+        raise HTTPException(status_code=404, detail="Job not found.")
+    content = q.model_dump_json(indent=2).encode("utf-8")
+    return Response(
+        content=content, media_type="application/json",
+        headers={"Content-Disposition": f'attachment; filename="job_{key_id}.json"'},
+    )
+
+
+@app.get("/jobs/export")
+def export_jobs(status: str | None = None):
+    """Download the whole review queue as one JSON file (optionally filtered)."""
+    from fastapi import Response
+
+    from resume_gen.intake.store import list_queue
+
+    jobs = [q.model_dump() for q in list_queue(status=status)]
+    content = json.dumps({"jobs": jobs}, indent=2, ensure_ascii=False).encode("utf-8")
+    return Response(
+        content=content, media_type="application/json",
+        headers={"Content-Disposition": 'attachment; filename="jobs.json"'},
+    )
 
 
 @app.post("/jobs/{key_id}/send-n8n")
@@ -1181,32 +1158,31 @@ def send_to_n8n(key_id: str):
     if q.status != "generated" or not q.notes:
         raise HTTPException(status_code=400, detail="Generate the application first.")
 
-    folder = (settings.output_dir / Path(q.notes).name).resolve()
-    if not str(folder).startswith(str(settings.output_dir.resolve())) or not folder.is_dir():
-        raise HTTPException(status_code=404, detail="Generated output not found.")
+    import base64
 
-    email = {}
-    et = folder / "email.txt"
-    if et.exists():
-        raw = et.read_text(encoding="utf-8")
-        subject, body = "", raw
-        if raw.startswith("Subject:"):
-            first, _, rest = raw.partition("\n")
-            subject, body = first[len("Subject:"):].strip(), rest.lstrip("\n")
-        email = {"subject": subject, "body": body}
+    from resume_gen.intake import runs as runs_store
+    from resume_gen.render.ondemand import render_artifact
 
+    bundle = runs_store.get_run(q.notes)
+    if bundle is None:
+        raise HTTPException(status_code=404, detail="Generated application not found.")
+
+    email = bundle.get("email") or {}
+
+    # Render the resume + cover PDFs on demand (temp dir, discarded) for the email.
     files = {}
-    for key in ("resume", "cover_letter"):
-        doc = _document_pair(folder, key)
-        if doc:
-            f = _b64_file(doc)
-            if f:
-                files[key] = f
+    for key, artifact in (("resume", "resume.pdf"), ("cover_letter", "cover.pdf")):
+        try:
+            content, filename, _ = render_artifact(bundle, artifact)
+            files[key] = {"filename": filename,
+                          "content_base64": base64.b64encode(content).decode()}
+        except Exception:
+            pass  # best-effort; an email with no attachment is still better than a 500
 
     payload = {
         "company": q.company, "title": q.title, "location": q.location,
         "contact_email": q.contact_email, "apply_url": q.apply_url,
-        "email": email, "folder": folder.name, "files": files,
+        "email": email, "folder": q.notes, "files": files,
     }
     try:
         r = httpx.post(settings.n8n_webhook_url, json=payload, timeout=60.0)
@@ -1221,18 +1197,25 @@ def send_to_n8n(key_id: str):
 
 @app.delete("/run")
 def delete_run(folder: str):
-    """Delete a past output folder. Restricted to the output directory."""
+    """Delete a generated run from the DB. Also removes any legacy on-disk folder
+    of the same name (left over from the file-based era), if present."""
+    from resume_gen.intake import runs as runs_store
+
+    removed = runs_store.delete_run(folder)
     out = settings.output_dir.resolve()
     d = (settings.output_dir / folder).resolve()
-    if d == out or out not in d.parents or not d.is_dir():
+    if d != out and out in d.parents and d.is_dir():
+        shutil.rmtree(d)
+        removed = True
+    if not removed:
         raise HTTPException(status_code=404, detail="Run not found.")
-    shutil.rmtree(d)
     return {"deleted": folder}
 
 
 @app.get("/file")
 def get_file(path: str):
-    """Download a generated artifact. Restricted to the output directory."""
+    """Legacy: download a file from a pre-SQLite output folder still on disk.
+    New runs are downloaded via /download/{run_id}/{artifact}."""
     p = Path(path).resolve()
     if not str(p).startswith(str(settings.output_dir.resolve())):
         raise HTTPException(status_code=403, detail="Path outside output directory.")
