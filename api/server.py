@@ -249,9 +249,15 @@ def download_artifact(run_id: str, artifact: str):
         raise HTTPException(status_code=422, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Render failed: {e}")
+    # Serve as a generic binary (NOT application/pdf): browsers + the Adobe plugin
+    # recognise application/pdf and open it in a tab / external viewer even with an
+    # attachment disposition. octet-stream has no viewer, so it always downloads.
     return Response(
-        content=content, media_type=mime,
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        content=content, media_type="application/octet-stream",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "X-Content-Type-Options": "nosniff",
+        },
     )
 
 
@@ -364,19 +370,52 @@ def remove_source(index: int):
 
 @app.get("/jobs")
 def jobs(status: str | None = None):
-    """List jobs in the review queue (with a `repeat` flag for repeat companies)."""
-    from resume_gen.intake.companies import hr_email_for, is_repeat
-    from resume_gen.intake.repeatable import is_repeatable
+    """List jobs in the review queue, each enriched with `repeat` (repeat company),
+    `repeatable_role` (a saved template exists), and `company_email` (saved HR email).
+
+    Everything the enrichment needs is loaded ONCE up front — repeat list, the set of
+    repeatable role keys, and the saved companies — then matched in memory. (Doing it
+    per-job meant a fresh SQLite connection + file read + full company scan for every
+    row, which made this endpoint take seconds on a large queue.)"""
+    import re as _re
+
+    from resume_gen.intake import db
+    from resume_gen.intake.companies import load_repeat_companies, list_companies, slug as _slug
+    from resume_gen.intake.repeatable import role_key
     from resume_gen.intake.store import list_queue
 
+    queue = list_queue(status=status)
+
+    repeat_names = [(n or "").lower().strip() for n in load_repeat_companies() if n]
+    with db.connect() as conn:
+        repeatable_keys = {r["key"] for r in conn.execute("SELECT key FROM repeatable_roles")}
+    saved = list_companies()
+    saved_by_slug = {_slug(c.get("company", "")): c for c in saved}
+    saved_norm = [((c.get("company") or "").lower().strip(), c) for c in saved]
+
+    def _wmatch(name_lc: str, target_lc: str) -> bool:
+        return bool(name_lc) and (
+            name_lc == target_lc
+            or _re.search(rf"(?<![a-z]){_re.escape(name_lc)}(?![a-z])", target_lc) is not None
+        )
+
+    def _repeat(company: str) -> bool:
+        c = (company or "").lower().strip()
+        return bool(c) and any(_wmatch(n, c) for n in repeat_names)
+
+    def _hr_email(company: str) -> str:
+        rec = saved_by_slug.get(_slug(company))
+        if not rec:
+            c = (company or "").lower().strip()
+            rec = next((r for n, r in saved_norm if _wmatch(n, c)), None)
+        return (rec.get("hr_email") or rec.get("contact_email") or "").strip() if rec else ""
+
     out = []
-    for q in list_queue(status=status):
+    for q in queue:
         d = q.model_dump()
-        d["repeat"] = is_repeat(q.company)
-        # True when a saved template exists for this exact company+title.
-        d["repeatable_role"] = is_repeatable(q.company, q.title)
-        # Saved HR email for this company — auto-fills jobs that have no contact email.
-        d["company_email"] = hr_email_for(q.company)
+        d["repeat"] = _repeat(q.company)
+        d["repeatable_role"] = role_key(q.company, q.title) in repeatable_keys
+        d["company_email"] = _hr_email(q.company)
         out.append(d)
     return {"jobs": out}
 

@@ -13,6 +13,7 @@ from functools import lru_cache
 from pathlib import Path
 
 import yaml
+from pydantic import BaseModel, Field
 
 from .config import ROOT, settings
 
@@ -85,13 +86,83 @@ def auto_select(target) -> dict | None:
     return best
 
 
+class _PersonaPick(BaseModel):
+    persona_id: str = Field(default="", description="id of the best-fit persona, or '' if none fit")
+    reason: str = ""
+
+
+_HERMES_PERSONA_SYSTEM = """You choose the single best RESUME PERSONA (a role framing) for a job.
+You are given the AVAILABLE_PERSONAS (each with an id, label, what it emphasises, and keywords) and a
+TARGET_JOB. Judge semantically — match the job's actual field and responsibilities to the persona whose
+framing fits best (e.g. a social-media / content / ads job -> a marketing persona, not a backend one).
+Return the chosen persona's id EXACTLY as given. If genuinely none fit, return an empty id.
+"""
+
+
+# Cache Hermes' pick per (title, company) so re-generating the same job — or a bulk
+# batch with repeats — doesn't re-call Hermes. Stores the chosen persona id ("" = none).
+# Process-lifetime only (clears on restart).
+_HERMES_PICK_CACHE: dict[tuple[str, str], str] = {}
+
+
+def _pick_key(target) -> tuple[str, str]:
+    return ((getattr(target, "title", "") or "").strip().lower(),
+            (getattr(target, "company", "") or "").strip().lower())
+
+
+def hermes_select(target) -> dict | None:
+    """Ask the Hermes agent to pick the best-fit persona for the job (semantic).
+    Cached per (title, company); gated by HERMES_PERSONA. Returns the persona dict,
+    or None if disabled / Hermes is unavailable / it picks nothing."""
+    if not settings.hermes_persona:
+        return None
+    personas = load_personas()
+    if not personas:
+        return None
+
+    key = _pick_key(target)
+    if key in _HERMES_PICK_CACHE:                       # served from cache (no Hermes call)
+        return get_persona(_HERMES_PICK_CACHE[key])
+
+    from .llm import hermes_client
+
+    if not hermes_client.available():
+        return None                                     # don't cache: retry when it's back
+    from .llm import chat_structured
+
+    catalogue = "\n".join(
+        f"- id: {p.get('id')} | label: {p.get('label', p.get('id'))} | "
+        f"headline: {p.get('headline', '')} | emphasises: {p.get('foreground_skills', '')} | "
+        f"keywords: {', '.join((p.get('keywords') or [])[:12])}"
+        for p in personas
+    )
+    user = (
+        "AVAILABLE_PERSONAS:\n" + catalogue + "\n\n"
+        "TARGET_JOB:\n"
+        f"  title: {getattr(target, 'title', '') or ''}\n"
+        f"  company: {getattr(target, 'company', '') or ''}\n"
+        f"  description: {(getattr(target, 'description', '') or '')[:900]}\n\n"
+        "Pick the single best-fit persona id."
+    )
+    try:
+        out = chat_structured(_HERMES_PERSONA_SYSTEM, user, _PersonaPick,
+                              model=settings.hermes_model)
+        pid = (out.persona_id or "").strip()
+        _HERMES_PICK_CACHE[key] = pid                   # cache the result (hit or "none")
+        return get_persona(pid)
+    except Exception:
+        return None
+
+
 def select_persona(target, override_id: str | None = None) -> dict | None:
-    """Manual override wins; otherwise auto-detect from the job. 'auto'/'' = auto."""
+    """Manual override wins; otherwise let Hermes pick the best-fit persona
+    semantically, falling back to keyword matching if Hermes isn't available
+    or doesn't pick one. 'auto'/'' = let the system choose."""
     if override_id and override_id != "auto":
         forced = get_persona(override_id)
         if forced is not None:
             return forced
-    return auto_select(target)
+    return hermes_select(target) or auto_select(target)
 
 
 def persona_directive(persona: dict | None) -> str:

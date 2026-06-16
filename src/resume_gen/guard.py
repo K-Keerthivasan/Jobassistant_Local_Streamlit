@@ -377,6 +377,46 @@ def enforce(resume: Resume, profile: dict, *, strict: bool = False,
         e.bullets = kept_bullets
         kept_exp.append(e)
 
+    _norm = lambda s: re.sub(r"[^a-z0-9]+", " ", (s or "").lower()).strip()
+
+    # DEDUPE: the model sometimes emits the SAME role twice (e.g. two "Materia
+    # Bioworks" blocks). Collapse duplicates by company+role, merging their bullets
+    # (deduped) so no content is lost and each real job appears exactly once.
+    by_role: dict = {}
+    order: list = []
+    for e in kept_exp:
+        k = (_norm(e.company), _norm(e.role))
+        if k in by_role:
+            tgt = by_role[k]
+            seen_b = {b.strip().lower() for b in tgt.bullets}
+            for b in e.bullets:
+                if b.strip().lower() not in seen_b:
+                    tgt.bullets.append(b)
+                    seen_b.add(b.strip().lower())
+            tgt.bullets = tgt.bullets[:6]
+            report.setdefault("duplicate_roles_merged", []).append(e.company)
+        else:
+            by_role[k] = e
+            order.append(k)
+    kept_exp = [by_role[k] for k in order]
+
+    # COMPLETENESS: never silently drop a REAL role. Append any profile role the
+    # model left out, with bullets straight from its facts (truthful). This keeps
+    # the model's prioritised order for what it chose, then adds the omitted real
+    # jobs after, so your full work history always appears (e.g. Certify).
+    present = {(_norm(e.company), _norm(e.role)) for e in kept_exp}
+    for i, p in enumerate(prof_exp):
+        if (_norm(p.get("company", "")), _norm(p.get("role", ""))) in present:
+            continue
+        facts = list(p.get("facts", []))
+        if not facts:
+            continue
+        kept_exp.append(ExperienceItem(
+            company=p.get("company", ""), role=p.get("role", ""),
+            location=p.get("location", ""), start=p.get("start", ""),
+            end=p.get("end", ""), bullets=facts[:4]))
+        report.setdefault("experience_added_from_profile", []).append(p.get("company", ""))
+
     resume.experience = kept_exp
 
     # If the model fabricated experience wholesale (nothing survived grounding),

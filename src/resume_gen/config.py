@@ -52,6 +52,11 @@ class Settings:
     # when Hermes is available; set HERMES_QA=0 to disable and use the guard alone.
     hermes_qa: bool = os.getenv("HERMES_QA", "1").strip().lower() not in ("0", "false", "no", "off")
 
+    # Hermes-chosen persona: let the Hermes agent pick the best-fit résumé persona per job
+    # (semantic) instead of keyword matching. Falls back to keyword matching when off or
+    # Hermes is unavailable. Set HERMES_PERSONA=0 to always use keyword matching.
+    hermes_persona: bool = os.getenv("HERMES_PERSONA", "1").strip().lower() not in ("0", "false", "no", "off")
+
     # Paths
     profile_path: Path = field(
         default_factory=lambda: _path(os.getenv("PROFILE_PATH", "data/profile/master_profile.yaml"))

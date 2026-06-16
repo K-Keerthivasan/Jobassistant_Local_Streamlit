@@ -4,7 +4,13 @@
       "PowerShell(Write-Output \"=== Containers ===\"; docker ps --format \"table {{.Names}}\\\\t{{.Image}}\\\\t{{.Ports}}\\\\t{{.Networks}}\"; Write-Output \"`n=== resume-api networks ===\"; docker inspect -f \"{{range $k,$v := .NetworkSettings.Networks}}{{$k}} {{end}}\" $\\(docker ps --filter \"name=resume\" -q\\))",
       "PowerShell(docker exec n8n-main sh -c \"wget -qO- --timeout=5 http://host.docker.internal:8088/health || echo FAILED\")",
       "PowerShell(docker exec n8n-main sh -c \"wget -qO- --timeout=5 http://localhost:8088/health || echo FAILED_AS_EXPECTED\")",
-      "Bash(python -m py_compile api/server.py src/resume_gen/intake/store.py src/resume_gen/intake/models.py)"
+      "Bash(python -m py_compile api/server.py src/resume_gen/intake/store.py src/resume_gen/intake/models.py)",
+      "Bash(tail -2)",
+      "Bash(sleep 3)",
+      "Bash(echo \"=== verify a PDF download still sends attachment + renders ===\")"
+    ],
+    "additionalDirectories": [
+      "\\tmp"
     ]
   }
 }

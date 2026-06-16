@@ -117,6 +117,22 @@
   .dot.up { background: #34d399; box-shadow: 0 0 0 3px rgba(52,211,153,.18); }
   .dot.down { background: #f87171; box-shadow: 0 0 0 3px rgba(248,113,113,.18); }
 
+  /* Hamburger toggle + collapsible sidebar */
+  .brand .nav-toggle { background: transparent; border: 0; color: #cdd7e6; font-size: 19px; line-height: 1;
+                       cursor: pointer; padding: 5px 8px; border-radius: 8px; flex: none; }
+  .brand .nav-toggle:hover { background: var(--sidebar-hi); color: #fff; }
+  .app { transition: grid-template-columns .2s ease; }
+  .nav button, .brand { transition: padding .15s ease; }
+  @media (min-width: 1041px) {
+    .app.collapsed { grid-template-columns: 66px minmax(0, 1fr); }
+    .app.collapsed .sidebar { padding-left: 9px; padding-right: 9px; }
+    .app.collapsed .brand { justify-content: center; padding: 6px 0 14px; gap: 0; }
+    .app.collapsed .brand .logo, .app.collapsed .brand-txt { display: none; }
+    .app.collapsed .nav button { justify-content: center; gap: 0; padding: 11px 0; font-size: 0; }
+    .app.collapsed .nav button .ic { font-size: 18px; width: auto; }
+    .app.collapsed .side-foot { display: none; }
+  }
+
   .main { padding: 26px 30px 60px; max-width: 1240px; width: 100%; min-width: 0; }
   .view { display: none; }
   .view.active { display: block; animation: fade .18s ease; }
@@ -440,8 +456,9 @@
   <!-- ---------- Sidebar ---------- -->
   <aside class="sidebar">
     <div class="brand">
+      <button class="nav-toggle" id="nav-toggle" title="Collapse / expand menu" aria-label="Toggle menu">☰</button>
       <div class="logo">R</div>
-      <div><div class="name">Resume Studio</div><div class="tag">truth-only · local</div></div>
+      <div class="brand-txt"><div class="name">Resume Studio</div><div class="tag">truth-only · local</div></div>
     </div>
     <nav class="nav">
       <button data-view="generate" class="active"><span class="ic">✍️</span> Generate</button>
@@ -916,6 +933,17 @@ function showView(view) {
   if (view === 'library') loadLibrary();
 }
 document.querySelectorAll('.nav button').forEach(b => b.onclick = () => showView(b.dataset.view));
+// Tooltips so the icon-only rail (collapsed sidebar) stays readable.
+document.querySelectorAll('.nav button').forEach(b => { if (!b.title) b.title = b.textContent.trim(); });
+
+/* ---------- Collapsible sidebar (hamburger) ---------- */
+function setNavCollapsed(collapsed) {
+  document.querySelector('.app').classList.toggle('collapsed', collapsed);
+  try { localStorage.setItem('nav-collapsed', collapsed ? '1' : '0'); } catch {}
+}
+$('nav-toggle')?.addEventListener('click', () =>
+  setNavCollapsed(!document.querySelector('.app').classList.contains('collapsed')));
+try { if (localStorage.getItem('nav-collapsed') === '1') setNavCollapsed(true); } catch {}
 
 /* ---------- Health + models ---------- */
 let ollamaUp = null;   // null = unknown, true/false from /health
@@ -1117,9 +1145,30 @@ function filesForRun(data) {
   const runId = typeof data === 'string' ? data : runIdOf(data);
   if (!runId) return '';
   const links = RUN_ARTIFACTS.map(([art, label]) =>
-    `<a href="/download/${enc(runId)}/${art}" download>${label}</a>`).join('');
+    `<a class="dl-link" href="/download/${enc(runId)}/${art}" download>${label}</a>`).join('');
   return `<div class="files">${links}</div>`;
 }
+// Download a file WITHOUT opening a new tab. The server sends Content-Disposition:
+// attachment, so loading the URL in a hidden iframe triggers a save to disk while
+// the current page/state is untouched. This avoids relying on the <a download>
+// attribute (which some browsers/webviews ignore, opening the PDF in a tab/Adobe).
+function dlFile(url) {
+  let ifr = document.getElementById('tm-dl-frame');
+  if (!ifr) {
+    ifr = document.createElement('iframe');
+    ifr.id = 'tm-dl-frame';
+    ifr.style.display = 'none';
+    document.body.appendChild(ifr);
+  }
+  ifr.src = url;
+}
+// Delegated: any .dl-link anywhere downloads in place (no new tab).
+document.addEventListener('click', (e) => {
+  const a = e.target.closest && e.target.closest('a.dl-link');
+  if (!a) return;
+  e.preventDefault();
+  dlFile(a.getAttribute('href'));
+});
 
 function resumeHTML(r) {
   if (!r || !r.fullName) return '<div class="empty">No resume.</div>';
@@ -2113,25 +2162,32 @@ async function syncCollector() {
   } catch { return 0; }
 }
 
-// Unified list: queue jobs (generated + not) + any generated outputs not tied to a job.
+// Fetch the queue, rebuild the source dropdown, and render. No network beyond /jobs.
+async function _fetchAndRenderJobs() {
+  const jr = await api('/jobs');                 // Jobs = the queue; generated apps live in Library
+  jl.all = (jr.jobs || []).map(jobFromApi);
+  const sel = $('jl-source'), cur = sel.value;
+  const sources = [...new Set(jl.all.map(j => j.source).filter(Boolean))].sort();
+  sel.innerHTML = '<option value="">All sources</option>' +
+    sources.map(s => `<option value="${esc(s)}">${esc(s)}</option>`).join('');
+  sel.value = sources.includes(cur) ? cur : '';
+  renderJobs();
+}
+
+// Unified list: queue jobs (generated + not). Renders IMMEDIATELY, then syncs the
+// browser-capture collector in the BACKGROUND — that POST can be slow / time out when
+// the capture app (:8765) is down, so it must never block the table from showing.
 async function loadJobs() {
   const body = $('jl-body'), empty = $('jl-empty');
   body.innerHTML = '<tr><td colspan="9" class="empty"><span class="spinner dark"></span></td></tr>';
   try {
-    await syncCollector();                       // auto-pull browser-saved jobs first
-    const jr = await api('/jobs');               // Jobs = the queue; generated apps live in Library
-    jl.all = (jr.jobs || []).map(jobFromApi);
-    const items = jl.all;
-    const sel = $('jl-source'), cur = sel.value;
-    const sources = [...new Set(items.map(j => j.source).filter(Boolean))].sort();
-    sel.innerHTML = '<option value="">All sources</option>' +
-      sources.map(s => `<option value="${esc(s)}">${esc(s)}</option>`).join('');
-    sel.value = sources.includes(cur) ? cur : '';
-    renderJobs();
+    await _fetchAndRenderJobs();
   } catch (e) {
     body.innerHTML = ''; empty.style.display = '';
     toast('Jobs unavailable: ' + e.message, true);
+    return;
   }
+  syncCollector().then(n => { if (n) _fetchAndRenderJobs().catch(() => {}); }).catch(() => {});
 }
 
 function jlFiltered() {
@@ -2169,7 +2225,7 @@ function renderJobs() {
       (th.dataset.sort === jl.sort.key ? (jl.sort.dir === 'asc' ? ' ▲' : ' ▼') : '');
   });
   body.innerHTML = rows.map((j, i) => {
-    const canSelect = j.id && !j.gen;
+    const canSelect = !!j.id;   // generated jobs too — so a bad batch can be re-selected & regenerated
     return `<tr${j.irrelevant ? ' style="opacity:.5"' : ''}>
       <td class="jl-ck">${canSelect ? `<input type="checkbox" class="jl-rowck" data-k="${esc(j.id)}" ${jl.sel.has(j.id)?'checked':''}>` : ''}</td>
       <td>${j.id?`<span class="jl-star ${j.priority?'on':''}" data-act="star" data-i="${i}" title="${j.priority?'Priority (Auto → Hermes)':'Mark priority'}" style="cursor:pointer">${j.priority?'⭐':'☆'}</span> `:''}<span class="t" data-act="detail" data-i="${i}" style="cursor:pointer" title="View details">${esc(j.title)}</span>${j.id?`<span class="jl-emailbtn ${j.email?'on':''}" data-act="email" data-i="${i}" title="${j.email?'Email: '+esc(j.email)+' — click to edit':'Add an HR email (for the n8n email path)'}" style="cursor:pointer">${j.email?'📧':'✉️'}</span><span data-act="repeatable" data-i="${i}" title="${j.repeatable?'Repeatable role — saved. Click to remove':'Mark as a repeatable role (reapply often)'}" style="cursor:pointer;margin-left:4px;opacity:${j.repeatable?1:.3}">🔁</span><span data-act="irrelevant" data-i="${i}" title="${j.irrelevant?'Not relevant — hidden from active lists. Click to restore':'Flag as not relevant (hide it)'}" style="cursor:pointer;margin-left:4px;opacity:${j.irrelevant?1:.3}">🚫</span>`:''}</td>
@@ -2187,7 +2243,8 @@ function renderJobs() {
         ${j.id ? `<a class="btn subtle sm" href="/jobs/${enc(j.id)}/download" download title="Download this job as JSON">⬇ JSON</a>` : ''}
         ${j.id ? `<button class="btn ghost sm" data-act="bulk" data-i="${i}" title="Add this job to the Bulk generate queue">➕ Bulk</button>` : ''}
         ${j.id ? `<button class="btn primary sm" data-act="gen" data-i="${i}">${j.gen?'Regenerate':'Generate'}</button>` : ''}
-        ${j.gen ? `<button class="btn danger sm" data-act="del" data-i="${i}" title="Delete generated files">🗑</button>` : ''}
+        ${j.gen ? `<button class="btn subtle sm" data-act="del" data-i="${i}" title="Delete just the generated application (keep the job)">🗑 Output</button>` : ''}
+        ${j.id ? `<button class="btn danger sm" data-act="deljob" data-i="${i}" title="Delete this job from the queue (and its application)">🗑 Job</button>` : ''}
       </div></td>
     </tr>`;
   }).join('');
@@ -2204,6 +2261,7 @@ function renderJobs() {
   });
   body.querySelectorAll('[data-act="send"]').forEach(b => b.onclick = () => sendToN8n(jl.rows[+b.dataset.i].id, b));
   body.querySelectorAll('[data-act="del"]').forEach(b => b.onclick = () => delJob(jl.rows[+b.dataset.i], b));
+  body.querySelectorAll('[data-act="deljob"]').forEach(b => b.onclick = () => deleteJobEntry(jl.rows[+b.dataset.i], b));
   body.querySelectorAll('[data-act="detail"]').forEach(el => el.onclick = () => openJobDetail(jl.rows[+el.dataset.i]));
   body.querySelectorAll('[data-act="email"]').forEach(el => el.onclick = async () => {
     const j = jl.rows[+el.dataset.i];
@@ -2211,8 +2269,9 @@ function renderJobs() {
     if (val === null) return;                       // cancelled
     try {
       await api(`/jobs/${j.id}/update`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contact_email: val.trim() }) });
+      j.email = val.trim();                              // jl.rows entries are jl.all references
       toast(val.trim() ? 'Email saved.' : 'Email cleared.');
-      loadJobs();
+      if (!bulkRunning) renderJobs();                    // light, in place — never reload mid-generation
     } catch (e) { toast('Update failed: ' + e.message, true); }
   });
   body.querySelectorAll('[data-act="star"]').forEach(el => el.onclick = async (e) => {
@@ -2291,6 +2350,22 @@ async function deleteScrapedJob(row, btn) {
   }
 }
 
+// Delete a whole job from the queue (and its generated application, if any), so
+// nothing dangles in the Library. This is distinct from delJob() which only
+// removes the generated FILES and keeps the job.
+async function deleteJobEntry(row, btn) {
+  if (!row?.id) return;
+  if (!confirm(`Delete this job from the queue?\n\n${row.title || ''}${row.company ? ' @ ' + row.company : ''}\n\nRemoves the job${row.folder ? ' AND its generated application' : ''}. This can't be undone.`)) return;
+  if (btn) btn.disabled = true;
+  try {
+    if (row.folder) { try { await api('/run?folder=' + enc(row.folder), { method: 'DELETE' }); } catch {} }
+    await api(`/jobs/${row.id}`, { method: 'DELETE' });
+    jl.sel.delete(row.id);
+    toast('Job deleted.');
+    loadJobs(); loadLibrary(); renderScrapedJobs();
+  } catch (e) { toast('Delete failed: ' + e.message, true); if (btn) btn.disabled = false; }
+}
+
 async function sendToN8n(key, btn) {
   const label = btn.textContent; btn.disabled = true; btn.textContent = '⏳';
   try {
@@ -2306,7 +2381,7 @@ function syncBulkBtn() {
   const n = jl.sel.size;
   const btn = $('jl-bulk'); btn.textContent = `⚡ Generate selected (${n})`; btn.disabled = !n;
   const tb = $('jl-tobulk'); if (tb) { tb.textContent = `➕ Add to Bulk (${n})`; tb.disabled = !n; }
-  const sel = jlFiltered().filter(r => r.id && !r.gen);
+  const sel = jlFiltered().filter(r => r.id);
   $('jl-all').checked = sel.length > 0 && sel.every(r => jl.sel.has(r.id));
 }
 
@@ -2321,7 +2396,14 @@ async function genJob(job, btn) {
       body: JSON.stringify({ persona: activePersona(), strict: true, pdf: true, model }),
     });
     toast(`Generated${viaHermes ? ' · Hermes' : ''}${result.persona_label ? ' · ' + result.persona_label : ''}.`);
-    openModalFor(result); loadJobs(); loadLibrary(); renderScrapedJobs(); loadUsage();
+    // Update this job in place — no full table reload / spinner flash, so the view
+    // stays put and you don't lose your place. Library/RSS refresh on their own tab.
+    job.status = 'generated'; job.gen = true;
+    job.folder = result.folder || result.folder_name || result.run_id || job.folder;
+    renderJobs();
+    openModalFor(result); loadUsage();
+    // Library / RSS reload on their own tabs (showView) — no need to re-fetch them
+    // here; that just adds network latency after every single generation.
   } catch (e) {
     toast('Generation failed: ' + e.message, true); btn.disabled = false; btn.textContent = label;
   }
@@ -2340,7 +2422,7 @@ document.querySelectorAll('.jl-sort').forEach(th => th.onclick = () => {
   renderJobs();
 });
 $('jl-all').onclick = () => {
-  const rows = jlFiltered().filter(r => r.id && !r.gen);
+  const rows = jlFiltered().filter(r => r.id);
   const turnOn = !rows.every(r => jl.sel.has(r.id));
   rows.forEach(r => turnOn ? jl.sel.add(r.id) : jl.sel.delete(r.id));
   renderJobs();
@@ -2758,7 +2840,9 @@ function libFilter() {
   items.forEach(o => { (groups[mKey(o)] = groups[mKey(o)] || []).push(o); });
   const card = o => `
     <div class="lib-card" data-folder="${esc(o.folder)}" data-key="${esc(o.key_id||'')}" data-gen="${o.generated?1:0}" style="${o.generated?'':'opacity:.82'}">
-      ${o.generated?`<button class="x" data-del="${esc(o.folder)}" title="Delete">🗑</button>`:''}
+      ${o.generated
+        ? `<button class="x" data-del="${esc(o.folder)}" title="Delete application">🗑</button>`
+        : `<button class="x" data-deljob="${esc(o.key_id||'')}" title="Delete job from the queue">🗑</button>`}
       <div class="ttl">${esc(o.title || o.folder || 'Untitled')}${counts[dupKey(o)]>1?' <span class="pill" style="background:var(--warn-bg);color:var(--warn)">dup ×'+counts[dupKey(o)]+'</span>':''}</div>
       <div class="co">${esc(o.company || '—')}</div>
       <div class="meta">${o.generated
@@ -2777,6 +2861,8 @@ function libFilter() {
     } else {
       const item = items.find(o => !o.generated && (o.key_id||'') === c.dataset.key);
       c.onclick = () => openJobDetail(item && item.job);
+      const x = c.querySelector('.x');
+      if (x) x.onclick = (e) => { e.stopPropagation(); deleteJobEntry({ id: x.dataset.deljob, title: item?.title, company: item?.company }, x); };
     }
   });
 }
@@ -2840,6 +2926,7 @@ function openJobDetail(j) {
       ${j.apply_url?`<a class="btn subtle sm" href="${esc(j.apply_url)}" target="_blank" rel="noreferrer">Open portal ↗</a>`:''}
       ${j.gen?`<button class="btn ghost sm" id="jd-preview">Preview application</button>`:''}
       ${j.id?`<button class="btn ghost sm" id="jd-irrel">${j.irrelevant?'↩ Restore (relevant)':'🚫 Not relevant'}</button>`:''}
+      ${j.id?`<button class="btn danger sm" id="jd-del">🗑 Delete job</button>`:''}
       ${j.id?`<button class="btn primary sm" id="jd-gen">${j.gen?'Regenerate':'Generate'}</button>`:''}
     </div>
     <label class="fld">Job description</label>
@@ -2850,7 +2937,10 @@ function openJobDetail(j) {
     save.disabled = true;
     try {
       await api(`/jobs/${j.id}/update`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contact_email: email }) });
-      j.email = email; toast('Email updated.'); loadJobs();
+      j.email = email;
+      const row = (jl.all || []).find(x => x.id === j.id); if (row) row.email = email;
+      toast('Email updated.');
+      if (!bulkRunning) renderJobs();                    // light, in place — never reload mid-generation
     } catch (e) { toast('Update failed: ' + e.message, true); } finally { save.disabled = false; }
   };
   const prev = $('jd-preview'); if (prev) prev.onclick = () => { if (j.folder) openLibrary(j.folder); };
@@ -2865,6 +2955,10 @@ function openJobDetail(j) {
       $('overlay').classList.remove('show');
       loadJobs(); loadLibrary(); renderScrapedJobs();
     } catch (e) { toast('Update failed: ' + e.message, true); irr.disabled = false; }
+  };
+  const del = $('jd-del'); if (del) del.onclick = () => {
+    $('overlay').classList.remove('show');
+    deleteJobEntry({ id: j.id, title: j.title, company: j.company, folder: j.folder }, del);
   };
 }
 $('modal-x').onclick = () => $('overlay').classList.remove('show');

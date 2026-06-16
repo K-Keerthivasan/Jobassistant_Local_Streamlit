@@ -13,23 +13,19 @@ services:
     restart: unless-stopped
     ports:
       - "8088:8088"
+    # Load the project-root .env (this compose file lives in docker/, so Compose's
+    # default .env lookup misses it — load it explicitly). Provides HERMES_API_KEY,
+    # HERMES_MODEL, OLLAMA_MODEL, APIFY_TOKEN, N8N_WEBHOOK_URL, etc.
+    env_file:
+      - ../.env
     environment:
-      # Host-installed Ollama (GPU on the host); reached via host-gateway alias.
+      # Container-specific OVERRIDES (take precedence over env_file): these must point
+      # at the host, not localhost, so the host's .env values can't leak in wrong.
       OLLAMA_HOST: http://host.docker.internal:11434
-      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen3:8b}
-      OLLAMA_TEMPERATURE: ${OLLAMA_TEMPERATURE:-0.3}
       PDF_ENGINE: libreoffice
-      # Apify token for scraper sources (set APIFY_TOKEN in your .env).
-      APIFY_TOKEN: ${APIFY_TOKEN:-}
-      # Hermes agent engine (host-installed). Reached via the host-gateway alias —
-      # hardcoded here (NOT ${HERMES_BASE_URL}) so the host .env's localhost value
-      # can't leak into the container, which must use host.docker.internal.
-      # The Hermes gateway must bind 0.0.0.0 (API_SERVER_HOST=0.0.0.0) to be reachable.
+      # Hermes gateway reached via the host-gateway alias (host .env uses localhost).
+      # The gateway must bind 0.0.0.0 (API_SERVER_HOST=0.0.0.0) to be reachable here.
       HERMES_BASE_URL: http://host.docker.internal:8642/v1
-      HERMES_API_KEY: ${HERMES_API_KEY:-}
-      HERMES_MODEL: ${HERMES_MODEL:-hermes-agent}
-      # n8n webhook for the email-apply path (set N8N_WEBHOOK_URL in your .env).
-      N8N_WEBHOOK_URL: ${N8N_WEBHOOK_URL:-}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:

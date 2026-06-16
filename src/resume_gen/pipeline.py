@@ -71,7 +71,7 @@ def run(
     # what isn't supported (no-op if Hermes is off). The guard below is the hard backstop.
     from .hermes_qa import qa_resume
 
-    resume, hermes_qa_report = qa_resume(resume, profile)
+    resume, hermes_qa_report = qa_resume(resume, profile, persona=chosen, target=target)
 
     # Truth-guard (final backstop): hard-enforce identity/education/skills, strip metrics.
     resume, qa = enforce(resume, profile, strict=strict, persona=chosen,
