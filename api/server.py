@@ -128,6 +128,11 @@ class GenerateOptions(BaseModel):
 class GenerateRequest(TargetRole, GenerateOptions):
     """A TargetRole plus per-run generation options (for POST /generate)."""
 
+    # If this generation came from a queued job (e.g. bulk pulled from the queue),
+    # flip that job to 'generated' atomically here — so it never gets stranded as
+    # 'new' by a failed follow-up call (and stops double-showing in the Library).
+    key_id: str | None = None
+
 
 class StatusRequest(BaseModel):
     status: str
@@ -174,8 +179,15 @@ def generate(req: GenerateRequest):
     QA report, and file paths."""
     target = TargetRole(**req.model_dump(include=set(TargetRole.model_fields)))
     try:
-        return run(target, make_pdf=req.pdf, strict=req.strict, persona=req.persona,
-                   model=req.model)
+        result = run(target, make_pdf=req.pdf, strict=req.strict, persona=req.persona,
+                     model=req.model)
+        if req.key_id:
+            from resume_gen.intake.store import update_status
+            try:
+                update_status(req.key_id, "generated", result.get("folder", ""))
+            except Exception:
+                pass   # the run still exists in the Library even if the job is gone
+        return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -353,7 +365,7 @@ def remove_source(index: int):
 @app.get("/jobs")
 def jobs(status: str | None = None):
     """List jobs in the review queue (with a `repeat` flag for repeat companies)."""
-    from resume_gen.intake.companies import is_repeat
+    from resume_gen.intake.companies import hr_email_for, is_repeat
     from resume_gen.intake.repeatable import is_repeatable
     from resume_gen.intake.store import list_queue
 
@@ -363,6 +375,8 @@ def jobs(status: str | None = None):
         d["repeat"] = is_repeat(q.company)
         # True when a saved template exists for this exact company+title.
         d["repeatable_role"] = is_repeatable(q.company, q.title)
+        # Saved HR email for this company — auto-fills jobs that have no contact email.
+        d["company_email"] = hr_email_for(q.company)
         out.append(d)
     return {"jobs": out}
 
@@ -388,6 +402,48 @@ def company_get(company: str):
     from resume_gen.intake.companies import get_company
 
     return get_company(company) or {"company": company}
+
+
+# NOTE: this static route MUST be declared before "/companies/{company}" — otherwise
+# the dynamic route captures "import" as a company name.
+@app.post("/companies/import")
+def import_companies_csv(payload: dict):
+    """Import per-company HR details from CSV text. Columns are matched flexibly:
+    company (required), hr_name, hr_email, hr_phone, ats, careers_url, notes.
+    Each row is merged into that company's saved record (stamping updated_at)."""
+    import csv
+    import io
+
+    from resume_gen.intake.companies import save_company
+
+    text = (payload or {}).get("csv", "")
+    if not text.strip():
+        raise HTTPException(status_code=400, detail="Empty CSV.")
+
+    def g(row: dict, *names: str) -> str:
+        for n in names:
+            for k, v in row.items():
+                if k and k.strip().lower().replace(" ", "_") == n:
+                    return (v or "").strip()
+        return ""
+
+    reader = csv.DictReader(io.StringIO(text))
+    saved = 0
+    for row in reader:
+        company = g(row, "company", "employer", "organization", "business")
+        if not company:
+            continue
+        data = {
+            "hr_name": g(row, "hr_name", "hr", "contact_name", "recruiter", "name"),
+            "hr_email": g(row, "hr_email", "email", "contact_email", "hr_contact"),
+            "hr_phone": g(row, "hr_phone", "phone"),
+            "ats": g(row, "ats", "system"),
+            "careers_url": g(row, "careers_url", "careers", "url", "website"),
+            "notes": g(row, "notes", "note"),
+        }
+        save_company(company, {k: v for k, v in data.items() if v})
+        saved += 1
+    return {"rows": saved, "saved": saved}
 
 
 @app.post("/companies/{company}")
@@ -722,6 +778,21 @@ def mark_priority(key_id: str, req: PriorityRequest):
     from resume_gen.intake.store import set_priority
 
     q = set_priority(key_id, req.priority)
+    if q is None:
+        raise HTTPException(status_code=404, detail="Job not found.")
+    return q.model_dump()
+
+
+class IrrelevantRequest(BaseModel):
+    irrelevant: bool = True
+
+
+@app.post("/jobs/{key_id}/irrelevant")
+def mark_irrelevant(key_id: str, req: IrrelevantRequest):
+    """Flag a job 🚫 not relevant (hidden from the active lists) or restore it."""
+    from resume_gen.intake.store import set_irrelevant
+
+    q = set_irrelevant(key_id, req.irrelevant)
     if q is None:
         raise HTTPException(status_code=404, detail="Job not found.")
     return q.model_dump()
@@ -1093,6 +1164,15 @@ def scrape_hermes(req: HermesScrape):
                           "location": q.location} for q in committed]}
 
 
+@app.post("/jobs/dedupe")
+def dedupe_queue():
+    """Remove duplicate queued jobs (same company + title + location), keeping the
+    most valuable copy of each. Deleted keys stay in `seen` so they don't return."""
+    from resume_gen.intake.store import dedupe_jobs
+
+    return dedupe_jobs()
+
+
 @app.delete("/jobs/{key_id}")
 def delete_queued_job(key_id: str, forget_seen: bool = True):
     """Delete a queued scraped job. By default, also remove its dedupe key so it
@@ -1146,6 +1226,7 @@ def send_to_n8n(key_id: str):
 
     import httpx
 
+    from resume_gen.intake.companies import hr_email_for
     from resume_gen.intake.store import get_job, set_applied, update_status
 
     if not settings.n8n_webhook_url:
@@ -1153,8 +1234,10 @@ def send_to_n8n(key_id: str):
     q = get_job(key_id)
     if q is None:
         raise HTTPException(status_code=404, detail="Job not found.")
-    if not q.has_email:
-        raise HTTPException(status_code=400, detail="This job has no contact email (not an email-apply job).")
+    # Fall back to the company's saved HR email when the job itself has none.
+    to_email = (q.contact_email or "").strip() or hr_email_for(q.company)
+    if not to_email:
+        raise HTTPException(status_code=400, detail="No contact email on the job or saved for the company.")
     if q.status != "generated" or not q.notes:
         raise HTTPException(status_code=400, detail="Generate the application first.")
 
@@ -1181,7 +1264,7 @@ def send_to_n8n(key_id: str):
 
     payload = {
         "company": q.company, "title": q.title, "location": q.location,
-        "contact_email": q.contact_email, "apply_url": q.apply_url,
+        "contact_email": to_email, "apply_url": q.apply_url,
         "email": email, "folder": q.notes, "files": files,
     }
     try:

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import re
+from datetime import datetime
 from pathlib import Path
 
 from ..config import ROOT
@@ -103,12 +104,14 @@ def get_company(company: str) -> dict | None:
 
 
 def save_company(company: str, data: dict) -> dict:
-    """Merge `data` into the saved record for this company (create if new)."""
+    """Merge `data` into the saved record for this company (create if new) and
+    stamp `updated_at` (the date the HR/company details were last changed)."""
     from . import db
 
     existing = get_company(company) or {"company": company}
     existing.update({k: v for k, v in (data or {}).items() if v not in (None, "")})
     existing["company"] = company
+    existing["updated_at"] = datetime.now().date().isoformat()
     with db.connect() as conn:
         db._upsert_company_row(conn, slug(company), existing)
     return existing
@@ -125,3 +128,25 @@ def list_companies() -> list[dict]:
             except ValueError:
                 continue
     return out
+
+
+def find_company(company: str) -> dict | None:
+    """Saved record for a company: exact slug first, else a case-insensitive
+    word-ish match (so a job's 'TD' finds a saved 'TD', and vice-versa)."""
+    rec = get_company(company)
+    if rec:
+        return rec
+    c = (company or "").lower().strip()
+    if not c:
+        return None
+    for rec in list_companies():
+        n = (rec.get("company") or "").lower().strip()
+        if n and (n == c or re.search(rf"(?<![a-z]){re.escape(n)}(?![a-z])", c)):
+            return rec
+    return None
+
+
+def hr_email_for(company: str) -> str:
+    """Saved HR email for a company (used to auto-fill jobs with no contact email)."""
+    rec = find_company(company) or {}
+    return (rec.get("hr_email") or rec.get("contact_email") or "").strip()

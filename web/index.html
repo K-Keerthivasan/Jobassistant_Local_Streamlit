@@ -449,6 +449,7 @@
       <button data-view="hermes-scrape"><span class="ic">🤖</span> Hermes Scraping</button>
       <button data-view="scraper"><span class="ic">💼</span> Jobs</button>
       <button data-view="repeatable"><span class="ic">🔁</span> Repeatable</button>
+      <button data-view="companies"><span class="ic">🏢</span> Companies</button>
       <button data-view="qa"><span class="ic">💬</span> Q&amp;A</button>
       <button data-view="bulk"><span class="ic">⚡</span> Bulk Generate</button>
       <button data-view="profile"><span class="ic">👤</span> Profile</button>
@@ -692,7 +693,8 @@
       <div class="jl-toolbar card">
         <input id="jl-search" class="jl-inp" type="search" placeholder="Search title, company, location…">
         <select id="jl-status" class="jl-inp">
-          <option value="">All statuses</option><option value="new">New</option>
+          <option value="">All statuses</option><option value="ungenerated">Ungenerated</option>
+          <option value="new">New</option>
           <option value="generated">Generated</option><option value="approved">Approved</option>
         </select>
         <select id="jl-source" class="jl-inp"><option value="">All sources</option></select>
@@ -710,6 +712,11 @@
           <option value="">All companies</option>
           <option value="yes">🔁 Repeat only</option>
         </select>
+        <select id="jl-relevance" class="jl-inp" title="Show or hide jobs flagged not-relevant">
+          <option value="active" selected>Hide not-relevant</option>
+          <option value="all">Show all</option>
+          <option value="irrel">🚫 Not-relevant only</option>
+        </select>
         <select id="jl-days" class="jl-inp">
           <option value="1">Today</option>
           <option value="2">Last 2 days</option>
@@ -721,6 +728,8 @@
           <option value="">All time</option>
         </select>
         <span class="sp"></span>
+        <button class="btn subtle sm" id="jl-dedupe" title="Remove duplicate jobs (same company + title + location), keeping the best copy">🧹 Dedupe</button>
+        <button class="btn ghost sm" id="jl-tobulk" disabled>➕ Add to Bulk (0)</button>
         <button class="btn primary sm" id="jl-bulk" disabled>⚡ Generate selected (0)</button>
       </div>
 
@@ -741,6 +750,28 @@
         </table>
         <div class="empty" id="jl-empty"><div class="big">🛰️</div>No jobs match. Go to <b>Scrape</b> to fetch from sources or add one manually.</div>
       </div>
+    </section>
+
+    <!-- ===== Companies (HR contacts + jobs grouped by company) ===== -->
+    <section class="view" id="view-companies">
+      <div class="sc-head">
+        <div>
+          <h1 class="page-h" style="margin:0">Companies</h1>
+          <p class="page-sub" style="margin:4px 0 0">Your saved <b>HR contacts</b> (name · email · last updated) and every job <b>grouped by company</b> — two roles at the same employer sit together. A company's saved HR email <b>auto-fills</b> jobs from that company that have no contact email (used by the email-apply path). Import HR details by <b>CSV</b>.</p>
+        </div>
+        <div class="sc-actions">
+          <button class="btn primary sm" id="co-csv" title="Import HR/company details from a CSV">⬆ Upload CSV</button>
+          <input type="file" id="co-csv-file" accept=".csv,text/csv" style="display:none">
+          <button class="btn ghost sm" id="co-tpl" title="Download a sample CSV">⬇ Template</button>
+          <button class="btn subtle sm" id="co-refresh">↻ Refresh</button>
+        </div>
+      </div>
+      <div class="card" id="co-filters" style="margin:12px 0;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+        <input id="co-q" placeholder="🔎 Search company / title…" style="flex:1;min-width:180px" />
+        <label class="checks" style="margin:0"><input type="checkbox" id="co-hideempty" style="width:auto"> Only companies with saved HR</label>
+        <span id="co-count" style="font-size:13px;color:var(--muted)"></span>
+      </div>
+      <div id="co-list"><div class="empty"><span class="spinner dark"></span></div></div>
     </section>
 
     <!-- ===== Profile (apply profile + repeat companies + saved company details) ===== -->
@@ -878,6 +909,7 @@ function showView(view) {
   renderHealth();
   if (view === 'scraper') loadJobs();
   if (view === 'repeatable') loadRepeatable();
+  if (view === 'companies') loadCompanies();
   if (view === 'scrape') { renderSetup(); renderScrapedJobs(); }
   if (view === 'profile') renderSetup();   // fills #sk-applyprofile, #pf-repeats, #pf-saved
   if (view === 'hermes-scrape') { $('cs-enabled-note').innerHTML = CLOUD_ENABLED ? '' : '<b style="color:var(--warn)">Set HERMES_API_KEY in .env (the Hermes gateway API_SERVER_KEY) to enable.</b>'; }
@@ -1334,8 +1366,9 @@ function gRenderPick(all) {
   const source = $('g-pick-source').value;
   const bulk = gPick.mode === 'bulk';
   const rows = gPick.rows = (gPick.all || []).filter(j => {
+    if (j.irrelevant) return false;   // never offer not-relevant jobs for bulk
     if (source && (j.source || '').trim() !== source) return false;
-    if (!inRange(jobDate(j), daysVal)) return false;
+    if (!jobInRange(j, daysVal)) return false;
     return !q || [j.title, j.company, j.location].join(' ').toLowerCase().includes(q);
   });
   $('g-pick-list').innerHTML = rows.length ? rows.map((j, i) => `
@@ -1398,7 +1431,7 @@ $('g-pick-add').onclick = () => {
   let added = 0;
   (gPick.all || []).forEach(j => {
     if (j.key_id != null && gPick.sel.has(j.key_id)) {
-      bulkAdd({ company: j.company||'', title: j.title||'', location: j.location||'', description: j.description||'' }, false);
+      bulkAdd({ key_id: j.key_id, company: j.company||'', title: j.title||'', location: j.location||'', description: j.description||'' }, false);
       added++;
     }
   });
@@ -1803,6 +1836,9 @@ function bulkRender() {
     const stColor = j.status === 'done' ? 'var(--ok)' : j.status === 'failed' ? 'var(--err)' : 'var(--faint)';
     const resultBtn = j.status === 'done'
       ? `<button class="btn ghost sm" data-act="view" data-i="${i}">Preview</button>` : '';
+    // Re-run a single row: Regenerate a done one, Retry a failed (couldn't-be-generated) one.
+    const regenBtn = (j.status === 'done' || j.status === 'failed')
+      ? `<button class="btn subtle sm" data-act="regen" data-i="${i}" title="${j.status==='failed'?'Retry generating this job':'Regenerate this job (replaces the previous result)'}">${j.status==='failed'?'↻ Retry':'↻ Regenerate'}</button>` : '';
     return `<div class="bj ${j.editing?'editing':''}" data-i="${i}">
       <div class="bj-top">
         <div class="bj-st" style="color:${stColor}">${stIcon}</div>
@@ -1813,6 +1849,7 @@ function bulkRender() {
         <span class="stm ${j.status}">${j.status}</span>
         <div class="bj-acts">
           ${resultBtn}
+          ${regenBtn}
           <button class="btn subtle sm" data-act="edit" data-i="${i}">${j.editing?'Close':'Edit'}</button>
           <button class="btn danger sm" data-act="del" data-i="${i}">✕</button>
         </div>
@@ -1831,6 +1868,7 @@ function bulkRender() {
     if (el.dataset.act === 'del') { bulk.splice(i,1); bulkRender(); }
     else if (el.dataset.act === 'edit') { bulk[i].editing = !bulk[i].editing; bulkRender(); }
     else if (el.dataset.act === 'view') openModalFor(bulk[i].result);
+    else if (el.dataset.act === 'regen') { if (!bulkRunning) bulkRegenRow(i); }
   });
   list.querySelectorAll('[data-f]').forEach(el => el.oninput = () => { bulk[+el.dataset.i][el.dataset.f] = el.value; });
 }
@@ -1841,8 +1879,37 @@ function bulkAdd(job, open) {
 // Add one job (from the Jobs list / RSS pull) to the Bulk generate list.
 function bulkAddFromJob(j) {
   if (!j) return;
-  bulkAdd({ company: j.company || '', title: j.title || '', location: j.location || '', description: j.description || '' }, false);
+  // jobFromApi maps the queue key onto `id`; keep it so bulk generation can flip
+  // the queue row to 'generated' and link it to the produced run.
+  bulkAdd({ key_id: j.id || j.key_id, company: j.company || '', title: j.title || '', location: j.location || '', description: j.description || '' }, false);
   toast(`Added "${j.title || 'job'}" to Bulk generate.`);
+}
+
+function bulkOpts() {
+  return { model: resolveModel(false), persona: activePersona(), strict: $('b-strict').checked, pdf: $('b-pdf').checked };
+}
+// Generate (or regenerate) ONE bulk row. Sets j.status/result/error. Passes key_id
+// so the server flips the source queue job to 'generated' (ignored for free-form rows).
+async function bulkGenOne(j, opts) {
+  opts = opts || bulkOpts();
+  try {
+    j.result = await api('/generate', { method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ company:(j.company||'').trim(), title:(j.title||'').trim(),
+        location:(j.location||'').trim(), description:(j.description||'').trim(),
+        key_id: j.key_id || undefined, ...opts }) });
+    j.status = 'done'; j.error = '';
+  } catch (e) { j.status = 'failed'; j.error = e.message; }
+}
+
+// Regenerate/retry a single row (from its Regenerate/Retry button).
+async function bulkRegenRow(i) {
+  const j = bulk[i]; if (!j) return;
+  if (!bulkReady(j)) { toast('Add company, title, and description first.', true); return; }
+  j.status = 'running'; j.error = ''; bulkRender();
+  await bulkGenOne(j);
+  bulkRender();
+  toast(j.status === 'done' ? 'Regenerated.' : 'Failed: ' + (j.error || 'unknown error'), j.status !== 'done');
+  loadJobs(); loadLibrary(); loadUsage();
 }
 
 async function runBulk() {
@@ -1857,16 +1924,11 @@ async function runBulk() {
   bulkRunning = true;
   const btn = $('b-run'); btn.disabled = true; btn.textContent = 'Generating…';
   const prog = $('b-progress'); prog.className = 'progress show'; prog.firstElementChild.style.width = '0%';
-  const opts = { model: resolveModel(false), persona: activePersona(), strict: $('b-strict').checked, pdf: $('b-pdf').checked };
+  const opts = bulkOpts();
   let done = 0;
   for (const j of jobs) {
     j.status = 'running'; j.error = ''; bulkRender();
-    try {
-      j.result = await api('/generate', { method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ company:j.company.trim(), title:j.title.trim(), location:j.location.trim(),
-          description:j.description.trim(), ...opts }) });
-      j.status = 'done';
-    } catch (e) { j.status = 'failed'; j.error = e.message; }
+    await bulkGenOne(j, opts);
     done++; prog.firstElementChild.style.width = Math.round(done/jobs.length*100) + '%';
     bulkRender();
   }
@@ -1983,7 +2045,7 @@ function jobFromApi(j) {
   return { id: j.key_id, title: j.title || 'Untitled', company: j.company || '',
     location: j.location || '', source: j.source || '', date: jobDate(j), found,
     status: j.status, gen: j.status === 'generated', folder, email: (j.contact_email || '').trim(),
-    applied: !!j.applied, repeat: !!j.repeat, priority: !!j.priority, repeatable: !!j.repeatable, apply_url: j.apply_url || '', description: j.description || '' };
+    applied: !!j.applied, repeat: !!j.repeat, priority: !!j.priority, repeatable: !!j.repeatable, irrelevant: !!j.irrelevant, apply_url: j.apply_url || '', description: j.description || '', company_email: (j.company_email || '').trim() };
 }
 
 // Source-of-truth date for a queue job: the real posted date when it parses to
@@ -2009,14 +2071,36 @@ function dayWindowStart(days) {
   const n = new Date();
   return new Date(n.getFullYear(), n.getMonth(), n.getDate() - (days - 1)).getTime();
 }
+// Parse a "YYYY-MM-DD[...]" string as LOCAL midnight. Date.parse() treats a
+// date-only string as UTC, so west-of-UTC users (e.g. Eastern) got UTC-midnight,
+// which is the evening *before* — a job found today then fell just outside the
+// "Today" window. Build the date from its parts in local time instead.
+function parseLocalDay(dateStr) {
+  const m = String(dateStr || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m) return new Date(+m[1], +m[2] - 1, +m[3]).getTime();
+  const t = Date.parse(dateStr);
+  return isNaN(t) ? NaN : t;
+}
 function inRange(dateStr, daysVal) {
   if (!daysVal) return true;                       // All time
-  const t = Date.parse(dateStr); if (isNaN(t)) return false;
+  const t = parseLocalDay(dateStr); if (isNaN(t)) return false;
   if (daysVal === 'month') {                       // since the 1st of this month
     const n = new Date();
     return t >= new Date(n.getFullYear(), n.getMonth(), 1).getTime();
   }
   return t >= dayWindowStart(Number(daysVal));     // calendar days, incl. today
+}
+// A job belongs in the date window if EITHER it was posted in range OR we found/
+// saved it in range. Browser-saved jobs carry the employer's original posted date
+// (often weeks old), so filtering on posted date alone hid jobs you just scraped
+// today — "Today" would show almost nothing even right after saving a batch.
+// Accepts either a mapped job (jobFromApi: .date/.found) or a raw API job
+// (.posted/.found_at), so every picker/list can share one window rule.
+function jobInRange(j, daysVal) {
+  if (!daysVal) return true;
+  const posted = j.date || jobDate(j);
+  const found = j.found || (j.found_at || '').slice(0, 10);
+  return inRange(posted, daysVal) || inRange(found, daysVal);
 }
 
 // Pull browser-saved (collector) jobs into the queue. Fast: collector source only.
@@ -2054,15 +2138,19 @@ function jlFiltered() {
   const q = $('jl-search').value.trim().toLowerCase();
   const status = $('jl-status').value, source = $('jl-source').value, daysVal = $('jl-days').value;
   const channel = $('jl-channel').value, applied = $('jl-applied').value, repeat = $('jl-repeat').value;
+  const relevance = $('jl-relevance').value;
   let rows = jl.all.filter(j => {
-    if (status && j.status !== status) return false;
+    if (relevance === 'active' && j.irrelevant) return false;   // default: hide not-relevant
+    if (relevance === 'irrel' && !j.irrelevant) return false;   // only not-relevant
+    if (status === 'ungenerated') { if (j.gen) return false; }  // anything not yet generated
+    else if (status && j.status !== status) return false;
     if (source && j.source !== source) return false;
     if (channel === 'email' && !j.email) return false;
     if (channel === 'noemail' && j.email) return false;
     if (applied === 'yes' && !j.applied) return false;
     if (applied === 'no' && j.applied) return false;
     if (repeat === 'yes' && !j.repeat) return false;
-    if (!inRange(j.date, daysVal)) return false;
+    if (!jobInRange(j, daysVal)) return false;
     if (!q) return true;
     return [j.title, j.company, j.location, j.source].join(' ').toLowerCase().includes(q);
   });
@@ -2082,9 +2170,9 @@ function renderJobs() {
   });
   body.innerHTML = rows.map((j, i) => {
     const canSelect = j.id && !j.gen;
-    return `<tr>
+    return `<tr${j.irrelevant ? ' style="opacity:.5"' : ''}>
       <td class="jl-ck">${canSelect ? `<input type="checkbox" class="jl-rowck" data-k="${esc(j.id)}" ${jl.sel.has(j.id)?'checked':''}>` : ''}</td>
-      <td>${j.id?`<span class="jl-star ${j.priority?'on':''}" data-act="star" data-i="${i}" title="${j.priority?'Priority (Auto → Hermes)':'Mark priority'}" style="cursor:pointer">${j.priority?'⭐':'☆'}</span> `:''}<span class="t" data-act="detail" data-i="${i}" style="cursor:pointer" title="View details">${esc(j.title)}</span>${j.id?`<span class="jl-emailbtn ${j.email?'on':''}" data-act="email" data-i="${i}" title="${j.email?'Email: '+esc(j.email)+' — click to edit':'Add an HR email (for the n8n email path)'}" style="cursor:pointer">${j.email?'📧':'✉️'}</span><span data-act="repeatable" data-i="${i}" title="${j.repeatable?'Repeatable role — saved. Click to remove':'Mark as a repeatable role (reapply often)'}" style="cursor:pointer;margin-left:4px;opacity:${j.repeatable?1:.3}">🔁</span>`:''}</td>
+      <td>${j.id?`<span class="jl-star ${j.priority?'on':''}" data-act="star" data-i="${i}" title="${j.priority?'Priority (Auto → Hermes)':'Mark priority'}" style="cursor:pointer">${j.priority?'⭐':'☆'}</span> `:''}<span class="t" data-act="detail" data-i="${i}" style="cursor:pointer" title="View details">${esc(j.title)}</span>${j.id?`<span class="jl-emailbtn ${j.email?'on':''}" data-act="email" data-i="${i}" title="${j.email?'Email: '+esc(j.email)+' — click to edit':'Add an HR email (for the n8n email path)'}" style="cursor:pointer">${j.email?'📧':'✉️'}</span><span data-act="repeatable" data-i="${i}" title="${j.repeatable?'Repeatable role — saved. Click to remove':'Mark as a repeatable role (reapply often)'}" style="cursor:pointer;margin-left:4px;opacity:${j.repeatable?1:.3}">🔁</span><span data-act="irrelevant" data-i="${i}" title="${j.irrelevant?'Not relevant — hidden from active lists. Click to restore':'Flag as not relevant (hide it)'}" style="cursor:pointer;margin-left:4px;opacity:${j.irrelevant?1:.3}">🚫</span>`:''}</td>
       <td class="muted">${esc(j.company)}${j.repeat?` <span class="jl-rep" title="Repeat company — saved details reused">🔁</span>`:''}</td>
       <td class="muted">${esc(j.location)}</td>
       <td><span class="jl-src">${esc(j.source || '—')}</span></td>
@@ -2143,6 +2231,16 @@ function renderJobs() {
       j.repeatable = val; el.style.opacity = val ? 1 : .3;
       el.title = val ? 'Repeatable role — saved. Click to remove' : 'Mark as a repeatable role (reapply often)';
       toast(val ? 'Saved as a repeatable role → see the Repeatable tab.' : 'Removed from repeatable roles.');
+    } catch (err) { toast('Update failed: ' + err.message, true); }
+  });
+  body.querySelectorAll('[data-act="irrelevant"]').forEach(el => el.onclick = async (e) => {
+    e.stopPropagation();
+    const j = jl.rows[+el.dataset.i], val = !j.irrelevant;
+    try {
+      await api(`/jobs/${j.id}/irrelevant`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ irrelevant: val }) });
+      j.irrelevant = val;
+      toast(val ? 'Flagged not relevant — hidden from the active lists.' : 'Restored — no longer flagged.');
+      renderJobs();   // re-apply the relevance filter (row hides unless "Show all")
     } catch (err) { toast('Update failed: ' + err.message, true); }
   });
   body.querySelectorAll('[data-act="autofill"]').forEach(b => b.onclick = () => {
@@ -2207,6 +2305,7 @@ async function sendToN8n(key, btn) {
 function syncBulkBtn() {
   const n = jl.sel.size;
   const btn = $('jl-bulk'); btn.textContent = `⚡ Generate selected (${n})`; btn.disabled = !n;
+  const tb = $('jl-tobulk'); if (tb) { tb.textContent = `➕ Add to Bulk (${n})`; tb.disabled = !n; }
   const sel = jlFiltered().filter(r => r.id && !r.gen);
   $('jl-all').checked = sel.length > 0 && sel.every(r => jl.sel.has(r.id));
 }
@@ -2229,7 +2328,7 @@ async function genJob(job, btn) {
 }
 
 /* filters + sort wiring */
-['jl-search','jl-status','jl-source','jl-channel','jl-applied','jl-repeat','jl-days'].forEach(id => {
+['jl-search','jl-status','jl-source','jl-channel','jl-applied','jl-repeat','jl-relevance','jl-days'].forEach(id => {
   $(id).addEventListener(id === 'jl-search' ? 'input' : 'change', renderJobs);
 });
 // Persist the Jobs day filter across reloads.
@@ -2266,6 +2365,30 @@ $('jl-bulk').onclick = async () => {
   }
   toast(`Bulk done: ${ok} generated${fail?`, ${fail} failed`:''}.`);
   jl.sel.clear(); loadJobs(); loadLibrary(); loadUsage();
+};
+
+/* Jobs: add the selected jobs to the Bulk generate list (keeps key_id so bulk
+   generation flips each queue row to 'generated'). */
+$('jl-tobulk').onclick = () => {
+  const byId = Object.fromEntries(jl.all.map(j => [j.id, j]));
+  const sel = [...jl.sel].map(id => byId[id]).filter(Boolean);
+  if (!sel.length) return;
+  sel.forEach(j => bulkAdd({ key_id: j.id || j.key_id, company: j.company || '', title: j.title || '',
+    location: j.location || '', description: j.description || '' }, false));
+  jl.sel.clear(); renderJobs();
+  toast(`Added ${sel.length} job${sel.length>1?'s':''} to Bulk → open Bulk Generate to run them.`);
+};
+
+/* Jobs: remove duplicate rows (same company + title + location), keep the best. */
+$('jl-dedupe').onclick = async () => {
+  if (!confirm('Remove duplicate jobs (same company + title + location)?\n\nThe best copy of each (generated/applied/repeatable/priority, else newest) is kept; the rest are deleted.')) return;
+  const btn = $('jl-dedupe'); btn.disabled = true; const label = btn.textContent; btn.textContent = '⏳ Deduping…';
+  try {
+    const r = await api('/jobs/dedupe', { method: 'POST' });
+    toast(r.removed ? `Removed ${r.removed} duplicate${r.removed>1?'s':''} across ${r.groups} role${r.groups>1?'s':''}.` : 'No duplicates found.');
+    loadJobs(); loadLibrary();
+  } catch (e) { toast('Dedupe failed: ' + e.message, true); }
+  finally { btn.disabled = false; btn.textContent = label; }
 };
 
 /* Jobs: refresh the list */
@@ -2329,7 +2452,7 @@ async function renderScrapedJobs() {
     if (!jobs.length) { box.innerHTML = '<div class="muted">No jobs scraped yet. Add a source above and hit Fetch new jobs.</div>'; return; }
     const daysVal = ($('sk-days') || {}).value || '';
     const bySrc = {};
-    const rows = jobs.map(jobFromApi).filter(j => inRange(j.date, daysVal));
+    const rows = jobs.map(jobFromApi).filter(j => jobInRange(j, daysVal) && !j.irrelevant);
     if (!rows.length) { box.innerHTML = '<div class="muted">No jobs match this date filter.</div>'; return; }
     rows.forEach(j => { (bySrc[j.source || 'other'] = bySrc[j.source || 'other'] || []).push(j); });
     box.innerHTML = Object.entries(bySrc).sort((a, b) => b[1].length - a[1].length).map(([src, js]) =>
@@ -2460,6 +2583,119 @@ $('s-add').onclick = async () => {
   finally { btn.disabled = false; btn.textContent = label; }
 };
 
+/* ---------- Companies (HR contacts + jobs grouped by company) ---------- */
+const coState = { saved: [], jobs: [] };
+async function loadCompanies() {
+  const box = $('co-list'); if (!box) return;
+  box.innerHTML = '<div class="empty"><span class="spinner dark"></span></div>';
+  try {
+    const [co, jr] = await Promise.all([api('/companies'), api('/jobs')]);
+    coState.saved = co.companies || [];
+    coState.jobs = (jr.jobs || []).map(jobFromApi);
+    coRender();
+  } catch (e) { box.innerHTML = `<div class="qa dirty">${esc(e.message)}</div>`; }
+}
+function coRender() {
+  const box = $('co-list'); if (!box) return;
+  const q = ($('co-q').value || '').toLowerCase().trim();
+  const hideEmpty = $('co-hideempty').checked;
+  const norm = s => (s || '').trim().toLowerCase();
+  const savedMap = {};
+  coState.saved.forEach(r => { if (r.company) savedMap[norm(r.company)] = r; });
+  const byCo = {};
+  coState.jobs.forEach(j => { const k = norm(j.company || '—'); (byCo[k] = byCo[k] || { name: j.company || '—', jobs: [] }).jobs.push(j); });
+  coState.saved.forEach(r => { const k = norm(r.company); if (r.company && !byCo[k]) byCo[k] = { name: r.company, jobs: [] }; });
+  let groups = Object.keys(byCo).map(k => ({ name: byCo[k].name, jobs: byCo[k].jobs, hr: savedMap[k] || null }));
+  groups = groups.filter(g => {
+    if (hideEmpty && !g.hr) return false;
+    if (!q) return true;
+    return norm(g.name).includes(q) || g.jobs.some(j => norm(j.title).includes(q));
+  });
+  groups.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+  $('co-count').textContent = `${groups.length} companies · ${coState.saved.length} with saved HR`;
+  if (!groups.length) { box.innerHTML = `<div class="empty"><div class="big">🏢</div>No companies yet. Upload an HR CSV or scrape some jobs.</div>`; return; }
+  box.innerHTML = groups.map(coCard).join('');
+  const byId = Object.fromEntries(coState.jobs.map(j => [j.id, j]));
+  box.querySelectorAll('.co-copy').forEach(el => el.onclick = () => { (navigator.clipboard?.writeText(el.dataset.copy) || Promise.resolve()); toast('Copied: ' + el.dataset.copy); });
+  box.querySelectorAll('[data-coact="edit"]').forEach(b => b.onclick = () => {
+    const ed = b.closest('[data-co]').querySelector('.co-hr-edit');
+    ed.style.display = ed.style.display === 'none' ? 'flex' : 'none';
+  });
+  box.querySelectorAll('[data-coact="save"]').forEach(b => b.onclick = async () => {
+    const card = b.closest('[data-co]');
+    const hr_name = card.querySelector('.co-hr-name').value.trim();
+    const hr_email = card.querySelector('.co-hr-email').value.trim();
+    try {
+      await api(`/companies/${encodeURIComponent(b.dataset.co)}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ hr_name, hr_email }) });
+      toast('HR details saved.'); loadCompanies(); loadJobs();
+    } catch (e) { toast('Save failed: ' + e.message, true); }
+  });
+  box.querySelectorAll('[data-coact="view"]').forEach(b => b.onclick = () => openJobDetail(byId[b.dataset.jid]));
+  box.querySelectorAll('[data-coact="bulk"]').forEach(b => b.onclick = () => bulkAddFromJob(byId[b.dataset.jid]));
+  box.querySelectorAll('[data-coact="gen"]').forEach(b => b.onclick = () => genJob(byId[b.dataset.jid], b));
+}
+function coCard(g) {
+  const hr = g.hr || {};
+  const hrLine = (hr.hr_name || hr.hr_email)
+    ? `${hr.hr_name ? `<b>${esc(hr.hr_name)}</b>` : ''}${hr.hr_email ? `${hr.hr_name ? ' · ' : ''}<span class="co-copy" data-copy="${esc(hr.hr_email)}" style="cursor:pointer;color:var(--accent)" title="Click to copy">${esc(hr.hr_email)}</span>` : ''}${hr.updated_at ? ` <span class="muted" style="font-size:11px">· updated ${esc(hr.updated_at)}</span>` : ''}`
+    : '<span class="muted">No HR contact saved — click ✎ HR to add one.</span>';
+  const jobs = g.jobs.slice().sort((a, b) => (a.title || '').toLowerCase().localeCompare((b.title || '').toLowerCase()));
+  const jobsHtml = jobs.length ? jobs.map(j => coJobRow(j, hr.hr_email || '')).join('')
+    : '<div class="muted" style="padding:4px 0">No jobs for this company yet.</div>';
+  return `<div class="card" data-co="${esc(g.name)}" style="margin-bottom:14px">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;border-bottom:2px solid var(--accent);padding-bottom:8px;margin-bottom:10px">
+      <span style="font-weight:800;font-size:16px;color:var(--accent)">🏢 ${esc(g.name)}</span>
+      <span class="jl-src" style="margin:0">${g.jobs.length} job${g.jobs.length === 1 ? '' : 's'}</span>
+      <span style="flex:1"></span>
+      <button class="btn subtle sm" data-coact="edit" data-co="${esc(g.name)}">✎ HR</button>
+    </div>
+    <div class="co-hr" style="font-size:13px;margin-bottom:10px">${hrLine}</div>
+    <div class="co-hr-edit" style="display:none;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+      <input class="jl-inp co-hr-name" placeholder="HR name" value="${esc(hr.hr_name || '')}" style="flex:1;min-width:140px">
+      <input class="jl-inp co-hr-email" placeholder="hr@company.com" value="${esc(hr.hr_email || '')}" style="flex:1;min-width:160px">
+      <button class="btn primary sm" data-coact="save" data-co="${esc(g.name)}">Save</button>
+    </div>
+    ${jobsHtml}
+  </div>`;
+}
+function coJobRow(j, hrEmail) {
+  const email = (j.email || '').trim() || hrEmail;   // effective: job email, else company HR
+  const fromHr = !(j.email || '').trim() && hrEmail;
+  return `<div class="src-row" style="align-items:flex-start">
+    <div style="flex:1;min-width:0">
+      <div style="font-weight:600">${esc(j.title || 'Untitled')}${email ? ' 📧' : ''}</div>
+      <div class="muted" style="font-size:12px">${j.location ? esc(j.location) + ' · ' : ''}<span class="jl-st ${esc(j.status)}">${esc(j.status)}</span> · ${esc(j.date || '')}${email ? ` · ${esc(email)}${fromHr ? ' <span style="color:var(--accent)">(HR)</span>' : ''}` : ''}</div>
+    </div>
+    <div class="jl-rowbtns">
+      ${j.id ? `<button class="btn subtle sm" data-coact="view" data-jid="${esc(j.id)}">View</button>` : ''}
+      ${j.id && !j.gen ? `<button class="btn ghost sm" data-coact="bulk" data-jid="${esc(j.id)}">➕ Bulk</button>` : ''}
+      ${j.id ? `<button class="btn primary sm" data-coact="gen" data-jid="${esc(j.id)}">${j.gen ? 'Regenerate' : 'Generate'}</button>` : ''}
+    </div>
+  </div>`;
+}
+$('co-refresh').onclick = loadCompanies;
+$('co-q').oninput = coRender;
+$('co-hideempty').onchange = coRender;
+$('co-csv').onclick = () => $('co-csv-file').click();
+$('co-csv-file').onchange = async (e) => {
+  const file = e.target.files[0]; if (!file) return;
+  try {
+    const text = await file.text();
+    const res = await api('/companies/import', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ csv: text }) });
+    toast(`Imported HR details for ${res.saved} compan${res.saved === 1 ? 'y' : 'ies'}.`);
+    loadCompanies(); loadJobs();
+  } catch (err) { toast('Import failed: ' + err.message, true); }
+  finally { e.target.value = ''; }
+};
+$('co-tpl').onclick = () => {
+  const csv = 'company,hr_name,hr_email,hr_phone,ats,careers_url,notes\n'
+    + '"Acme Inc","Jane Doe","jane.doe@acme.com","555-0100","greenhouse","https://acme.com/careers","Prefers email applications"\n'
+    + '"Globex","Recruiting Team","jobs@globex.com","","lever","https://globex.com/jobs",""\n';
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+  a.download = 'companies_hr_template.csv'; a.click(); URL.revokeObjectURL(a.href);
+};
+
 /* ---------- Library (all generated applications) ---------- */
 let libCache = [];
 // Unified timestamp (ms) for a library item — from a run's created_at or a job's
@@ -2478,7 +2714,7 @@ async function loadLibrary() {
       persona: o.persona || '', has_pdf: !!o.has_pdf, generated: true,
       ts: libTs(o.created_at),
     }));
-    const pending = (jr.jobs || []).filter(j => j.status !== 'generated').map(j => {
+    const pending = (jr.jobs || []).filter(j => j.status !== 'generated' && !j.irrelevant).map(j => {
       const job = jobFromApi(j);            // shape openJobDetail() expects
       return {
         folder: '', key_id: j.key_id, company: job.company, title: job.title,
@@ -2595,14 +2831,15 @@ function openJobDetail(j) {
       ${meta('Source', esc(j.source))}${meta('Status', esc(j.status) + (j.repeat?' · 🔁 repeat':''))}
       ${meta('Date', esc(j.date))}${meta('Applied', j.applied?'Yes':'No')}
     </div>
-    <label class="fld">Contact email (HR) — edit & save to enable email apply</label>
+    <label class="fld">Contact email (HR) — edit & save to enable email apply${(!j.email && j.company_email)?' <span style="color:var(--accent)">· prefilled from saved company HR</span>':''}</label>
     <div style="display:flex;gap:8px">
-      <input id="jd-email" class="jl-inp" style="flex:1" value="${esc(j.email)}" placeholder="hr@company.com" ${j.id?'':'disabled'}>
+      <input id="jd-email" class="jl-inp" style="flex:1" value="${esc(j.email || j.company_email || '')}" placeholder="hr@company.com" ${j.id?'':'disabled'}>
       <button class="btn primary sm" id="jd-email-save" ${j.id?'':'disabled'}>Save</button>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin:14px 0">
       ${j.apply_url?`<a class="btn subtle sm" href="${esc(j.apply_url)}" target="_blank" rel="noreferrer">Open portal ↗</a>`:''}
       ${j.gen?`<button class="btn ghost sm" id="jd-preview">Preview application</button>`:''}
+      ${j.id?`<button class="btn ghost sm" id="jd-irrel">${j.irrelevant?'↩ Restore (relevant)':'🚫 Not relevant'}</button>`:''}
       ${j.id?`<button class="btn primary sm" id="jd-gen">${j.gen?'Regenerate':'Generate'}</button>`:''}
     </div>
     <label class="fld">Job description</label>
@@ -2618,6 +2855,17 @@ function openJobDetail(j) {
   };
   const prev = $('jd-preview'); if (prev) prev.onclick = () => { if (j.folder) openLibrary(j.folder); };
   const gen = $('jd-gen'); if (gen) gen.onclick = () => { $('overlay').classList.remove('show'); genJob(j, gen); };
+  const irr = $('jd-irrel'); if (irr) irr.onclick = async () => {
+    const val = !j.irrelevant;
+    irr.disabled = true;
+    try {
+      await api(`/jobs/${j.id}/irrelevant`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ irrelevant: val }) });
+      j.irrelevant = val;
+      toast(val ? 'Flagged not relevant — hidden from the active lists.' : 'Restored — no longer flagged.');
+      $('overlay').classList.remove('show');
+      loadJobs(); loadLibrary(); renderScrapedJobs();
+    } catch (e) { toast('Update failed: ' + e.message, true); irr.disabled = false; }
+  };
 }
 $('modal-x').onclick = () => $('overlay').classList.remove('show');
 $('overlay').onclick = (e) => { if (e.target === $('overlay')) $('overlay').classList.remove('show'); };

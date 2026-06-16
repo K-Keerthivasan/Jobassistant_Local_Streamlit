@@ -154,6 +154,17 @@ def set_repeatable(key_id: str, repeatable: bool) -> QueuedJob | None:
     return _save(q)
 
 
+def set_irrelevant(key_id: str, irrelevant: bool) -> QueuedJob | None:
+    """Flag/unflag a job as not relevant. Irrelevant jobs are hidden from the
+    active lists (queue, bulk picker, library, scraped list) but kept (and seen),
+    so they don't come back on the next fetch and can be restored."""
+    q = get_job(key_id)
+    if q is None:
+        return None
+    q.irrelevant = irrelevant
+    return _save(q)
+
+
 def delete_job(key_id: str, *, forget_seen: bool = True) -> QueuedJob | None:
     """Remove a queued job. Optionally remove its key from `seen` so a future
     scrape can queue it again."""
@@ -165,6 +176,44 @@ def delete_job(key_id: str, *, forget_seen: bool = True) -> QueuedJob | None:
         if forget_seen:
             conn.execute("DELETE FROM seen WHERE key = ?", (key_id,))
     return q
+
+
+def dedupe_jobs() -> dict:
+    """Collapse duplicate queued jobs that share company + title + location,
+    keeping the most valuable copy of each (generated/applied/repeatable/priority,
+    else the newest) and deleting the rest. Deleted keys stay in `seen` so they
+    don't come back on the next fetch."""
+    def _norm(s: str) -> str:
+        return re.sub(r"\s+", " ", (s or "").strip().lower())
+
+    def _score(j: QueuedJob):
+        return (
+            1 if j.status == "generated" else 0,
+            1 if j.applied else 0,
+            1 if j.repeatable else 0,
+            1 if j.priority else 0,
+            j.posted or "",
+            j.found_at or "",
+        )
+
+    with db.connect() as conn:
+        jobs = [j for j in (_row_to_job(r) for r in conn.execute("SELECT data FROM jobs")) if j]
+
+    groups: dict[tuple, list] = {}
+    for j in jobs:
+        groups.setdefault((_norm(j.company), _norm(j.title), _norm(j.location)), []).append(j)
+
+    removed = 0
+    dup_groups = 0
+    with db.connect() as conn:
+        for g in groups.values():
+            if len(g) <= 1:
+                continue
+            dup_groups += 1
+            for j in sorted(g, key=_score, reverse=True)[1:]:   # keep best, drop rest
+                conn.execute("DELETE FROM jobs WHERE key_id = ?", (j.key_id,))
+                removed += 1
+    return {"removed": removed, "groups": dup_groups}
 
 
 _EDITABLE = {"company", "title", "location", "description", "apply_url", "contact_email"}

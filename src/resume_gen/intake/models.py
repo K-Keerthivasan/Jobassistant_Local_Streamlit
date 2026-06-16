@@ -51,6 +51,7 @@ class QueuedJob(JobPosting):
     applied: bool = False     # marked applied (independent of generation status)
     priority: bool = False    # ⭐ high-value job — generate with Hermes in Auto mode
     repeatable: bool = False  # 🔁 saved as a recurring-role template (reapply often)
+    irrelevant: bool = False  # 🚫 not a relevant job — hidden from the active lists
     found_at: str = ""
     notes: str = Field(default="")
 
