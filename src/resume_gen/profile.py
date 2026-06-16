@@ -14,7 +14,10 @@ def load_profile(path: Path | None = None) -> dict:
     path = path or settings.profile_path
     if not path.exists():
         raise FileNotFoundError(
-            f"Master profile not found at {path}. Copy/edit data/profile/master_profile.yaml."
+            f"No master profile found at {path}.\n"
+            f"First-time setup: copy data/profile/master_profile.sample.yaml to "
+            f"data/profile/master_profile.yaml and fill in your real details "
+            f"(or run `python -m resume_gen init`), then try again."
         )
     with path.open("r", encoding="utf-8") as f:
         return yaml.safe_load(f)

@@ -42,11 +42,16 @@ Download routes (served by `api/server.py`):
 Legacy `output/<run>/` folders from before this change are imported into `runs` on
 first start (and stay on disk, harmless).
 
-## What stays as files (config / artifacts)
+## What stays as files (your personal config)
 
-- `data/apply_profile.json`, `data/repeat_companies.json` — you hand-edit these.
+These are **per-user** and **gitignored** — create each from its `*.sample.*`
+template (see [`data-and-privacy.md`](data-and-privacy.md)):
+
+- `data/profile/master_profile.yaml` — your master profile (required).
+- `data/profile/personas.yaml` — role framings (optional).
+- `data/apply_profile.json`, `data/repeat_companies.json` — autofill answers + repeat companies.
 - `data/sources.yaml` — scraper source list.
-- `data/profile/master_profile.yaml` — your master profile.
+- `data/usage.json` — token/usage counters (regenerated automatically).
 
 (Generated applications are **not** files anymore — they live in the `runs` table
 and are rendered to PDF/DOCX only at download time.)

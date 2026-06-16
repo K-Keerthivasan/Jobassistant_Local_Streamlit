@@ -26,9 +26,21 @@ docker compose -f docker/docker-compose.yml up -d --build
   the compose). PDF uses LibreOffice inside the container.
 - `data/` and `output/` are bind-mounted, so the CLI and the container share state.
 
-### Your profile (required, truth source)
+### First-time setup: your personal data (copy the templates)
 
-Edit `data/profile/master_profile.yaml`:
+Your real data is **not** shipped with the repo — it lives in gitignored files you
+create from the `*.sample.*` templates. Copy each one and fill in your details:
+
+```powershell
+copy data\profile\master_profile.sample.yaml data\profile\master_profile.yaml   # REQUIRED
+copy data\apply_profile.sample.json          data\apply_profile.json            # autofill answers
+copy data\profile\personas.sample.yaml       data\profile\personas.yaml         # optional role framings
+copy data\repeat_companies.sample.json       data\repeat_companies.json         # optional
+```
+
+> Coming soon: `python -m resume_gen init` will fill these in interactively.
+
+**`data/profile/master_profile.yaml` (required — your single source of truth):**
 - `contact.links` — **keep short**; every link appears on every resume.
 - `skills` — grouped inventory (technical + the `marketing` / `sales_service` /
   `creative_media` / `office_admin` groups used by non-tech personas).
@@ -36,11 +48,21 @@ Edit `data/profile/master_profile.yaml`:
 - Mark a role `preserve: true` to stop it being recast (e.g. a collections role
   must not become "sales").
 
-### Personas (optional but recommended)
+The generator refuses to run without this file and prints exactly what to copy.
 
-`data/profile/personas.yaml` maps job keywords → a role framing. See
-[`personas.md`](personas.md). Nothing else to do; the app auto-detects and you can
-override from the sidebar **Persona** picker.
+**`data/apply_profile.json`** — your standard autofill answers (name, email, phone,
+work authorization, common screening answers). Used by the Playwright autofill
+assistant and the email-apply path; shown click-to-copy in the **Profile** tab.
+
+**`data/profile/personas.yaml` (optional)** — maps job keywords → a role framing.
+See [`personas.md`](personas.md). If absent, generation uses the neutral
+master-profile summary. Auto-detected; override from the sidebar **Persona** picker.
+
+**`data/repeat_companies.json` (optional)** — companies you reapply to (+ sectors),
+shown as filter tags in the **Repeatable** tab.
+
+What's stored where, what's gitignored, and how to back up / reset:
+[`data-and-privacy.md`](data-and-privacy.md).
 
 ## 2. Scraper collector (dashboard + store)
 

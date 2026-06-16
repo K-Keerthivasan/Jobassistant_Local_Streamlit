@@ -1,0 +1,85 @@
+# =============================================================================
+# MASTER PROFILE (TEMPLATE) — single source of truth (CANDIDATE_PROFILE)
+#
+# HOW TO USE
+#   1. Copy this file:   data/profile/master_profile.sample.yaml  ->  data/profile/master_profile.yaml
+#   2. Replace every value below with YOUR real, factual details.
+#   3. (Coming soon) or run:  python -m resume_gen init   to fill this in interactively.
+#
+# RULE: the generator may ONLY use facts present in your master_profile.yaml. It
+# must never invent or inflate employers, dates, titles, degrees, certs, metrics,
+# or skills. Keep this complete and factual — tailoring/selection happens at
+# generation time. The truth-guard validates every generated line against this file.
+# =============================================================================
+
+full_name: "Jordan Sample"
+preferred_name: "Jordan"
+
+contact:
+  email: "jordan.sample@example.com"
+  phone: "000-000-0000"
+  location: "Your City, ST, Country"
+  # Shown instead of the precise city when applying OUTSIDE your city (so a remote
+  # application doesn't surface your hometown). Still true.
+  location_general: "Your State/Province, Country"
+  # Keep this short: every link here appears on EVERY resume.
+  links:
+    - label: "LinkedIn"
+      url: "https://linkedin.com/in/your-handle/"
+    - label: "Portfolio"
+      url: "https://your-portfolio.example.com/"
+
+# A neutral, factual summary of who you are. The generator rewrites a role-targeted
+# version from this — it does not copy it verbatim.
+summary_base: >
+  One or two factual sentences about your real background, the kinds of work you have
+  done, and the tools you actually use. No metrics or claims you cannot back up.
+
+# Full skill inventory. The generator SELECTS and ORDERS from this list by relevance
+# to the target role; it must not add skills not present here. Group names are free —
+# the renderer buckets them under friendly labels (see SKILL_GROUP_LABELS in code).
+skills:
+  languages: [Python, JavaScript, SQL]
+  backend_cloud: [Node.js, "REST APIs", PostgreSQL]
+  frontend_ui: [React.js, HTML, CSS]
+  tools_other: [Git, Docker, Excel]
+  # Add or remove groups freely (marketing, sales_service, creative_media, etc.).
+
+experience:
+  - company: "Example Corp"
+    role: "Software Developer"
+    location: "Your City, ST"
+    start: "Jan 2023"
+    end: "Present"
+    # Optional: set preserve: true to keep this role's FUNCTION as-is (don't let the
+    # generator recast a finance/support role as something it wasn't).
+    # preserve: true
+    facts:
+      - "A truthful, reusable statement of something you actually did in this role."
+      - "Another real responsibility or accomplishment (no invented numbers)."
+    tags: [backend, apis, databases]   # free-form relevance tags used by personas
+
+  - company: "Another Company"
+    role: "Junior Developer"
+    location: "Your City, ST"
+    start: "2021"
+    end: "2022"
+    facts:
+      - "What you really did here."
+    tags: [frontend, support]
+
+# Optional. Include only if relevant to a role.
+projects:
+  - name: "Sample Project"
+    stack: [TypeScript, Firebase]
+    url: "https://example.com"
+    description: "Short factual description of something you actually built."
+    tags: [web]
+
+education:
+  - institution: "Your University, City, Country"
+    credential: "Your Degree (e.g. B.Sc. Computer Science)"
+    year: "2017-2021"
+
+# Real certifications only; leave [] if none.
+certifications: []

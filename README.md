@@ -36,13 +36,21 @@ pip install -e .
 copy .env.example .env        # OLLAMA_MODEL, etc.
 ollama list                   # ensure a model is pulled (qwen3:8b recommended)
 
-# 3. run the app (Docker is the supported path; LibreOffice PDF inside the container)
+# 3. add YOUR data (templates ship; your real files are gitignored)
+copy data\profile\master_profile.sample.yaml data\profile\master_profile.yaml   # REQUIRED — edit it
+copy data\apply_profile.sample.json          data\apply_profile.json            # autofill answers
+copy data\profile\personas.sample.yaml       data\profile\personas.yaml         # optional
+copy data\repeat_companies.sample.json       data\repeat_companies.json         # optional
+#   (coming soon: `python -m resume_gen init` fills these in interactively)
+
+# 4. run the app (Docker is the supported path; LibreOffice PDF inside the container)
 docker compose -f docker/docker-compose.yml up -d --build
 #   -> Resume Studio at http://localhost:8088/
 ```
 
 Full install (profile, personas, sources, scraper collector, Tampermonkey, n8n) is
-in [`docs/setup.md`](docs/setup.md).
+in [`docs/setup.md`](docs/setup.md). What's stored and how to back up / reset:
+[`docs/data-and-privacy.md`](docs/data-and-privacy.md).
 
 ## The truth-only rule
 
@@ -62,5 +70,7 @@ facts.
 - [`docs/auto-apply.md`](docs/auto-apply.md) — semi-auto apply (email → n8n, Playwright portal autofill)
 - [`docs/repeatable.md`](docs/repeatable.md) — repeatable roles (reapply templates) + email-alert intake
 - [`docs/bulk-csv.md`](docs/bulk-csv.md) — bulk-generate from a CSV: columns/schema + the two import paths
+- [`docs/storage.md`](docs/storage.md) — the SQLite store (jobs, runs, repeatable, companies)
+- [`docs/data-and-privacy.md`](docs/data-and-privacy.md) — what's stored, what's gitignored, back up / reset
 - [`docs/api.md`](docs/api.md) — HTTP API reference (for n8n and other devices)
 - [`docs/CHANGELOG.md`](docs/CHANGELOG.md) — updates & patches

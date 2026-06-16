@@ -23,6 +23,16 @@ data/jobs/*
 data/sources.yaml
 data/intake/
 
+# Personal data (single-user-per-install) — your real profile/answers/companies.
+# Ship only the *.sample.* templates; each user creates their own real files.
+data/profile/master_profile.yaml
+data/profile/personas.yaml
+data/apply_profile.json
+data/repeat_companies.json
+data/usage.json
+data/companies/*
+!data/companies/.gitkeep
+
 # SQLite store (queue, seen, repeatable roles, company memory, output index)
 data/resume.db
 data/resume.db-wal

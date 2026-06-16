@@ -1,0 +1,12 @@
+{
+  "_comment": "TEMPLATE — copy to data/repeat_companies.json and edit. 'companies' are employers you reapply to often (shown as filter tags in the Repeatable tab). 'sectors' groups them so a role can be auto-tagged with its sector.",
+  "sectors": {
+    "Tech": ["Example Tech Co", "Sample Software Inc"],
+    "Retail": ["Example Retailer"]
+  },
+  "companies": [
+    "Example Tech Co",
+    "Sample Software Inc",
+    "Example Retailer"
+  ]
+}

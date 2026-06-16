@@ -1,0 +1,54 @@
+# =============================================================================
+# PERSONAS (TEMPLATE) — role-specific framings of the SAME true history.
+#
+# HOW TO USE
+#   Copy to data/profile/personas.yaml and edit. Personas are OPTIONAL — if this
+#   file is absent the generator falls back to the neutral master_profile summary.
+#
+# A persona never adds facts. It only changes FRAMING: a headline, a factual
+# summary seed (in your own words), which experience to lead with, which skills to
+# foreground, and which links to show. The truth-guard still validates everything
+# against master_profile.yaml.
+#
+# Auto-selection: the persona whose keywords best match the target job title +
+# description wins. The UI can override with a manual pick.
+# =============================================================================
+
+personas:
+  - id: fullstack
+    label: "Full-Stack Developer"
+    headline: "Full-Stack Web Developer"
+    keywords:
+      - "full stack"
+      - "full-stack"
+      - "web developer"
+      - "frontend"
+      - "react"
+      - "node"
+      - "javascript"
+      - "typescript"
+    # Which of master_profile's `links:` labels to show for this persona.
+    links: ["LinkedIn", "Portfolio"]
+    lead_with: "Your most relevant full-stack role first"
+    foreground_skills: "React, Node.js, TypeScript, REST APIs, PostgreSQL"
+    summary_seed: >
+      A factual, first-person-neutral seed describing you as a full-stack developer,
+      grounded only in real experience from master_profile.yaml. The generator
+      rewrites this for each job; it never copies it verbatim.
+
+  - id: software
+    label: "Software Developer"
+    headline: "Software Developer"
+    keywords:
+      - "software engineer"
+      - "software developer"
+      - "backend"
+      - "back-end"
+      - "rest api"
+      - "engineer"
+    links: ["LinkedIn", "Portfolio", "GitHub"]
+    lead_with: "Your strongest backend/software role first"
+    foreground_skills: "Python, REST APIs, SQL, Git, Docker"
+    summary_seed: >
+      A factual seed describing your software-development background, drawn only from
+      real facts in master_profile.yaml.
