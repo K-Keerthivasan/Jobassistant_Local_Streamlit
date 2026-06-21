@@ -1,0 +1,4 @@
+company,title,location,description,contact_email,apply_url,posted
+Acme Inc,Software Developer,"Toronto, ON","Build and maintain REST APIs and data pipelines. Python, SQL, cloud.",hr@acme.com,https://acme.com/jobs/123,2026-06-18
+Globex Corp,Data Analyst,"Remote, CA","Reporting, dashboards, SQL, stakeholder communication.",careers@globex.com,https://globex.com/jobs/456,2026-06-17
+Initech,IT Support Specialist,"London, ON","Tier 1/2 desktop support, ticketing, Active Directory.",,https://initech.com/careers/789,2026-06-15

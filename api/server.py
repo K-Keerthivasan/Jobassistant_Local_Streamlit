@@ -413,6 +413,34 @@ def jobs(status: str | None = None):
             rec = next((r for n, r in saved_norm if _wmatch(n, c)), None)
         return (rec.get("hr_email") or rec.get("contact_email") or "").strip() if rec else ""
 
+    from datetime import date as _date
+    today = _date.today()
+
+    def _auto_score(d: dict, q) -> int:
+        """Heuristic priority score from real signals (higher = more worth doing)."""
+        if q.irrelevant:
+            return -10
+        s = 0
+        if d["repeat"]:
+            s += 2                                  # repeat/target company
+        if d["company_email"]:
+            s += 1                                  # we have a saved HR email
+        if (q.contact_email or "").strip():
+            s += 1                                  # job carries its own contact email
+        if d["repeatable_role"]:
+            s += 1                                  # tracked as a recurring role
+        if (q.apply_url or "").strip():
+            s += 1                                  # actually applyable
+        try:                                        # freshness
+            days = (today - _date.fromisoformat((q.found_at or "")[:10])).days
+            if days <= 2:
+                s += 2
+            elif days <= 7:
+                s += 1
+        except Exception:
+            pass
+        return s
+
     out = []
     for q in queue:
         d = q.model_dump()
@@ -421,6 +449,15 @@ def jobs(status: str | None = None):
         d["company_email"] = _hr_email(q.company)
         # When this job was last generated (the linked run's created_at), if any.
         d["generated_at"] = runs_created.get(q.notes, "") if q.status == "generated" else ""
+        # Priority: manual pin wins, else an auto-score bucketed into high/medium/low.
+        ov = (q.priority_override or "").strip().lower()
+        if ov in ("high", "medium", "low"):
+            d["priority_level"] = ov
+            d["priority_score"] = {"high": 100, "medium": 50, "low": -50}[ov]
+        else:
+            score = _auto_score(d, q)
+            d["priority_level"] = "high" if score >= 4 else ("medium" if score >= 2 else "low")
+            d["priority_score"] = score
         out.append(d)
     return {"jobs": out}
 
@@ -813,15 +850,22 @@ def mark_applied(key_id: str, req: AppliedRequest):
 
 
 class PriorityRequest(BaseModel):
-    priority: bool = True
+    level: str = ""              # "", "high", "medium", "low" (manual pin; "" = auto)
+    priority: bool | None = None  # legacy boolean flag
 
 
 @app.post("/jobs/{key_id}/priority")
 def mark_priority(key_id: str, req: PriorityRequest):
-    """Flag a job ⭐ priority (Auto engine generates priority jobs with Hermes)."""
-    from resume_gen.intake.store import set_priority
+    """Manually pin a job's priority level ('high'|'medium'|'low'|'' for auto).
+    High-priority jobs generate with Hermes in Auto mode."""
+    from resume_gen.intake.store import set_priority_override
 
-    q = set_priority(key_id, req.priority)
+    level = (req.level or "").strip().lower()
+    if level not in ("high", "medium", "low", ""):
+        level = "high" if req.priority else ""   # legacy bool fallback
+    elif not level and req.priority:
+        level = "high"
+    q = set_priority_override(key_id, level)
     if q is None:
         raise HTTPException(status_code=404, detail="Job not found.")
     return q.model_dump()
@@ -1344,8 +1388,10 @@ def followup_n8n(key_id: str, test: bool = False):
     the follow-up on the job (unless test=true)."""
     import httpx
 
+    from datetime import date as _date
+
     from resume_gen.generate import generate_followup_email
-    from resume_gen.intake.companies import hr_email_for
+    from resume_gen.intake.companies import find_company, hr_email_for
     from resume_gen.intake.store import get_job, record_followup
 
     webhook = settings.n8n_followup_webhook_url or settings.n8n_jobs_webhook_url or settings.n8n_webhook_url
@@ -1361,11 +1407,14 @@ def followup_n8n(key_id: str, test: bool = False):
     if not to_email:
         raise HTTPException(status_code=400, detail="No contact email on the job or saved for the company.")
 
-    target = q.to_target_role()
+    contact_name = ((find_company(q.company) or {}).get("hr_name") or "").strip()
     try:
-        followup = generate_followup_email(target).model_dump()
-    except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Follow-up generation failed: {e}")
+        when = _date.fromisoformat((q.sent_at or "")[:10]).strftime("%b %d, %Y")
+    except Exception:
+        when = ""
+    target = q.to_target_role()
+    followup = generate_followup_email(
+        target, contact_name=contact_name, date_applied=when).model_dump()
 
     payload = {
         "type": "followup", "source": q.source,

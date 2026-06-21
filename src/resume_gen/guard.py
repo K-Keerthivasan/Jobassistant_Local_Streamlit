@@ -567,10 +567,16 @@ def enforce_cover_letter(cl: CoverLetter, profile: dict,
     return cl, report
 
 
-# A signature/contact line (email, URL, or phone-like) — deterministic, truth-only
-# data appended after generation, so the prose cleaner must leave it alone (it would
-# otherwise add a trailing period or strip the digits as a fake "metric").
-_CONTACT_LINE = re.compile(r"@|https?://|www\.|^\+?[\d()][\d().\s/-]{6,}$")
+# A signature/contact line (email, URL, bare domain, or phone-like) — deterministic,
+# truth-only data, so the prose cleaner must leave it alone (it would otherwise add a
+# trailing period, strip digits as a fake "metric", or mangle a URL/handle).
+_CONTACT_LINE = re.compile(
+    r"@|https?://|www\.|\b[\w-]+\.(?:com|ca|io|dev|ai|org|net|co|app)\b|^\+?[\d()][\d().\s/|-]{6,}$",
+    re.I,
+)
+# The deterministic envelope (greeting + closing) — pass through so its trailing
+# comma survives the prose cleaner's strip.
+_ENVELOPE_LINE = re.compile(r"^(hi|hello|dear|thanks|thank you|best|regards|cheers|sincerely)\b", re.I)
 
 
 def enforce_email(email: ApplicationEmail, profile: dict) -> tuple[ApplicationEmail, dict]:
@@ -580,7 +586,8 @@ def enforce_email(email: ApplicationEmail, profile: dict) -> tuple[ApplicationEm
     # Clean line-by-line so the email's paragraph + signature/letterhead newlines
     # survive (the prose cleaners squeeze runs of whitespace, which would collapse
     # every blank-line break and flatten the whole email). Pass the deterministic
-    # sign-off + contact lines through untouched.
+    # greeting / sign-off / contact lines through untouched; only real prose (the
+    # model-written hook) gets the truth-guard treatment.
     changed_any = False
     out_lines: list[str] = []
     for ln in (email.body or "").replace("\r\n", "\n").split("\n"):
@@ -588,7 +595,7 @@ def enforce_email(email: ApplicationEmail, profile: dict) -> tuple[ApplicationEm
         if not s:
             out_lines.append("")
             continue
-        if _is_signoff(s) or _CONTACT_LINE.search(s):
+        if _is_signoff(s) or _ENVELOPE_LINE.match(s) or _CONTACT_LINE.search(s):
             out_lines.append(ln)
             continue
         cleaned, changed = _clean_letter_prose(ln, profile, allowed)

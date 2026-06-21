@@ -70,6 +70,14 @@ class ApplicationEmail(BaseModel):
     body: str = Field(description="plain-text email body, ready to send")
 
 
+class EmailHook(BaseModel):
+    """The two dynamic lines injected into the application email template:
+    a role-appropriate opening line and one concrete fit line."""
+
+    opener: str = ""
+    hook: str = ""
+
+
 class ScreeningAnswer(BaseModel):
     """A first-person answer to one application screening question."""
 

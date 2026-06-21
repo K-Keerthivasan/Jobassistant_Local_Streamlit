@@ -10,6 +10,7 @@ from .llm import chat_structured
 from .models import (
     ApplicationEmail,
     CoverLetter,
+    EmailHook,
     JobExtract,
     Resume,
     ScreeningAnswer,
@@ -20,9 +21,8 @@ from .profile import load_profile, profile_to_prompt_block
 from .prompts import (
     ANSWER_SYSTEM,
     COVER_LETTER_SYSTEM,
+    EMAIL_HOOK_SYSTEM,
     EMAIL_PARSE_SYSTEM,
-    EMAIL_SYSTEM,
-    FOLLOWUP_SYSTEM,
     RESUME_SYSTEM,
     build_user_message,
 )
@@ -105,107 +105,147 @@ def generate_cover_letter(target: TargetRole, profile: dict | None = None, perso
     return humanize_cover_letter(cl)
 
 
-def _email_signature(profile: dict | None) -> str:
-    """Build a deterministic, truth-only sign-off from the profile's contact
-    block: 'Best, <name>' then email, phone, and the portfolio/website link.
-    The model is told NOT to add its own sign-off, so this is the single source."""
-    profile = profile or {}
+# --------------------------------------------------------------------------- #
+# Application / follow-up emails — assembled from a FIXED template so the format
+# is always consistent; only the role-specific "hook" line is model-generated.
+# Everything else (greeting, opener, work links, sign-off) is deterministic and
+# truth-only, pulled from the profile. No em dashes (humanize_email strips them).
+# --------------------------------------------------------------------------- #
+_HOOK_FALLBACK = (
+    "I have spent the last few years running real client projects end to end, from the "
+    "first brief to the thing that actually goes live, and I move fast without dropping quality."
+)
+
+
+def _signoff_name(profile: dict) -> str:
     contact = profile.get("contact", {}) or {}
-    name = (contact.get("email_signoff_name")
+    return (contact.get("email_signoff_name")
             or profile.get("preferred_name")
             or profile.get("full_name") or "").strip()
-    detail: list[str] = []
-    if contact.get("email"):
-        detail.append(str(contact["email"]).strip())
-    if contact.get("phone"):
-        detail.append(str(contact["phone"]).strip())
-    # Prefer a portfolio/website/K2-style link over LinkedIn for the sign-off.
-    links = contact.get("links") or []
-    chosen = None
-    for l in links:
-        label = (l.get("label") or "").lower()
-        if any(k in label for k in ("k2", "portfolio", "website", "site")):
-            chosen = l
-            break
-    if chosen and chosen.get("url"):
-        label = (chosen.get("label") or "Portfolio").strip()
-        detail.append(f"{label}: {chosen['url']}")
-    # One tight letterhead block: closing on its own line, name beneath it, then
-    # each contact detail stacked directly under the name (no blank-line gap), so
-    # it renders as a proper signature/letterhead rather than a run-on line.
-    signoff = ["Best,", name] if name else ["Best,"]
-    return "\n".join(signoff + detail)
 
 
-def _strip_model_closing(body: str) -> str:
-    """Remove any attachment line, thank-you line, and sign-off the model wrote
-    anyway, so we can re-add them deterministically on their own lines. Newlines
-    in the remaining body are preserved (only runs of spaces/tabs are squeezed)."""
-    if not body:
-        return body
-    t = body
-    # Trailing sign-off block: "Best, <name>" / "Regards" ... to the end.
-    t = re.sub(r"\n*\s*(best regards|best wishes|best|kind regards|warm regards|"
-               r"regards|sincerely|cheers|yours (?:truly|sincerely))\b[\s\S]*$",
-               "", t, flags=re.I)
-    # Attachment + thank-you boilerplate sentences (re-added deterministically).
-    t = re.sub(r"\s*\b(i'?ve attached|i have attached|please find attached|"
-               r"attached (?:are|is|you'?ll find|please find))[^.!?]*[.!?]",
-               "", t, flags=re.I)
-    t = re.sub(r"\s*\bthank you[^.!?]*[.!?]", "", t, flags=re.I)
-    t = re.sub(r"\s*\bthanks[^.!?]*[.!?]", "", t, flags=re.I)
-    t = re.sub(r"[ \t]{2,}", " ", t)
-    return t.strip()
+def _clean_url(url: str) -> str:
+    """Display form of a URL: drop the scheme, www., and trailing slash."""
+    u = re.sub(r"^https?://", "", (url or "").strip(), flags=re.I)
+    u = re.sub(r"^www\.", "", u, flags=re.I)
+    return u.rstrip("/")
 
 
-def generate_email(target: TargetRole, profile: dict | None = None, persona: dict | None = None, **kw) -> ApplicationEmail:
+def _profile_links(profile: dict) -> dict:
+    """Resolve the candidate's portfolio / K2 / LinkedIn display URLs from the
+    profile's contact.links (matched by label, scheme stripped for display)."""
+    out = {"portfolio": "", "k2": "", "linkedin": ""}
+    for l in (profile.get("contact", {}) or {}).get("links", []) or []:
+        label, url = (l.get("label") or "").lower(), (l.get("url") or "")
+        if not url:
+            continue
+        if "linkedin" in label:
+            out["linkedin"] = _clean_url(url)
+        elif "k2" in label:
+            out["k2"] = _clean_url(url)
+        elif any(k in label for k in ("portfolio", "website", "site", "dev")):
+            out["portfolio"] = _clean_url(url)
+    return out
+
+
+def _worklink_line(profile: dict) -> str:
+    L = _profile_links(profile)
+    parts = []
+    if L["portfolio"]:
+        parts.append(f"my portfolio is at {L['portfolio']}")
+    if L["k2"]:
+        parts.append(f"a few client builds live at {L['k2']}")
+    if not parts:
+        return "My resume is attached."
+    return "My resume is attached. If it is easier to just see the work, " + " and ".join(parts) + "."
+
+
+def _signoff_block(profile: dict, closing: str) -> str:
+    """Letterhead sign-off: closing line, name, then 'phone | linkedin'."""
+    L = _profile_links(profile)
+    contact = profile.get("contact", {}) or {}
+    name = _signoff_name(profile)
+    line = " | ".join(p for p in [(contact.get("phone") or "").strip(), L["linkedin"]] if p)
+    return "\n".join(p for p in (closing, name, line) if p)
+
+
+def _short_location(profile: dict) -> str:
+    """'London, ON, Canada' -> 'London, ON' (for the subject line)."""
+    loc = (profile.get("contact", {}) or {}).get("location", "") or ""
+    parts = [p.strip() for p in loc.split(",") if p.strip()]
+    return ", ".join(parts[:2])
+
+
+def _greeting(contact_name: str) -> str:
+    n = (contact_name or "").strip()
+    return f"Hi {n}," if n else "Hi there,"
+
+
+def generate_email(target: TargetRole, profile: dict | None = None, persona: dict | None = None,
+                   *, contact_name: str = "", **kw) -> ApplicationEmail:
+    """Application email. Fixed template + one model-written, role-specific hook
+    line (truth-only). Greets the HR contact by name when known."""
     profile = profile or load_profile()
-    user = _context(profile, target, persona)
-    email = chat_structured(EMAIL_SYSTEM, user, ApplicationEmail, **kw)
-    email = humanize_email(email)
-    # Assemble the email deterministically so the closing + signature always land
-    # on their own lines, regardless of how the (local) model formatted the body.
-    core = _strip_model_closing(email.body or "")
-    closing = ("I've attached my resume and cover letter for your review.\n\n"
-               "Thank you for your time and consideration.")
-    sig = _email_signature(profile)
-    email.body = "\n\n".join(p for p in (core, closing, sig) if p)
-    return email
+    role = (target.title or "the role").strip()
+    # The dynamic, model-generated pieces: a role-appropriate opener + a fit hook.
+    opener = hook = ""
+    try:
+        eh = chat_structured(EMAIL_HOOK_SYSTEM, _context(profile, target, persona), EmailHook, **kw)
+        opener, hook = (eh.opener or "").strip(), (eh.hook or "").strip()
+    except Exception:
+        opener = hook = ""
+    body = "\n\n".join([
+        _greeting(contact_name),
+        opener or f"Your {role} posting caught my eye, it lines up closely with what I do day to day.",
+        hook or _HOOK_FALLBACK,
+        _worklink_line(profile),
+        "Happy to walk through any of it on a quick call whenever suits you.",
+        _signoff_block(profile, "Thanks for your time,"),
+    ])
+    name = _signoff_name(profile)
+    loc = _short_location(profile)
+    tail = ", ".join(p for p in [name, loc] if p)
+    subject = f"{role} application" + (f" - {tail}" if tail else "")
+    return humanize_email(ApplicationEmail(subject=subject, body=body))
 
 
 def generate_followup_email(target: TargetRole, profile: dict | None = None,
-                            persona: dict | None = None, **kw) -> ApplicationEmail:
-    """A short, polite follow-up to a job application that was already sent. Same
-    deterministic signature + closing discipline as generate_email, minus the
-    'attached resume' line (the follow-up doesn't re-attach)."""
+                            persona: dict | None = None, *, contact_name: str = "",
+                            date_applied: str = "", **kw) -> ApplicationEmail:
+    """A short, polite follow-up to an already-sent application. Fully template-
+    driven (no model call), so it never fails or drifts off-format."""
     profile = profile or load_profile()
-    user = _context(profile, target, persona)
-    email = chat_structured(FOLLOWUP_SYSTEM, user, ApplicationEmail, **kw)
-    email = humanize_email(email)
-    name = ((profile.get("full_name") or profile.get("preferred_name") or "")).strip()
-    title = (target.title or "").strip()
-    email.subject = (f"Following up: {title} - {name}".strip(" -")
-                     if (title or name) else (email.subject or "Following up"))
-    core = _strip_model_closing(email.body or "")
-    sig = _email_signature(profile)
-    email.body = "\n\n".join(p for p in (core, "Thank you for your time.", sig) if p)
-    return email
+    role = (target.title or "the role").strip()
+    company = (target.company or "your company").strip()
+    when = (date_applied or "").strip() or "recently"
+    body = "\n\n".join([
+        _greeting(contact_name),
+        f"Floating this back to the top of your inbox. I applied for the {role} role on {when} and I am still genuinely keen.",
+        (f"Nothing has changed on my end except that I have read more about {company} since, and I am more "
+         "interested, not less. If the role is still open I would love to be in the running. If it has already "
+         "moved on, even a one line reply so I can close it out would be appreciated."),
+        "Resume is attached again for convenience.",
+        _signoff_block(profile, "Thanks,"),
+    ])
+    name = _signoff_name(profile)
+    subject = f"Re: {role} application" + (f" - {name}" if name else "")
+    return humanize_email(ApplicationEmail(subject=subject, body=body))
 
 
 def generate_all(target: TargetRole, profile: dict | None = None, persona: dict | None = None,
                  *, resume_model: str | None = None, letters_model: str | None = None,
-                 skills_focus: list[str] | None = None, **kw):
+                 skills_focus: list[str] | None = None, contact_name: str = "", **kw):
     """Generate all three artifacts, reusing one loaded profile + persona.
 
     `resume_model` drives the résumé; `letters_model` drives the cover letter +
-    email. This lets callers split the work across engines (e.g. the résumé on
-    local Ollama, the prose letters on the Hermes agent). Either may be None to
-    fall back to the Ollama default. `skills_focus` (résumé only) re-orders and
-    emphasises specific real skills for this run."""
+    email hook. Either may be None to fall back to the Ollama default.
+    `skills_focus` (résumé only) re-orders and emphasises specific real skills.
+    `contact_name` personalises the email greeting (the saved company HR name)."""
     profile = profile or load_profile()
     return {
         "resume": generate_resume(target, profile, persona, model=resume_model,
                                   skills_focus=skills_focus, **kw),
         "cover_letter": generate_cover_letter(target, profile, persona, model=letters_model, **kw),
-        "email": generate_email(target, profile, persona, model=letters_model, **kw),
+        "email": generate_email(target, profile, persona, model=letters_model,
+                                contact_name=contact_name, **kw),
     }

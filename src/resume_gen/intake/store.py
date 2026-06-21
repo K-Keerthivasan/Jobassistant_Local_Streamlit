@@ -166,6 +166,18 @@ def set_priority(key_id: str, priority: bool) -> QueuedJob | None:
     return _save(q)
 
 
+def set_priority_override(key_id: str, level: str) -> QueuedJob | None:
+    """Manually pin a job's priority. `level` in {'', 'high', 'medium', 'low'};
+    '' clears the pin and lets the auto-score decide."""
+    q = get_job(key_id)
+    if q is None:
+        return None
+    level = (level or "").strip().lower()
+    q.priority_override = level if level in ("high", "medium", "low") else ""
+    q.priority = q.priority_override == "high"   # keep legacy flag roughly in sync
+    return _save(q)
+
+
 def set_repeatable(key_id: str, repeatable: bool) -> QueuedJob | None:
     q = get_job(key_id)
     if q is None:

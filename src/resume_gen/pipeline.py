@@ -105,9 +105,12 @@ def run(
     reset_fallbacks()                       # track any Hermes→Ollama fallbacks this run
     chosen = select_persona(target, persona)
     resume_model, letters_model = _resolve_engines(model)
+    # Personalise the email greeting with the saved company HR name, when we have one.
+    from .intake.companies import find_company
+    contact_name = ((find_company(target.company) or {}).get("hr_name") or "").strip()
     bundle = generate_all(target, profile, chosen,
                           resume_model=resume_model, letters_model=letters_model,
-                          skills_focus=skills_focus)
+                          skills_focus=skills_focus, contact_name=contact_name)
     resume, cover, email = bundle["resume"], bundle["cover_letter"], bundle["email"]
 
     # Hermes-led QA: the main truthfulness judgment, run BEFORE the deterministic

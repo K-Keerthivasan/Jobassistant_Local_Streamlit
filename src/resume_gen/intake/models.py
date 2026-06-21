@@ -49,7 +49,8 @@ class QueuedJob(JobPosting):
     key_id: str = ""
     status: str = "new"       # new | generated | approved | sent | applied | skipped
     applied: bool = False     # marked applied (independent of generation status)
-    priority: bool = False    # ⭐ high-value job — generate with Hermes in Auto mode
+    priority: bool = False    # legacy ⭐ flag (superseded by priority_override)
+    priority_override: str = ""  # manual priority pin: "" (auto) | high | medium | low
     repeatable: bool = False  # 🔁 saved as a recurring-role template (reapply often)
     irrelevant: bool = False  # 🚫 not a relevant job — hidden from the active lists
     found_at: str = ""

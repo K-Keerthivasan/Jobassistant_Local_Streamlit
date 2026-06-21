@@ -143,69 +143,32 @@ SCHEMA:
 
 
 # --------------------------------------------------------------------------- #
-# APPLICATION EMAIL
+# APPLICATION EMAIL — the body is assembled deterministically from a fixed
+# template (see generate.py); the model only writes ONE role-specific "hook" line.
 # --------------------------------------------------------------------------- #
-EMAIL_SYSTEM = """You write short, professional job-application emails that accompany an attached
-resume and cover letter, grounded only in the candidate's real background.
+EMAIL_HOOK_SYSTEM = """You write the two dynamic lines of a short job-application email: an OPENER
+and a HOOK. The rest of the email (greeting, attachments line, sign-off) is added around them.
 
 You will be given CANDIDATE_PROFILE and TARGET_ROLE.
 
 RULES:
-1. TRUTH ONLY. No invented facts. Never invent a years-of-experience figure, team
-   sizes, volume/user counts, percentages, employers, or tools not in CANDIDATE_PROFILE.
-   Use the candidate's REAL name from CANDIDATE_PROFILE.
-2. Write ONLY the opening and the fit, as 1 or 2 short paragraphs:
-     - Paragraph 1: a greeting line ("Hello," or "Hi <name>," if a contact name is
-       known) then state the exact role being applied for.
-     - Paragraph 2: one or two sentences of genuine, specific fit from the profile.
-3. DO NOT write any of the following — they are added automatically AFTER your text:
-   the "I've attached my resume and cover letter" line, any thank-you/closing
-   sentence, and any sign-off, salutation, name, email, or phone ("Best", "Regards",
-   etc.). End on the last sentence about your fit.
-4. Subject line, exactly this format with a normal hyphen (never an em dash):
-   "Application for <Job Title> - <Candidate Full Name>".
-5. WRITE LIKE A REAL PERSON, NOT AN AI. Plain, natural language; contractions where
-   natural (I'm, I've). NEVER use em dashes (—) or en dashes (–); use commas or periods.
-   Avoid filler and AI-tell phrases ("I am excited to", "I am writing to express my
-   interest", "leverage", "passionate about", "I am confident that my skills").
-6. OUTPUT. Return ONE valid JSON object matching the SCHEMA, and nothing else.
-
-SCHEMA:
-{
-  "subject": "string",
-  "body": "string — email body in 2-3 short paragraphs separated by blank lines, NO sign-off or signature"
-}"""
-
-
-# --------------------------------------------------------------------------- #
-# APPLICATION FOLLOW-UP EMAIL (sent some days after the application)
-# --------------------------------------------------------------------------- #
-FOLLOWUP_SYSTEM = """You write a short, polite follow-up email for a job application that was
-already sent (resume + cover letter were attached the first time).
-
-You will be given CANDIDATE_PROFILE and TARGET_ROLE.
-
-RULES:
-1. TRUTH ONLY. No invented facts, metrics, employers, or tools. Use the candidate's REAL
-   name from CANDIDATE_PROFILE.
-2. Write ONLY the opening and one brief nudge, as 1 or 2 short paragraphs:
-     - Paragraph 1: a greeting line ("Hello," or "Hi <name>," if a contact name is known),
-       then say you're following up on your application for the exact role.
-     - Paragraph 2: one short sentence reiterating genuine interest and that you'd welcome
-       the chance to connect. Do NOT re-pitch your whole background.
-3. DO NOT write any of the following — they are added automatically AFTER your text:
-   any thank-you/closing sentence, and any sign-off, salutation, name, email, or phone
-   ("Best", "Regards", etc.). Do NOT mention attachments. End on your last sentence.
-4. WRITE LIKE A REAL PERSON, NOT AN AI. Plain, natural language; contractions (I'm, I've).
-   NEVER use em dashes or en dashes. Avoid AI-tell phrases ("I am writing to", "I am excited
-   to", "leverage", "passionate about").
-5. OUTPUT. Return ONE valid JSON object matching the SCHEMA, and nothing else.
-
-SCHEMA:
-{
-  "subject": "string",
-  "body": "string — short follow-up body, 1-2 short paragraphs, NO sign-off or signature"
-}"""
+1. TRUTH ONLY. Use only real facts from CANDIDATE_PROFILE. Never invent employers, tools,
+   metrics, years-of-experience figures, team sizes, percentages, or titles. If unsure,
+   stay general but truthful.
+2. OPENER: ONE short, confident opening sentence that reacts to THIS specific posting and
+   fits THIS field (a marketing role, an IT-support role, a developer role, a sales role,
+   etc. — never assume software unless the role is software). It should sound natural for the
+   actual job, e.g. tie the candidate's day-to-day work to the role. Do NOT start every email
+   the same way.
+3. HOOK: ONE or TWO short sentences naming the candidate's real, specific experience that
+   matches the role's real requirements/terminology. Concrete, not generic.
+4. Casual and direct, first person, contractions (I'm, I've). Sound like a real person, not a
+   cover letter. No corporate filler. NEVER use em dashes or en dashes. Do NOT put a slash
+   between words. Avoid AI-tells ("I am excited to", "I am writing to", "leverage",
+   "passionate about", "results-driven", "detail-oriented").
+5. Write ONLY these two lines. Do NOT greet, do NOT mention attachments, a portfolio, links,
+   a call, or any sign-off. Those are added automatically.
+6. OUTPUT. Return ONE valid JSON object: {"opener": "...", "hook": "..."} and nothing else."""
 
 
 # --------------------------------------------------------------------------- #
@@ -283,5 +246,4 @@ def build_user_message(profile_block: str, target_role, persona_directive: str =
 ARTIFACTS = {
     "resume": (RESUME_SYSTEM, Resume),
     "cover_letter": (COVER_LETTER_SYSTEM, CoverLetter),
-    "email": (EMAIL_SYSTEM, ApplicationEmail),
 }
