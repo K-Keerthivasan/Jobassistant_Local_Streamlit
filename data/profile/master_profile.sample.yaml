@@ -18,6 +18,9 @@ preferred_name: "Jordan"
 contact:
   email: "jordan.sample@example.com"
   phone: "000-000-0000"
+  # Casual first name used to sign job-application emails ("Best, <name>").
+  # Falls back to preferred_name / full_name if omitted.
+  email_signoff_name: "Jordan"
   location: "Your City, ST, Country"
   # Shown instead of the precise city when applying OUTSIDE your city (so a remote
   # application doesn't surface your hometown). Still true.

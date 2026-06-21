@@ -24,8 +24,48 @@ def _slug(text: str, maxlen: int = 40) -> str:
     return s[:maxlen] or "untitled"
 
 
-def _document_base(target: TargetRole) -> str:
-    return f"{_slug(target.company, 18)}_{_slug(target.title, 28)}_KK"
+# Words dropped from filenames: true filler + company-name noise. Seniority/role words
+# (Senior, Lead, Engineer, …) are kept so the name still identifies the job.
+_FN_DROP = {"the", "and", "of", "for", "a", "an", "to", "in", "with", "at", "on", "or",
+            "inc", "llc", "ltd", "limited", "corp", "co", "gmbh", "plc", "group"}
+
+
+def _fn_part(text: str, maxlen: int, *, from_end: bool = False) -> str:
+    """One compact filename fragment. Keep the meaningful words (filler/company-noise
+    dropped), join with '_', and truncate on WHOLE-WORD boundaries to <= maxlen chars
+    (never cuts a word in half). `from_end=True` keeps the LAST words — used for job
+    titles so the role noun ('Engineer', 'Manager') survives instead of the seniority
+    prefix."""
+    words = re.findall(r"[A-Za-z0-9]+", text or "")
+    sig = [w for w in words if w.lower() not in _FN_DROP] or words
+    seq = list(reversed(sig)) if from_end else sig
+    out = ""
+    for w in seq:
+        nxt = w if not out else (f"{w}_{out}" if from_end else f"{out}_{w}")
+        if len(nxt) > maxlen:
+            break
+        out = nxt
+    if not out and sig:                       # a single word longer than maxlen → hard cap
+        out = (sig[-1] if from_end else sig[0])[:maxlen]
+    return out or "x"
+
+
+def _initials(name: str, maxlen: int = 3) -> str:
+    """Owner tag from the candidate's name: 'Jordan Sample' -> 'JS', 'Keerthivasan' -> 'K'."""
+    parts = re.findall(r"[A-Za-z]+", name or "")
+    return ("".join(p[0] for p in parts).upper()[:maxlen]) or "X"
+
+
+def _document_base(target: TargetRole, candidate_name: str = "") -> str:
+    """Short, readable résumé/cover filename base: ``<Company>_<Title>_<Initials>``.
+
+    e.g. company 'Coveo, Inc.' + title 'Senior Technical Marketing Engineer' +
+    name 'Keerthivasan'  ->  'Coveo_Technical_Marketing_Engineer_K'  (capped),
+    far shorter and cleaner than the old fixed 18+28 char slices."""
+    company = _fn_part(target.company, 12)
+    title = _fn_part(target.title, 20, from_end=True)
+    who = _initials(candidate_name)
+    return "_".join(p for p in (company, title, who) if p) or "Application"
 
 
 def _resolve_engines(model: str | None) -> tuple[str | None, str | None]:
@@ -35,7 +75,8 @@ def _resolve_engines(model: str | None) -> tuple[str | None, str | None]:
       Falls back to all-local if Hermes isn't configured.
     - any concrete model id (e.g. "qwen3:8b" or "hermes-agent"): every artifact
       runs on that one engine.
-    - None/"": the Ollama default for everything.
+    - None/""/"auto": the default engine for everything — Hermes when reachable
+      (with automatic per-call Ollama fallback), else Ollama. See llm._default_model.
     """
     m = (model or "").strip()
     if m.lower() == "split":
@@ -43,8 +84,9 @@ def _resolve_engines(model: str | None) -> tuple[str | None, str | None]:
         if hermes_client.available():
             return settings.ollama_model, settings.hermes_model
         return None, None  # Hermes off — quietly run everything local
-    if m:
+    if m and m.lower() != "auto":
         return m, m
+    # Default/auto → let chat_structured pick the default engine (Hermes-first) per call.
     return None, None
 
 
@@ -59,6 +101,8 @@ def run(
     skills_focus: list[str] | None = None,
 ) -> dict:
     profile = profile or load_profile()
+    from .llm import reset_fallbacks, fallbacks
+    reset_fallbacks()                       # track any Hermes→Ollama fallbacks this run
     chosen = select_persona(target, persona)
     resume_model, letters_model = _resolve_engines(model)
     bundle = generate_all(target, profile, chosen,
@@ -77,6 +121,9 @@ def run(
     resume, qa = enforce(resume, profile, strict=strict, persona=chosen,
                          target_location=target.location)
     qa["hermes_qa"] = hermes_qa_report
+    # Cleanup pass (after validation): drop em/en dashes and slashes from résumé prose.
+    from .humanize import humanize_resume
+    resume = humanize_resume(resume)
     # Same discipline for the cover letter + email: rebuild contact line, strip
     # invented years/metrics, fix name/sign-off. Surface what was scrubbed in QA.
     cover, cover_qa = enforce_cover_letter(cover, profile, target_location=target.location)
@@ -90,7 +137,7 @@ def run(
     run_id = f"{_slug(target.company)}_{_slug(target.title)}_{date.today():%Y%m%d}"
     created_at = datetime.now().isoformat(timespec="seconds")
 
-    doc_base = _document_base(target)
+    doc_base = _document_base(target, getattr(resume, "fullName", "") or profile.get("full_name", ""))
 
     # Auto-fit the résumé's typographic density so its REAL content fills ~2 pages
     # (no fabrication — only font/spacing/margins scale), then page-validate. Renders
@@ -112,6 +159,10 @@ def run(
         "cover_letter_pdf": f"{doc_base}_Cover.pdf",
     }
 
+    from .llm import _default_model
+    _eff = _default_model()                  # what None/auto actually resolved to
+    fb = fallbacks()
+
     bundle = {
         "run_id": run_id,
         "folder": run_id,        # back-compat: callers store this in job/role notes
@@ -122,9 +173,12 @@ def run(
         "persona": (chosen or {}).get("id", ""),
         "persona_label": (chosen or {}).get("label", ""),
         "engines": {
-            "resume": resume_model or settings.ollama_model,
-            "letters": letters_model or settings.ollama_model,
+            "resume": resume_model or _eff,
+            "letters": letters_model or _eff,
         },
+        # True if any Hermes call fell back to Ollama this run (UI surfaces a notice).
+        "hermes_fallback": bool(fb),
+        "engine_notes": fb,
         "qa": qa,
         "qa_has_violations": has_violations(qa),
         # Full generated content — the only copy. Preview + on-demand render read this.

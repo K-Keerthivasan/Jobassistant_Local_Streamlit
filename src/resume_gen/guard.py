@@ -567,13 +567,35 @@ def enforce_cover_letter(cl: CoverLetter, profile: dict,
     return cl, report
 
 
+# A signature/contact line (email, URL, or phone-like) — deterministic, truth-only
+# data appended after generation, so the prose cleaner must leave it alone (it would
+# otherwise add a trailing period or strip the digits as a fake "metric").
+_CONTACT_LINE = re.compile(r"@|https?://|www\.|^\+?[\d()][\d().\s/-]{6,}$")
+
+
 def enforce_email(email: ApplicationEmail, profile: dict) -> tuple[ApplicationEmail, dict]:
     report: dict = {"name_fixed": False, "claims_stripped": 0}
     allowed = _numbers_in(_profile_number_text(profile))
     email.subject = _fix_name_in_text(email.subject, profile)
-    body, changed = _clean_letter_prose(email.body, profile, allowed)
-    email.body = body
-    if changed:
+    # Clean line-by-line so the email's paragraph + signature/letterhead newlines
+    # survive (the prose cleaners squeeze runs of whitespace, which would collapse
+    # every blank-line break and flatten the whole email). Pass the deterministic
+    # sign-off + contact lines through untouched.
+    changed_any = False
+    out_lines: list[str] = []
+    for ln in (email.body or "").replace("\r\n", "\n").split("\n"):
+        s = ln.strip()
+        if not s:
+            out_lines.append("")
+            continue
+        if _is_signoff(s) or _CONTACT_LINE.search(s):
+            out_lines.append(ln)
+            continue
+        cleaned, changed = _clean_letter_prose(ln, profile, allowed)
+        out_lines.append(cleaned)
+        changed_any = changed_any or changed
+    email.body = "\n".join(out_lines)
+    if changed_any:
         report["claims_stripped"] = 1
     return email, report
 

@@ -1,0 +1,87 @@
+{
+  "name": "HR follow-up (daily) ← HR Outreach sheet",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": { "interval": [{ "field": "days", "triggerAtHour": 9 }] }
+      },
+      "id": "wf3-node-cron",
+      "name": "Every morning",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [220, 300]
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "documentId": { "__rl": true, "value": "REPLACE_WITH_HR_OUTREACH_SHEET_ID", "mode": "id" },
+        "sheetName": { "__rl": true, "value": "HR Outreach", "mode": "name" },
+        "options": {}
+      },
+      "id": "wf3-node-read",
+      "name": "Read HR Outreach",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [440, 300],
+      "notes": "Same spreadsheet as the bulk-HR workflow."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Keep rows whose follow_up_due has passed and that haven't been followed up yet,\n// and that were actually sent.\nconst today = new Date().toISOString().slice(0, 10);\nreturn $input.all().filter((i) => {\n  const due = (i.json.follow_up_due || '').toString().slice(0, 10);\n  const done = (i.json.followed_up || '').toString().trim();\n  const status = (i.json.status || '').toString().toLowerCase();\n  return due && due <= today && !done && status === 'sent';\n});"
+      },
+      "id": "wf3-node-filter",
+      "name": "Due for follow-up",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [660, 300]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "sendTo": "={{ $json.hr_email }}",
+        "subject": "={{ 'Following up: ' + ($json.title || 'my application') }}",
+        "emailType": "text",
+        "message": "={{ 'Hi ' + ($json.hr_name || 'there') + ',\\n\\nJust following up on my application for ' + ($json.title || 'the role') + ' at ' + ($json.company || 'your company') + '. I\\'d welcome the chance to connect.\\n\\nThank you,' }}",
+        "options": {}
+      },
+      "id": "wf3-node-gmail",
+      "name": "Send follow-up",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [880, 300],
+      "onError": "continueRegularOutput",
+      "notes": "Same Gmail credential. Edit the follow-up wording to taste."
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": { "__rl": true, "value": "REPLACE_WITH_HR_OUTREACH_SHEET_ID", "mode": "id" },
+        "sheetName": { "__rl": true, "value": "HR Outreach", "mode": "name" },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "matchingColumns": ["row_number"],
+          "value": {
+            "row_number": "={{ $json.row_number }}",
+            "followed_up": "={{ $now.toFormat('yyyy-MM-dd') }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "wf3-node-mark",
+      "name": "Mark followed up",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [1100, 300],
+      "notes": "Updates the same row (matched by row_number) so it isn't followed up twice."
+    }
+  ],
+  "connections": {
+    "Every morning": { "main": [[{ "node": "Read HR Outreach", "type": "main", "index": 0 }]] },
+    "Read HR Outreach": { "main": [[{ "node": "Due for follow-up", "type": "main", "index": 0 }]] },
+    "Due for follow-up": { "main": [[{ "node": "Send follow-up", "type": "main", "index": 0 }]] },
+    "Send follow-up": { "main": [[{ "node": "Mark followed up", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" },
+  "active": false
+}

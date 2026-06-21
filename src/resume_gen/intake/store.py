@@ -138,6 +138,26 @@ def set_applied(key_id: str, applied: bool) -> QueuedJob | None:
     return _save(q)
 
 
+def stamp_sent(key_id: str, to_email: str) -> QueuedJob | None:
+    """Record that the application email was actually sent (production), to whom."""
+    q = get_job(key_id)
+    if q is None:
+        return None
+    q.sent_at = datetime.now().isoformat(timespec="seconds")
+    q.sent_to = (to_email or "").strip()
+    return _save(q)
+
+
+def record_followup(key_id: str) -> QueuedJob | None:
+    """Append a follow-up timestamp to the job's history."""
+    q = get_job(key_id)
+    if q is None:
+        return None
+    q.followups = list(q.followups or [])
+    q.followups.append(datetime.now().isoformat(timespec="seconds"))
+    return _save(q)
+
+
 def set_priority(key_id: str, priority: bool) -> QueuedJob | None:
     q = get_job(key_id)
     if q is None:

@@ -57,6 +57,11 @@ class Settings:
     # Hermes is unavailable. Set HERMES_PERSONA=0 to always use keyword matching.
     hermes_persona: bool = os.getenv("HERMES_PERSONA", "1").strip().lower() not in ("0", "false", "no", "off")
 
+    # Default AI engine when a call doesn't name one (and the UI 'auto' default): prefer
+    # the Hermes agent for everything, falling back to Ollama automatically if Hermes
+    # is down. Set DEFAULT_ENGINE=ollama to make local Ollama the default instead.
+    default_engine: str = os.getenv("DEFAULT_ENGINE", "hermes").strip().lower()
+
     # Paths
     profile_path: Path = field(
         default_factory=lambda: _path(os.getenv("PROFILE_PATH", "data/profile/master_profile.yaml"))
@@ -88,9 +93,18 @@ class Settings:
     api_host: str = os.getenv("API_HOST", "0.0.0.0")
     api_port: int = int(os.getenv("API_PORT", "8088"))
 
-    # n8n webhook for the email-apply path. Email-apply jobs are POSTed here
-    # (with the generated resume/cover/email) after generation.
+    # n8n webhooks. Two dedicated flows, each with its own webhook + Google Sheet:
+    #   - bulk_hr : bulk HR outreach from an uploaded CSV (tailored résumé per row)
+    #   - jobs    : job-application emails (Job Bank / email-only) after generation
+    # Both fall back to the generic N8N_WEBHOOK_URL when their specific var is unset.
     n8n_webhook_url: str = os.getenv("N8N_WEBHOOK_URL", "")
+    n8n_bulk_hr_webhook_url: str = os.getenv("N8N_BULK_HR_WEBHOOK_URL", os.getenv("N8N_WEBHOOK_URL", ""))
+    n8n_jobs_webhook_url: str = os.getenv("N8N_JOBS_WEBHOOK_URL", os.getenv("N8N_WEBHOOK_URL", ""))
+    # Follow-ups reuse the job-apply webhook by default (override to split them out).
+    n8n_followup_webhook_url: str = os.getenv(
+        "N8N_FOLLOWUP_WEBHOOK_URL",
+        os.getenv("N8N_JOBS_WEBHOOK_URL", os.getenv("N8N_WEBHOOK_URL", "")),
+    )
 
 
 settings = Settings()

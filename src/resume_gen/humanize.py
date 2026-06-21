@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import re
 
-from .models import ApplicationEmail, CoverLetter
+from .models import ApplicationEmail, CoverLetter, Resume
 
 # Em-style dashes join clauses -> become a comma. En-style/minus mark ranges or
 # compounds -> "to" between numbers, a hyphen inside a word.
@@ -40,6 +40,30 @@ def dedash(text: str) -> str:
     t = re.sub(r"\s+,", ",", t)
     t = re.sub(r",\s*([.!?;:])", r"\1", t)
     t = re.sub(r"\s{2,}", " ", t)
+    return t.strip()
+
+
+_URL_RE = re.compile(r"https?://\S+|www\.\S+|\b[\w.-]+\.(?:com|ca|org|net|io|dev|ai|co)\b/\S*")
+
+
+def deslash(text: str) -> str:
+    """Replace 'a/b' slashes (an AI-ish tell) with natural punctuation. URLs are
+    protected; short tokens like N/A, A/B, 24/7 and 'C#/.NET' are left alone."""
+    if not text:
+        return text
+    # Stash URLs so their slashes survive untouched, then restore at the end.
+    urls: list[str] = []
+
+    def _stash(m: re.Match) -> str:
+        urls.append(m.group(0))
+        return f"\x00{len(urls) - 1}\x00"
+
+    t = _URL_RE.sub(_stash, text)
+    t = re.sub(r"\s+/\s+", ", ", t)                              # "design / build" -> "design, build"
+    t = re.sub(r"(?<=[A-Za-z]{2})/(?=[A-Za-z]{2})", ", ", t)    # "frontend/backend" -> "frontend, backend"
+    t = re.sub(r",\s*,+", ", ", t)
+    t = re.sub(r"\s{2,}", " ", t)
+    t = re.sub(r"\x00(\d+)\x00", lambda m: urls[int(m.group(1))], t)
     return t.strip()
 
 
@@ -79,7 +103,18 @@ def detell(text: str) -> str:
 
 
 def _clean(text: str) -> str:
-    return detell(dedash(text))
+    return detell(deslash(dedash(text)))
+
+
+def _clean_multiline(text: str) -> str:
+    """Like _clean, but preserves paragraph/line structure. The single-line
+    passes collapse every newline (\\s{2,} -> ' '), which would flatten an email
+    into one blob, so clean each line on its own and rejoin."""
+    if not text:
+        return text
+    lines = [(_clean(ln) if ln.strip() else "") for ln in text.replace("\r\n", "\n").split("\n")]
+    out = "\n".join(lines)
+    return re.sub(r"\n{3,}", "\n\n", out).strip()  # collapse runs of blank lines
 
 
 def humanize_cover_letter(cl: CoverLetter) -> CoverLetter:
@@ -92,9 +127,24 @@ def humanize_cover_letter(cl: CoverLetter) -> CoverLetter:
 
 
 def humanize_email(email: ApplicationEmail) -> ApplicationEmail:
-    email.subject = dedash(email.subject)
-    email.body = _clean(email.body)
+    email.subject = deslash(dedash(email.subject))
+    email.body = _clean_multiline(email.body)
     return email
+
+
+def humanize_resume(resume: Resume) -> Resume:
+    """Strip em/en dashes and slashes from the résumé's prose. Run AFTER the
+    truth-guard so grounding/validation is already done — this only cleans wording,
+    it never adds facts."""
+    if resume.summary:
+        resume.summary = _clean(resume.summary)
+    if resume.headline:
+        resume.headline = deslash(dedash(resume.headline))
+    resume.skills = [deslash(dedash(s)) for s in (resume.skills or [])]
+    for e in resume.experience or []:
+        e.bullets = [deslash(dedash(b)) for b in (e.bullets or [])]
+    resume.certifications = [deslash(dedash(c)) for c in (resume.certifications or [])]
+    return resume
 
 
 def humanize_answer(text: str) -> str:

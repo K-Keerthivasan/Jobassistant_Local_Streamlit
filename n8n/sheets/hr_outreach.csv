@@ -1,0 +1,2 @@
+batch_id,date,company,title,hr_name,hr_email,subject,status,follow_up_due,followed_up,notes
+2026-06-17T12-30-00,2026-06-17,Acme Inc,Software Developer,Jane Doe,jane@acme.com,Application: Software Developer,sent,2026-06-22,,sample row — delete me

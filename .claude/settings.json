@@ -7,7 +7,8 @@
       "Bash(python -m py_compile api/server.py src/resume_gen/intake/store.py src/resume_gen/intake/models.py)",
       "Bash(tail -2)",
       "Bash(sleep 3)",
-      "Bash(echo \"=== verify a PDF download still sends attachment + renders ===\")"
+      "Bash(echo \"=== verify a PDF download still sends attachment + renders ===\")",
+      "Bash(docker restart *)"
     ],
     "additionalDirectories": [
       "\\tmp"

@@ -133,7 +133,10 @@
     .app.collapsed .side-foot { display: none; }
   }
 
-  .main { padding: 26px 30px 60px; max-width: 1240px; width: 100%; min-width: 0; }
+  /* Fill the full available width (no fixed cap) — the old 1240px cap left a big
+     empty gap on wide monitors. Text-dense views still self-constrain via grid2 /
+     card widths. */
+  .main { padding: 26px 32px 60px; width: 100%; min-width: 0; }
   .view { display: none; }
   .view.active { display: block; animation: fade .18s ease; }
   @keyframes fade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
@@ -483,6 +486,8 @@
       <div class="health" id="gentime-line" title="AI generation time (Ollama + Hermes)" style="margin-bottom:12px;display:none">
         <span style="font-size:13px">⏱ last <span id="gentime-last">0s</span> · avg <span id="gentime-avg">0s</span></span>
       </div>
+      <label class="checks" style="margin:0 0 12px;font-size:12px;color:#9eb2d1" title="When on, 📧 n8n posts to the n8n TEST webhook (arm 'Listen for test event' first). Off = production webhook (workflow must be Active).">
+        <input type="checkbox" id="n8n-test" style="width:auto"> 🧪 n8n test mode</label>
       <button class="theme-btn" id="theme-toggle"><span id="theme-ic">🌙</span> <span id="theme-lbl">Dark mode</span></button>
       <div class="health"><span class="dot" id="hdot"></span><span id="htext">checking…</span></div>
     </div>
@@ -892,6 +897,21 @@
   </div>
 </div>
 
+<!-- Styled single-field prompt (replaces the native browser prompt()) -->
+<div class="overlay" id="prompt-overlay">
+  <div class="modal" style="width:min(460px,100%)">
+    <div class="modal-h"><div class="mt" id="prompt-title">Edit</div><button class="mx" id="prompt-x">✕</button></div>
+    <div class="modal-b">
+      <div id="prompt-label" class="muted" style="font-size:13px;margin-bottom:8px"></div>
+      <input type="text" id="prompt-input" class="jl-inp" style="width:100%;box-sizing:border-box">
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+        <button class="btn subtle sm" id="prompt-cancel">Cancel</button>
+        <button class="btn primary sm" id="prompt-ok">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -991,7 +1011,8 @@ async function loadModels() {
     };
     const locals = (m.models && m.models.length) ? m.models : [m.default];
     if (CLOUD_ENABLED) {
-      addOpt('split', 'Split · résumé local + letters 🤖 Hermes', sel, true);
+      addOpt(HERMES_DEFAULT, '🤖 Hermes (all · auto-fallback to Ollama)', sel, true);  // DEFAULT
+      addOpt('split', 'Split · résumé local + letters 🤖 Hermes', sel, false);
       addOpt('auto', 'Auto · ⭐ priority → Hermes, else local', sel, false);
       const g1 = document.createElement('optgroup'); g1.label = 'Local (Ollama)';
       locals.forEach(n => addOpt(n, n, g1, false)); sel.appendChild(g1);
@@ -999,6 +1020,9 @@ async function loadModels() {
       m.cloud.forEach(c => addOpt(c.id, c.label, g2, false)); sel.appendChild(g2);
     } else {
       locals.forEach(n => addOpt(n, n, sel, n === m.default));
+      // Hermes not detected — AI will run on local Ollama. Tell the user once.
+      if (!window._hermesNotice) { window._hermesNotice = true;
+        toast('⚠ Hermes not running — AI is using local Ollama.', true); }
     }
     sel.onchange = renderHealth;
     renderHealth();
@@ -1016,6 +1040,34 @@ function resolveModel(isPriority) {
 }
 // True if a resolved engine selection involves the Hermes agent (whole-run or split).
 function usesHermes(model) { const m = (model || ''); return m.startsWith('hermes') || m === 'split'; }
+// Surface a notice when a generation fell back from Hermes to Ollama mid-run.
+function notifyFallback(res) {
+  if (res && res.hermes_fallback) toast('⚠ Hermes wasn’t reachable — generated with Ollama instead.', true);
+}
+
+// Styled single-field prompt → resolves with the value, or null if cancelled.
+// Replaces the native browser prompt(): matches the app, Enter saves, Esc cancels.
+function uiPrompt({ title = 'Edit', label = '', value = '', placeholder = '', ok = 'Save' } = {}) {
+  return new Promise((resolve) => {
+    const ov = $('prompt-overlay'), inp = $('prompt-input');
+    $('prompt-title').textContent = title;
+    $('prompt-label').textContent = label; $('prompt-label').style.display = label ? '' : 'none';
+    inp.value = value; inp.placeholder = placeholder; $('prompt-ok').textContent = ok;
+    ov.classList.add('show');
+    setTimeout(() => { inp.focus(); inp.select(); }, 30);
+    let done = false;
+    const finish = (val) => {
+      if (done) return; done = true; ov.classList.remove('show');
+      $('prompt-ok').onclick = $('prompt-cancel').onclick = $('prompt-x').onclick = null;
+      inp.onkeydown = null; ov.onclick = null;
+      resolve(val);
+    };
+    $('prompt-ok').onclick = () => finish(inp.value);
+    $('prompt-cancel').onclick = $('prompt-x').onclick = () => finish(null);
+    inp.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); finish(inp.value); } else if (e.key === 'Escape') finish(null); };
+    ov.onclick = (e) => { if (e.target === ov) finish(null); };
+  });
+}
 
 async function loadUsage() {
   try {
@@ -1169,6 +1221,23 @@ document.addEventListener('click', (e) => {
   e.preventDefault();
   dlFile(a.getAttribute('href'));
 });
+// Delegated: any [data-copy] button copies its text to the clipboard.
+document.addEventListener('click', (e) => {
+  const b = e.target.closest && e.target.closest('[data-copy]');
+  if (!b) return;
+  const text = b.getAttribute('data-copy') || '';
+  const done = () => toast(`Copied ${b.dataset.copylabel || 'text'}.`);
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(done, () => fallbackCopy(text, done));
+  } else { fallbackCopy(text, done); }
+});
+function fallbackCopy(text, done) {
+  const ta = document.createElement('textarea');
+  ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+  document.body.appendChild(ta); ta.focus(); ta.select();
+  try { document.execCommand('copy'); done(); } catch { toast('Copy failed.', true); }
+  ta.remove();
+}
 
 function resumeHTML(r) {
   if (!r || !r.fullName) return '<div class="empty">No resume.</div>';
@@ -1209,7 +1278,14 @@ function coverHTML(c) {
 }
 function emailHTML(e) {
   if (!e || (!e.subject && !e.body)) return '<div class="empty">No email.</div>';
-  return `<pre class="email"><b>Subject:</b> ${esc(e.subject)}\n\n${esc(e.body)}</pre>`;
+  const subj = e.subject || '', body = e.body || '';
+  const full = `Subject: ${subj}\n\n${body}`;
+  return `<div style="display:flex;gap:8px;justify-content:flex-end;margin-bottom:8px;flex-wrap:wrap">
+      <button class="btn subtle sm" data-copy="${esc(subj)}" data-copylabel="subject">📋 Copy subject</button>
+      <button class="btn subtle sm" data-copy="${esc(body)}" data-copylabel="body">📋 Copy body</button>
+      <button class="btn primary sm" data-copy="${esc(full)}" data-copylabel="email">📋 Copy email</button>
+    </div>
+    <pre class="email"><b>Subject:</b> ${esc(subj)}\n\n${esc(body)}</pre>`;
 }
 function previewBlock(data) {
   const tabs = [
@@ -1389,6 +1465,7 @@ $('g-go').onclick = async () => {
     const res = await api('/generate', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
     renderApplication(box, res, filesForRun(res));
     toast('Generated' + (res.persona_label ? ` · ${res.persona_label} persona` : ' · neutral'));
+    notifyFallback(res);
     loadUsage();
   } catch (e) {
     box.innerHTML = `<div class="qa dirty"><b>Generation failed:</b> ${esc(e.message)}</div>`;
@@ -1985,6 +2062,7 @@ async function runBulk() {
   const ok = jobs.filter(j => j.status==='done').length;
   bulkRender();   // refresh the dynamic button label
   toast(`Done — ${ok}/${jobs.length} generated.`);
+  if (jobs.some(j => j.result && j.result.hermes_fallback)) notifyFallback({ hermes_fallback: true });
   loadJobs(); loadLibrary();
 }
 $('b-run').onclick = runBulk;
@@ -2094,7 +2172,8 @@ function jobFromApi(j) {
   return { id: j.key_id, title: j.title || 'Untitled', company: j.company || '',
     location: j.location || '', source: j.source || '', date: jobDate(j), found,
     status: j.status, gen: j.status === 'generated', folder, email: (j.contact_email || '').trim(),
-    applied: !!j.applied, repeat: !!j.repeat, priority: !!j.priority, repeatable: !!j.repeatable, irrelevant: !!j.irrelevant, apply_url: j.apply_url || '', description: j.description || '', company_email: (j.company_email || '').trim() };
+    applied: !!j.applied, repeat: !!j.repeat, priority: !!j.priority, repeatable: !!j.repeatable, irrelevant: !!j.irrelevant, apply_url: j.apply_url || '', description: j.description || '', company_email: (j.company_email || '').trim(), generated_at: (j.generated_at || '').replace('T', ' ').slice(0, 16),
+    sent_at: (j.sent_at || '').replace('T', ' ').slice(0, 16), sent_to: (j.sent_to || '').trim(), followups: Array.isArray(j.followups) ? j.followups : [] };
 }
 
 // Source-of-truth date for a queue job: the real posted date when it parses to
@@ -2177,12 +2256,16 @@ async function _fetchAndRenderJobs() {
 // Unified list: queue jobs (generated + not). Renders IMMEDIATELY, then syncs the
 // browser-capture collector in the BACKGROUND — that POST can be slow / time out when
 // the capture app (:8765) is down, so it must never block the table from showing.
-async function loadJobs() {
+async function loadJobs(_attempt = 0) {
   const body = $('jl-body'), empty = $('jl-empty');
-  body.innerHTML = '<tr><td colspan="9" class="empty"><span class="spinner dark"></span></td></tr>';
+  if (!_attempt) body.innerHTML = '<tr><td colspan="9" class="empty"><span class="spinner dark"></span></td></tr>';
   try {
     await _fetchAndRenderJobs();
   } catch (e) {
+    // Cold start: the app can open before the server/DB is ready (e.g. just after a
+    // container (re)start). Retry a few times so the data appears on its own instead
+    // of staying empty until a manual refresh.
+    if (_attempt < 5) { setTimeout(() => loadJobs(_attempt + 1), 1500); return; }
     body.innerHTML = ''; empty.style.display = '';
     toast('Jobs unavailable: ' + e.message, true);
     return;
@@ -2215,6 +2298,21 @@ function jlFiltered() {
   return rows;
 }
 
+// Info shown in the row's ℹ tooltip. Extensible — add more lines here later.
+function jobInfoTitle(j) {
+  const fups = (j.followups || []);
+  const lastFup = fups.length ? (fups[fups.length - 1] || '').replace('T', ' ').slice(0, 16) : '';
+  return [
+    j.gen ? `Last generated: ${j.generated_at || '—'}` : 'Not generated yet',
+    j.found ? `Found: ${j.found}` : '',
+    j.source ? `Source: ${j.source}` : '',
+    j.applied ? 'Applied: yes' : '',
+    j.sent_at ? `Emailed: ${j.sent_at}${j.sent_to ? ' → ' + j.sent_to : ''}` : '',
+    fups.length ? `Follow-ups: ${fups.length} (last ${lastFup})` : '',
+    j.email ? `Contact: ${j.email}` : (j.company_email ? `Company HR: ${j.company_email}` : ''),
+  ].filter(Boolean).join('\n');
+}
+
 function renderJobs() {
   const body = $('jl-body'), empty = $('jl-empty');
   const rows = jl.rows = jlFiltered();
@@ -2228,7 +2326,7 @@ function renderJobs() {
     const canSelect = !!j.id;   // generated jobs too — so a bad batch can be re-selected & regenerated
     return `<tr${j.irrelevant ? ' style="opacity:.5"' : ''}>
       <td class="jl-ck">${canSelect ? `<input type="checkbox" class="jl-rowck" data-k="${esc(j.id)}" ${jl.sel.has(j.id)?'checked':''}>` : ''}</td>
-      <td>${j.id?`<span class="jl-star ${j.priority?'on':''}" data-act="star" data-i="${i}" title="${j.priority?'Priority (Auto → Hermes)':'Mark priority'}" style="cursor:pointer">${j.priority?'⭐':'☆'}</span> `:''}<span class="t" data-act="detail" data-i="${i}" style="cursor:pointer" title="View details">${esc(j.title)}</span>${j.id?`<span class="jl-emailbtn ${j.email?'on':''}" data-act="email" data-i="${i}" title="${j.email?'Email: '+esc(j.email)+' — click to edit':'Add an HR email (for the n8n email path)'}" style="cursor:pointer">${j.email?'📧':'✉️'}</span><span data-act="repeatable" data-i="${i}" title="${j.repeatable?'Repeatable role — saved. Click to remove':'Mark as a repeatable role (reapply often)'}" style="cursor:pointer;margin-left:4px;opacity:${j.repeatable?1:.3}">🔁</span><span data-act="irrelevant" data-i="${i}" title="${j.irrelevant?'Not relevant — hidden from active lists. Click to restore':'Flag as not relevant (hide it)'}" style="cursor:pointer;margin-left:4px;opacity:${j.irrelevant?1:.3}">🚫</span>`:''}</td>
+      <td>${j.id?`<span class="jl-star ${j.priority?'on':''}" data-act="star" data-i="${i}" title="${j.priority?'Priority (Auto → Hermes)':'Mark priority'}" style="cursor:pointer">${j.priority?'⭐':'☆'}</span> `:''}<span class="t" data-act="detail" data-i="${i}" style="cursor:pointer" title="View details">${esc(j.title)}</span>${j.id?`<span class="jl-emailbtn ${j.email?'on':''}" data-act="email" data-i="${i}" title="${j.email?'Email: '+esc(j.email)+' — click to edit':'Add an HR email (for the n8n email path)'}" style="cursor:pointer">${j.email?'📧':'✉️'}</span><span data-act="repeatable" data-i="${i}" title="${j.repeatable?'Repeatable role — saved. Click to remove':'Mark as a repeatable role (reapply often)'}" style="cursor:pointer;margin-left:4px;opacity:${j.repeatable?1:.3}">🔁</span><span data-act="irrelevant" data-i="${i}" title="${j.irrelevant?'Not relevant — hidden from active lists. Click to restore':'Flag as not relevant (hide it)'}" style="cursor:pointer;margin-left:4px;opacity:${j.irrelevant?1:.3}">🚫</span><span class="jl-info" title="${esc(jobInfoTitle(j))}" style="cursor:help;margin-left:5px;opacity:.55">ℹ️</span>`:''}</td>
       <td class="muted">${esc(j.company)}${j.repeat?` <span class="jl-rep" title="Repeat company — saved details reused">🔁</span>`:''}</td>
       <td class="muted">${esc(j.location)}</td>
       <td><span class="jl-src">${esc(j.source || '—')}</span></td>
@@ -2238,6 +2336,7 @@ function renderJobs() {
       <td><div class="jl-rowbtns">
         ${j.gen ? `<button class="btn ghost sm" data-act="preview" data-i="${i}">Preview</button>` : ''}
         ${(j.gen && j.email && j.id) ? `<button class="btn ghost sm" data-act="send" data-i="${i}" title="Send to n8n (email apply)">📧 n8n</button>` : ''}
+        ${(j.id && j.sent_at) ? `<button class="btn ghost sm" data-act="followup" data-i="${i}" title="Send a follow-up to ${esc(j.sent_to || j.email || j.company_email)}${j.followups && j.followups.length ? ' ('+j.followups.length+' sent)' : ''}">🔔 Follow up</button>` : ''}
         ${j.apply_url ? `<a class="btn subtle sm" href="${esc(j.apply_url)}" target="_blank" rel="noreferrer" title="Open the application portal">Open ↗</a>` : ''}
         ${(j.apply_url && j.id) ? `<button class="btn subtle sm" data-act="autofill" data-i="${i}" title="Copy the Playwright autofill command (runs on your host)">⌨ Autofill</button>` : ''}
         ${j.id ? `<a class="btn subtle sm" href="/jobs/${enc(j.id)}/download" download title="Download this job as JSON">⬇ JSON</a>` : ''}
@@ -2260,12 +2359,13 @@ function renderJobs() {
     const f = jl.rows[+b.dataset.i].folder; if (f) openLibrary(f);
   });
   body.querySelectorAll('[data-act="send"]').forEach(b => b.onclick = () => sendToN8n(jl.rows[+b.dataset.i].id, b));
+  body.querySelectorAll('[data-act="followup"]').forEach(b => b.onclick = () => sendFollowup(jl.rows[+b.dataset.i].id, b));
   body.querySelectorAll('[data-act="del"]').forEach(b => b.onclick = () => delJob(jl.rows[+b.dataset.i], b));
   body.querySelectorAll('[data-act="deljob"]').forEach(b => b.onclick = () => deleteJobEntry(jl.rows[+b.dataset.i], b));
   body.querySelectorAll('[data-act="detail"]').forEach(el => el.onclick = () => openJobDetail(jl.rows[+el.dataset.i]));
   body.querySelectorAll('[data-act="email"]').forEach(el => el.onclick = async () => {
     const j = jl.rows[+el.dataset.i];
-    const val = prompt(`HR / application email for:\n${j.title} @ ${j.company}`, j.email || '');
+    const val = await uiPrompt({ title: 'HR / application email', label: `${esc(j.title)} @ ${esc(j.company)}`, value: j.email || '', placeholder: 'hr@company.com' });
     if (val === null) return;                       // cancelled
     try {
       await api(`/jobs/${j.id}/update`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contact_email: val.trim() }) });
@@ -2366,14 +2466,41 @@ async function deleteJobEntry(row, btn) {
   } catch (e) { toast('Delete failed: ' + e.message, true); if (btn) btn.disabled = false; }
 }
 
+function n8nTestMode() { const c = $('n8n-test'); return !!(c && c.checked); }
 async function sendToN8n(key, btn) {
+  const test = n8nTestMode();
   const label = btn.textContent; btn.disabled = true; btn.textContent = '⏳';
   try {
-    await api(`/jobs/${key}/send-n8n`, { method: 'POST' });
-    toast('Sent to n8n (email apply). Marked applied.');
-    loadJobs();
+    const res = await api(`/jobs/${key}/send-n8n${test ? '?test=true' : ''}`, { method: 'POST' });
+    if (test) {
+      toast('Posted to n8n TEST webhook (arm "Listen for test event" first). Job not marked applied.');
+      btn.disabled = false; btn.textContent = label;
+    } else {
+      toast(`Sent to ${res && res.to ? res.to : 'n8n'} (email apply). Marked applied.`);
+      loadJobs();
+    }
+    return true;
   } catch (e) {
     toast('Send failed: ' + e.message, true); btn.disabled = false; btn.textContent = label;
+    return false;
+  }
+}
+async function sendFollowup(key, btn) {
+  const test = n8nTestMode();
+  const label = btn.textContent; btn.disabled = true; btn.textContent = '⏳';
+  try {
+    const res = await api(`/jobs/${key}/followup${test ? '?test=true' : ''}`, { method: 'POST' });
+    if (test) {
+      toast('Posted follow-up to n8n TEST webhook (arm "Listen for test event" first). Not recorded.');
+      btn.disabled = false; btn.textContent = label;
+    } else {
+      toast(`Follow-up sent to ${res && res.to ? res.to : 'n8n'}.`);
+      loadJobs();
+    }
+    return true;
+  } catch (e) {
+    toast('Follow-up failed: ' + e.message, true); btn.disabled = false; btn.textContent = label;
+    return false;
   }
 }
 
@@ -2396,6 +2523,7 @@ async function genJob(job, btn) {
       body: JSON.stringify({ persona: activePersona(), strict: true, pdf: true, model }),
     });
     toast(`Generated${viaHermes ? ' · Hermes' : ''}${result.persona_label ? ' · ' + result.persona_label : ''}.`);
+    notifyFallback(result);
     // Update this job in place — no full table reload / spinner flash, so the view
     // stays put and you don't lose your place. Library/RSS refresh on their own tab.
     job.status = 'generated'; job.gen = true;
@@ -2715,6 +2843,28 @@ function coRender() {
   box.querySelectorAll('[data-coact="view"]').forEach(b => b.onclick = () => openJobDetail(byId[b.dataset.jid]));
   box.querySelectorAll('[data-coact="bulk"]').forEach(b => b.onclick = () => bulkAddFromJob(byId[b.dataset.jid]));
   box.querySelectorAll('[data-coact="gen"]').forEach(b => b.onclick = () => genJob(byId[b.dataset.jid], b));
+  box.querySelectorAll('[data-coact="send"]').forEach(b => b.onclick = async () => { if (await sendToN8n(b.dataset.jid, b)) loadCompanies(); });
+  box.querySelectorAll('[data-coact="followup"]').forEach(b => b.onclick = async () => { if (await sendFollowup(b.dataset.jid, b)) loadCompanies(); });
+  box.querySelectorAll('[data-coact="sendall"]').forEach(b => b.onclick = () => sendCompanyJobs(b.dataset.co, b.dataset.hr, b));
+}
+// Send a separate, tailored application email per GENERATED job for one company.
+async function sendCompanyJobs(companyName, hrEmail, btn) {
+  const norm = s => (s || '').trim().toLowerCase();
+  const test = n8nTestMode();
+  const jobs = coState.jobs.filter(j => norm(j.company) === norm(companyName) && j.id);
+  const sendable = jobs.filter(j => j.gen && ((j.email || '').trim() || hrEmail));
+  const needGen = jobs.filter(j => !j.gen).length;
+  if (!sendable.length) { toast(needGen ? `Nothing generated yet (${needGen} need generating).` : 'No sendable jobs.', true); return; }
+  if (!confirm(`Send ${sendable.length} separate email${sendable.length === 1 ? '' : 's'} to ${hrEmail}${test ? ' (TEST mode)' : ''}?${needGen ? `\n${needGen} job(s) not generated will be skipped.` : ''}`)) return;
+  const label = btn.textContent; btn.disabled = true; btn.textContent = '⏳';
+  let sent = 0, failed = 0;
+  for (const j of sendable) {
+    try { await api(`/jobs/${j.id}/send-n8n${test ? '?test=true' : ''}`, { method: 'POST' }); sent++; }
+    catch (e) { failed++; }
+  }
+  toast(`${sent} sent${failed ? ` · ${failed} failed` : ''}${needGen ? ` · ${needGen} need generating` : ''}.`, failed > 0);
+  btn.disabled = false; btn.textContent = label;
+  loadCompanies(); loadJobs();
 }
 function coCard(g) {
   const hr = g.hr || {};
@@ -2729,6 +2879,7 @@ function coCard(g) {
       <span style="font-weight:800;font-size:16px;color:var(--accent)">🏢 ${esc(g.name)}</span>
       <span class="jl-src" style="margin:0">${g.jobs.length} job${g.jobs.length === 1 ? '' : 's'}</span>
       <span style="flex:1"></span>
+      ${(hr.hr_email && g.jobs.some(j => j.gen && j.id)) ? `<button class="btn ghost sm" data-coact="sendall" data-co="${esc(g.name)}" data-hr="${esc(hr.hr_email)}" title="Send a separate tailored email per generated job to ${esc(hr.hr_email)}">📧 Email HR (per job)</button>` : ''}
       <button class="btn subtle sm" data-coact="edit" data-co="${esc(g.name)}">✎ HR</button>
     </div>
     <div class="co-hr" style="font-size:13px;margin-bottom:10px">${hrLine}</div>
@@ -2751,6 +2902,8 @@ function coJobRow(j, hrEmail) {
     <div class="jl-rowbtns">
       ${j.id ? `<button class="btn subtle sm" data-coact="view" data-jid="${esc(j.id)}">View</button>` : ''}
       ${j.id && !j.gen ? `<button class="btn ghost sm" data-coact="bulk" data-jid="${esc(j.id)}">➕ Bulk</button>` : ''}
+      ${(j.id && j.gen && email) ? `<button class="btn ghost sm" data-coact="send" data-jid="${esc(j.id)}" title="Send to ${esc(email)} (email apply)">📧 Send</button>` : ''}
+      ${(j.id && j.sent_at) ? `<button class="btn ghost sm" data-coact="followup" data-jid="${esc(j.id)}" title="Send a follow-up${j.followups && j.followups.length ? ' ('+j.followups.length+' sent)' : ''}">🔔 Follow up</button>` : ''}
       ${j.id ? `<button class="btn primary sm" data-coact="gen" data-jid="${esc(j.id)}">${j.gen ? 'Regenerate' : 'Generate'}</button>` : ''}
     </div>
   </div>`;
@@ -2786,9 +2939,9 @@ function libTs(s) { const t = Date.parse(s || ''); return isNaN(t) ? 0 : t; }
 
 // The Library lists EVERYTHING: generated applications (the runs table) AND every
 // queued job not yet generated. Two sources, merged into one unified card list.
-async function loadLibrary() {
+async function loadLibrary(_attempt = 0) {
   const grid = $('lib-grid'); if (!grid) return;
-  grid.innerHTML = '<div class="empty"><span class="spinner dark"></span></div>';
+  if (!_attempt) grid.innerHTML = '<div class="empty"><span class="spinner dark"></span></div>';
   try {
     const [out, jr] = await Promise.all([api('/outputs'), api('/jobs')]);
     const generated = (out.outputs || []).map(o => ({
@@ -2806,7 +2959,10 @@ async function loadLibrary() {
     });
     libCache = [...generated, ...pending];
     libFilter();
-  } catch (e) { grid.innerHTML = `<div class="qa dirty">${esc(e.message)}</div>`; }
+  } catch (e) {
+    if (_attempt < 5) { setTimeout(() => loadLibrary(_attempt + 1), 1500); return; }   // cold-start retry
+    grid.innerHTML = `<div class="qa dirty">${esc(e.message)}</div>`;
+  }
 }
 function libFilter() {
   const q = $('lib-search').value.trim().toLowerCase();
@@ -2916,6 +3072,9 @@ function openJobDetail(j) {
     <div class="meta-grid">
       ${meta('Source', esc(j.source))}${meta('Status', esc(j.status) + (j.repeat?' · 🔁 repeat':''))}
       ${meta('Date', esc(j.date))}${meta('Applied', j.applied?'Yes':'No')}
+      ${meta('Last generated', j.gen ? esc(j.generated_at || '—') : 'Not generated yet')}
+      ${j.sent_at ? meta('Emailed', esc(j.sent_at) + (j.sent_to ? ' → ' + esc(j.sent_to) : '')) : ''}
+      ${(j.followups && j.followups.length) ? meta('Follow-ups', j.followups.length + ' (last ' + esc((j.followups[j.followups.length-1]||'').replace('T',' ').slice(0,16)) + ')') : ''}
     </div>
     <label class="fld">Contact email (HR) — edit & save to enable email apply${(!j.email && j.company_email)?' <span style="color:var(--accent)">· prefilled from saved company HR</span>':''}</label>
     <div style="display:flex;gap:8px">
@@ -2979,6 +3138,8 @@ $('theme-toggle').onclick = () =>
 /* ---------- Boot ---------- */
 applyTheme(localStorage.getItem('theme') || 'dark');
 loadHealth(); loadModels(); loadPersonas();
+// Persist the n8n test-mode toggle across reloads.
+try { const t = $('n8n-test'); if (t) { t.checked = localStorage.getItem('n8n-test') === '1'; t.onchange = () => { try { localStorage.setItem('n8n-test', t.checked ? '1' : '0'); } catch {} }; } } catch {}
 showView(localStorage.getItem('view') || 'generate');   // stay on the last tab after refresh
 setInterval(loadHealth, 15000);
 </script>

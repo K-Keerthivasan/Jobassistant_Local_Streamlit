@@ -52,3 +52,46 @@ personas:
     summary_seed: >
       A factual seed describing your software-development background, drawn only from
       real facts in master_profile.yaml.
+
+  - id: it_support
+    label: "IT Support"
+    headline: "IT Support Specialist"
+    keywords:
+      - "it support"
+      - "help desk"
+      - "helpdesk"
+      - "service desk"
+      - "desktop support"
+      - "technical support"
+      - "end user support"
+      - "system administrator"
+      - "sysadmin"
+      - "it administrator"
+      - "troubleshooting"
+    links: ["LinkedIn", "Portfolio"]
+    lead_with: "Your most customer-facing technical / support role first"
+    foreground_skills: "Troubleshooting, customer service, Microsoft 365, Windows/macOS, networking basics, ticketing"
+    summary_seed: >
+      A factual seed describing your IT support / help desk background, drawn only from
+      real facts in master_profile.yaml.
+
+  - id: ai_engineer
+    label: "AI / Agentic AI Engineer"
+    headline: "AI / Agentic AI Engineer"
+    keywords:
+      - "ai developer"
+      - "ai engineer"
+      - "agentic ai"
+      - "ai agent"
+      - "llm engineer"
+      - "machine learning engineer"
+      - "ml engineer"
+      - "generative ai"
+      - "prompt engineer"
+      - "ai automation"
+    links: ["LinkedIn", "Portfolio", "GitHub"]
+    lead_with: "Your most AI/ML-relevant role first"
+    foreground_skills: "LLM automation, AI agents & tool-calling, prompt engineering, Python, APIs, structured output"
+    summary_seed: >
+      A factual seed describing your AI / agentic-AI engineering background, drawn only
+      from real facts in master_profile.yaml.

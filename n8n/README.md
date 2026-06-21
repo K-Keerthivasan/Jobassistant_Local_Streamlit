@@ -1,59 +1,110 @@
-# n8n orchestration
+# n8n workflows
 
-n8n is the glue between job intake and application. It runs in the compose stack
-and reaches the generator at `http://resume-api:8088`.
+The old workflows were removed (the app changed a lot). This is the blueprint for the
+**two new workflows** — build them in n8n to match these contracts.
 
-## Starter workflow: "Generate on new job"
+Both run on the host; the resume-api container reaches the host at `host.docker.internal`,
+and n8n reaches the app at `http://host.docker.internal:8088`. Each workflow has its own
+**webhook** and its own **Google Sheet**.
 
-1. **Trigger** — choose one:
-   - *Local File Trigger* watching `data/jobs/*.json` (new normalized job lands), or
-   - *Webhook* that your scraper POSTs a job to, or
-   - *Schedule* that pulls a queue (Google Sheet / DB / Indeed connector).
-2. **HTTP Request** — `POST http://resume-api:8088/generate`
-   - Body (JSON): `{ "company", "title", "description", "location", "apply_url", "contact_email" }`
-   - Response: `{ folder, paths, keywordsMatched, email_subject }`.
-3. **Review gate (recommended)** — send yourself the `keywordsMatched` + a link to
-   the generated files (`GET /file?path=...`) via email/Slack/Telegram, and wait
-   for an approval before any submit step.
-4. **Apply** (Phase 3) — on approval, either:
-   - call the SMTP email path with the resume/cover-letter attached, or
-   - hand the `apply_url` + file paths to the Selenium apply service.
+## Environment (`.env`, loaded into the container via `env_file`)
 
-## Ready-made workflows (`n8n/workflows/`)
+| Var | Used by | Purpose |
+|-----|---------|---------|
+| `N8N_BULK_HR_WEBHOOK_URL` | Workflow 1 | bulk HR outreach from your CSV |
+| `N8N_JOBS_WEBHOOK_URL` | Workflow 2 | job-application emails (Job Bank / email-only) |
+| `N8N_WEBHOOK_URL` | fallback | used if the specific one above is unset |
 
-Import each in the n8n UI under *Workflows → Import from File*. All HTTP nodes call
-the generator at `http://host.docker.internal:8088` (not `localhost` — inside a
-container that's the container itself). Each ships **inactive**; open it, attach
-your Gmail/Sheets credential where a node shows an empty `credentials`, then activate.
+Email is sent by a **Gmail** (or SMTP) node inside n8n — the app never sends mail, it only
+POSTs the package. Set your Gmail/SMTP credential once in n8n.
 
-| File | Trigger | What it does |
-|------|---------|--------------|
-| `gmail-to-queue.workflow.json` | Gmail (label `job-alerts`, unread) | Parses each job-alert email → `POST /jobs/from-email` → queues it (dedup + repeatable match), marks the mail read. |
-| `scheduled-intake-generate.workflow.json` | Schedule (every 6h) | `POST /intake/run` → `GET /jobs?status=new` → `POST /jobs/{key}/generate` per job → emails you a review summary (keywords matched + QA flags). |
-| `daily-repeatable-regenerate.workflow.json` | Schedule (daily 07:00) | `GET /repeatable` → for `status=tracked` roles `POST /repeatable/{key}/generate` → emails a refresh summary. |
-| `approve-to-send.workflow.json` | Webhook `GET /webhook/approve-send?key=<key_id>` | Approval-link gate: clicking it calls `POST /jobs/{key}/send-n8n`, which emails the HR contact via the existing `resume-apply` workflow and marks the job applied/sent. |
-| `email-apply-sweep.workflow.json` | Manual **or** Schedule (every 12h) | `GET /jobs?status=generated` → keep rows with a `contact_email` and `applied=false` → `POST /jobs/{key}/send-n8n` per job (throttled) → emails you a sent summary. Batch version of the one-click email path. |
+---
 
-**How they chain into a review-and-approve loop:** `scheduled-intake-generate`
-generates drafts and emails you a summary; you add an *Approve & send* link per job
-(`…/webhook/approve-send?key={{ key_id }}`) in that notice; clicking it fires
-`approve-to-send`, which triggers `send-n8n` → the original `resume-apply.workflow.json`
-sends the email. Nothing auto-sends — the click is the human gate.
+## Workflow 1 — Bulk HR email from CSV  → Google Sheet "HR Outreach"
 
-Notes:
-- `gmail-to-queue` + the two schedule workflows need a **Gmail (OAuth2)** credential on
-  their Gmail nodes. The review-notice email is hard-coded to `kkvasan99@gmail.com` —
-  change it in the *Email* node.
-- `send-n8n` requires `N8N_WEBHOOK_URL` set to the `resume-apply` production URL and the
-  job to be **generated with a contact email** (see `docs/auto-apply.md`).
+**Flow:** You get a CSV from Claude → upload it in the app → the app **generates a tailored
+résumé/cover per row** (company + title), then POSTs the whole batch to
+`N8N_BULK_HR_WEBHOOK_URL`. n8n loops the rows, emails each HR, logs to the Sheet, and returns
+a per-row result the app shows as the "sent" report. A separate schedule handles follow-ups.
 
-## Export / import
+**Webhook payload the app sends (one call, all rows):**
+```json
+{
+  "type": "bulk_hr",
+  "batch_id": "2026-06-17T12-30-00",
+  "rows": [
+    {
+      "company": "Acme Inc", "title": "Software Developer",
+      "hr_name": "Jane Doe", "hr_email": "jane@acme.com", "location": "Toronto, ON",
+      "subject": "Application: Software Developer",
+      "body": "Hi Jane, ...",
+      "resume": { "filename": "Acme_Software_Developer_K_Resume.pdf", "content_base64": "..." },
+      "cover":  { "filename": "Acme_Software_Developer_K_Cover.pdf",  "content_base64": "..." }
+    }
+  ]
+}
+```
 
-Save built workflows as JSON here (`n8n/workflows/*.json`) so they're version
-controlled alongside the code. Import them in the n8n UI under *Workflows → Import*.
+**n8n nodes:** Webhook (POST, responseNode) → Split Out `rows` → (per row) Gmail "Send"
+(To `hr_email`, Subject `subject`, body `body`, attach `resume`/`cover` from base64) →
+Google Sheets "Append" to **HR Outreach** → Aggregate → Respond to Webhook with results.
 
-## Why a review gate
+**Google Sheet "HR Outreach" columns:**
+`batch_id | date | company | title | hr_name | hr_email | subject | status (sent/failed) | message_id | follow_up_due | followed_up | notes`
 
-Auto-submitting applications is high-stakes and easy to get wrong (wrong resume,
-duplicate applies, screening questions). Keep a human approval step until the
-per-site adapters and dedupe are proven.
+**Follow-up (second, scheduled workflow):** Cron (daily) → Google Sheets "Read" HR Outreach
+where `follow_up_due <= today` AND `followed_up` is empty → Gmail send a follow-up → set
+`followed_up = today`. (Set `follow_up_due` = send date + N days when the row is first logged.)
+
+---
+
+## Workflow 2 — Job-application emails  → Google Sheet "Job Applications"
+
+Same idea, but driven from the app's **queue** for **Job Bank / email-only** jobs. Already
+wired app-side: generate the job, then **📧 n8n** on the row (or the email-apply path) POSTs to
+`N8N_JOBS_WEBHOOK_URL`. Uses the job's contact email, or the saved company HR email as fallback.
+
+**Webhook payload the app sends (one job per call):**
+```json
+{
+  "type": "job_application", "source": "jobbank",
+  "company": "...", "title": "...", "location": "...",
+  "contact_email": "hr@company.com", "apply_url": "...",
+  "email": { "subject": "...", "body": "..." },
+  "folder": "<run_id>",
+  "files": {
+    "resume":       { "filename": "...", "content_base64": "..." },
+    "cover_letter": { "filename": "...", "content_base64": "..." }
+  }
+}
+```
+
+**n8n nodes:** Webhook (POST, responseNode) → Gmail "Send" (To `contact_email`, Subject
+`email.subject`, body `email.body`, attach `files.resume` / `files.cover_letter`) →
+Google Sheets "Append" to **Job Applications** → Respond to Webhook (`{"sent": true}`).
+
+**Google Sheet "Job Applications" columns:**
+`date | company | title | location | source | contact_email | subject | status | applied`
+
+### Follow-ups (reuse Workflow 2's webhook)
+Follow-ups do **not** need a new workflow. The app's **🔔 Follow up** button (`POST
+/jobs/{key_id}/followup`) posts the **same payload shape** to `N8N_FOLLOWUP_WEBHOOK_URL`
+(defaults to `N8N_JOBS_WEBHOOK_URL`), with `"type": "followup"`, a short follow-up `email`,
+and **no `files`** (nothing re-attached). The Build node already keys on `type`: follow-ups
+log to the sheet with `status = "followup"` and a blank `applied`, so they're distinguishable
+from first sends. To split them into their own webhook/sheet, set `N8N_FOLLOWUP_WEBHOOK_URL`
+to a second workflow. The app records each follow-up on the job (shown in the ℹ info and
+job detail).
+
+> Note: per-company **📧 Email HR (per job)** in the Companies view sends one separate
+> Workflow-2 call per *generated* job for that company (each with its own tailored résumé /
+> cover / email) — it is not a bulk blast.
+
+---
+
+## App-side status
+- **Workflow 2**: wired — `POST /jobs/{key_id}/send-n8n` posts the above to `N8N_JOBS_WEBHOOK_URL`
+  (falls back to `N8N_WEBHOOK_URL`).
+- **Workflow 1**: the bulk-HR-CSV upload + per-row generation + send is the next app build
+  (endpoint `POST /bulk-hr/send` + an upload UI). The contract above is final, so the n8n
+  workflow can be built and tested now with a sample POST.

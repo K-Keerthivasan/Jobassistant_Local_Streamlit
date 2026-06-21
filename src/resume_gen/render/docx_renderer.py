@@ -200,6 +200,41 @@ def _header(doc: Document, full_name: str, contact, *, headline: str = "") -> No
 
 # --------------------------------------------------------------------------- #
 # public: resume
+# ATS RULE: experience dates render as "Mon YYYY" (or "Present"). ATS parsers reliably
+# read "May 2025", not "2025-05" / "05/2025" / "May 2025". Year-only values (e.g. "2023")
+# are kept as-is — a month can't be invented (truth-only); fill it in the profile.
+import re as _re
+
+_MONTHS = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+           "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+_MONTH_IDX = {m.lower(): i for i, m in enumerate(_MONTHS) if m}
+_MONTH_IDX.update({"january": 1, "february": 2, "march": 3, "april": 4, "june": 6,
+                   "july": 7, "august": 8, "september": 9, "sept": 9, "october": 10,
+                   "november": 11, "december": 12})
+
+
+def _norm_date(s: str) -> str:
+    s = (s or "").strip()
+    if not s:
+        return s
+    if _re.fullmatch(r"(?i)(present|current|now|ongoing|to date)", s):
+        return "Present"
+    m = _re.fullmatch(r"(\d{4})[-/](\d{1,2})(?:[-/]\d{1,2})?", s)            # 2024-08 / 2024/8
+    if m:
+        y, mo = int(m.group(1)), int(m.group(2))
+        if 1 <= mo <= 12:
+            return f"{_MONTHS[mo]} {y}"
+    m = _re.fullmatch(r"(\d{1,2})[-/](\d{4})", s)                            # 08/2024
+    if m:
+        mo, y = int(m.group(1)), int(m.group(2))
+        if 1 <= mo <= 12:
+            return f"{_MONTHS[mo]} {y}"
+    m = _re.fullmatch(r"(?i)([A-Za-z]{3,9})\.?\s+(\d{4})", s)                # August 2024 / Aug 2024
+    if m and m.group(1).lower() in _MONTH_IDX:
+        return f"{_MONTHS[_MONTH_IDX[m.group(1).lower()]]} {m.group(2)}"
+    return s                                                                  # year-only / unknown → keep
+
+
 # --------------------------------------------------------------------------- #
 def render_resume(resume: Resume, out_path: Path, profile: dict | None = None,
                   density: float = 1.0) -> Path:
@@ -238,7 +273,7 @@ def render_resume(resume: Resume, out_path: Path, profile: dict | None = None,
             _run(head, e.role, bold=True, size=t["body"])
             if e.company:
                 _run(head, f"  |  {e.company}", size=t["body"])
-            dates = f"{e.start} – {e.end}".strip(" –")
+            dates = f"{_norm_date(e.start)} – {_norm_date(e.end)}".strip(" –")
             _run(head, f"\t{dates}", size=t["small_size"], color=ACCENT)
             if e.location:
                 loc = doc.add_paragraph()

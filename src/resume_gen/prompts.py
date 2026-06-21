@@ -154,20 +154,57 @@ RULES:
 1. TRUTH ONLY. No invented facts. Never invent a years-of-experience figure, team
    sizes, volume/user counts, percentages, employers, or tools not in CANDIDATE_PROFILE.
    Use the candidate's REAL name from CANDIDATE_PROFILE.
-2. Keep it short (4-6 sentences). State the role being applied for, one sentence of
-   genuine fit, mention the attached resume and cover letter, and a polite close.
-3. Subject line, exactly this format with a normal hyphen (never an em dash):
+2. Write ONLY the opening and the fit, as 1 or 2 short paragraphs:
+     - Paragraph 1: a greeting line ("Hello," or "Hi <name>," if a contact name is
+       known) then state the exact role being applied for.
+     - Paragraph 2: one or two sentences of genuine, specific fit from the profile.
+3. DO NOT write any of the following — they are added automatically AFTER your text:
+   the "I've attached my resume and cover letter" line, any thank-you/closing
+   sentence, and any sign-off, salutation, name, email, or phone ("Best", "Regards",
+   etc.). End on the last sentence about your fit.
+4. Subject line, exactly this format with a normal hyphen (never an em dash):
    "Application for <Job Title> - <Candidate Full Name>".
-4. WRITE LIKE A REAL PERSON, NOT AN AI. Plain, natural language; contractions where
+5. WRITE LIKE A REAL PERSON, NOT AN AI. Plain, natural language; contractions where
    natural (I'm, I've). NEVER use em dashes (—) or en dashes (–); use commas or periods.
    Avoid filler and AI-tell phrases ("I am excited to", "I am writing to express my
    interest", "leverage", "passionate about", "I am confident that my skills").
+6. OUTPUT. Return ONE valid JSON object matching the SCHEMA, and nothing else.
+
+SCHEMA:
+{
+  "subject": "string",
+  "body": "string — email body in 2-3 short paragraphs separated by blank lines, NO sign-off or signature"
+}"""
+
+
+# --------------------------------------------------------------------------- #
+# APPLICATION FOLLOW-UP EMAIL (sent some days after the application)
+# --------------------------------------------------------------------------- #
+FOLLOWUP_SYSTEM = """You write a short, polite follow-up email for a job application that was
+already sent (resume + cover letter were attached the first time).
+
+You will be given CANDIDATE_PROFILE and TARGET_ROLE.
+
+RULES:
+1. TRUTH ONLY. No invented facts, metrics, employers, or tools. Use the candidate's REAL
+   name from CANDIDATE_PROFILE.
+2. Write ONLY the opening and one brief nudge, as 1 or 2 short paragraphs:
+     - Paragraph 1: a greeting line ("Hello," or "Hi <name>," if a contact name is known),
+       then say you're following up on your application for the exact role.
+     - Paragraph 2: one short sentence reiterating genuine interest and that you'd welcome
+       the chance to connect. Do NOT re-pitch your whole background.
+3. DO NOT write any of the following — they are added automatically AFTER your text:
+   any thank-you/closing sentence, and any sign-off, salutation, name, email, or phone
+   ("Best", "Regards", etc.). Do NOT mention attachments. End on your last sentence.
+4. WRITE LIKE A REAL PERSON, NOT AN AI. Plain, natural language; contractions (I'm, I've).
+   NEVER use em dashes or en dashes. Avoid AI-tell phrases ("I am writing to", "I am excited
+   to", "leverage", "passionate about").
 5. OUTPUT. Return ONE valid JSON object matching the SCHEMA, and nothing else.
 
 SCHEMA:
 {
   "subject": "string",
-  "body": "string — plain-text email body, ready to send, including a sign-off"
+  "body": "string — short follow-up body, 1-2 short paragraphs, NO sign-off or signature"
 }"""
 
 

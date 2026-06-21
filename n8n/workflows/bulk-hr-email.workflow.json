@@ -1,0 +1,117 @@
+{
+  "name": "Bulk HR email from CSV → Sheet (HR Outreach)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "bulk-hr",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "wf1-node-webhook",
+      "name": "Receive HR batch",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [200, 300],
+      "webhookId": "bulk-hr"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Fan the batch out to one item per HR row, attaching the per-row PDFs.\n// n8n's webhook node nests the POST body under $json.body.\nconst payload = ($input.first().json && $input.first().json.body) || $input.first().json;\nconst rows = payload.rows || [];\nconst batchId = payload.batch_id || new Date().toISOString().replace(/[:.]/g, '-');\nreturn rows.map((r) => {\n  const item = {\n    json: {\n      batch_id: batchId,\n      date: new Date().toISOString().slice(0, 10),\n      company: r.company || '',\n      title: r.title || '',\n      hr_name: r.hr_name || '',\n      hr_email: r.hr_email || '',\n      location: r.location || '',\n      subject: r.subject || `Application: ${r.title || ''}`,\n      body: r.body || ''\n    },\n    binary: {}\n  };\n  if (r.resume && r.resume.content_base64) {\n    item.binary.resume = { data: r.resume.content_base64, mimeType: 'application/pdf', fileName: r.resume.filename || 'resume.pdf' };\n  }\n  if (r.cover && r.cover.content_base64) {\n    item.binary.cover = { data: r.cover.content_base64, mimeType: 'application/pdf', fileName: r.cover.filename || 'cover.pdf' };\n  }\n  return item;\n});"
+      },
+      "id": "wf1-node-split",
+      "name": "Split rows + attachments",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [420, 300]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "sendTo": "={{ $json.hr_email }}",
+        "subject": "={{ $json.subject }}",
+        "emailType": "text",
+        "message": "={{ $json.body }}",
+        "options": {
+          "attachmentsUi": {
+            "attachmentsBinary": [
+              { "property": "resume" },
+              { "property": "cover" }
+            ]
+          }
+        }
+      },
+      "id": "wf1-node-gmail",
+      "name": "Send to HR",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [640, 300],
+      "onError": "continueRegularOutput",
+      "disabled": true,
+      "notes": "DISABLED on import so the workflow runs/tests with no errors. Set your Gmail (OAuth2) credential, then re-enable (select node, press D)."
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": { "__rl": true, "value": "REPLACE_WITH_HR_OUTREACH_SHEET_ID", "mode": "id" },
+        "sheetName": { "__rl": true, "value": "HR Outreach", "mode": "name" },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "batch_id": "={{ $json.batch_id }}",
+            "date": "={{ $json.date }}",
+            "company": "={{ $json.company }}",
+            "title": "={{ $json.title }}",
+            "hr_name": "={{ $json.hr_name }}",
+            "hr_email": "={{ $json.hr_email }}",
+            "subject": "={{ $json.subject }}",
+            "status": "={{ $json.error ? 'failed' : 'sent' }}",
+            "follow_up_due": "={{ $now.plus(5, 'days').toFormat('yyyy-MM-dd') }}",
+            "followed_up": "",
+            "notes": ""
+          }
+        },
+        "options": {}
+      },
+      "id": "wf1-node-sheet",
+      "name": "Log to HR Outreach",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [860, 300],
+      "disabled": true,
+      "notes": "DISABLED on import. Set Google Sheets credential + spreadsheet ID (tab 'HR Outreach'), then re-enable (select node, press D)."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Combine all per-row results into a single response for the app.\nconst items = $input.all();\nconst results = items.map((i) => ({\n  company: i.json.company,\n  hr_email: i.json.hr_email,\n  status: i.json.error ? 'failed' : 'sent'\n}));\nconst sent = results.filter((r) => r.status === 'sent').length;\nreturn [{ json: { batch: items[0] ? items[0].json.batch_id : '', sent, failed: results.length - sent, results } }];"
+      },
+      "id": "wf1-node-aggregate",
+      "name": "Aggregate results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1080, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "wf1-node-respond",
+      "name": "Respond with results",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1300, 300]
+    }
+  ],
+  "connections": {
+    "Receive HR batch": { "main": [[{ "node": "Split rows + attachments", "type": "main", "index": 0 }]] },
+    "Split rows + attachments": { "main": [[{ "node": "Send to HR", "type": "main", "index": 0 }]] },
+    "Send to HR": { "main": [[{ "node": "Log to HR Outreach", "type": "main", "index": 0 }]] },
+    "Log to HR Outreach": { "main": [[{ "node": "Aggregate results", "type": "main", "index": 0 }]] },
+    "Aggregate results": { "main": [[{ "node": "Respond with results", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" },
+  "active": false
+}

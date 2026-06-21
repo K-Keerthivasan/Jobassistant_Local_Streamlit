@@ -54,6 +54,10 @@ class QueuedJob(JobPosting):
     irrelevant: bool = False  # 🚫 not a relevant job — hidden from the active lists
     found_at: str = ""
     notes: str = Field(default="")
+    # Email-apply tracking (set when the application is actually emailed via n8n).
+    sent_at: str = ""              # ISO datetime the application email was sent
+    sent_to: str = ""             # recipient address it went to
+    followups: list[str] = Field(default_factory=list)  # ISO datetimes of follow-ups sent
 
     @property
     def has_email(self) -> bool:

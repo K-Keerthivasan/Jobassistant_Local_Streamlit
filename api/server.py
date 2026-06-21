@@ -389,6 +389,9 @@ def jobs(status: str | None = None):
     repeat_names = [(n or "").lower().strip() for n in load_repeat_companies() if n]
     with db.connect() as conn:
         repeatable_keys = {r["key"] for r in conn.execute("SELECT key FROM repeatable_roles")}
+        # run_id -> created_at, so we can show when each generated job was last produced.
+        runs_created = {r["run_id"]: r["created_at"] for r in
+                        conn.execute("SELECT run_id, created_at FROM runs")}
     saved = list_companies()
     saved_by_slug = {_slug(c.get("company", "")): c for c in saved}
     saved_norm = [((c.get("company") or "").lower().strip(), c) for c in saved]
@@ -416,6 +419,8 @@ def jobs(status: str | None = None):
         d["repeat"] = _repeat(q.company)
         d["repeatable_role"] = role_key(q.company, q.title) in repeatable_keys
         d["company_email"] = _hr_email(q.company)
+        # When this job was last generated (the linked run's created_at), if any.
+        d["generated_at"] = runs_created.get(q.notes, "") if q.status == "generated" else ""
         out.append(d)
     return {"jobs": out}
 
@@ -1256,20 +1261,31 @@ def export_jobs(status: str | None = None):
     )
 
 
+def _n8n_url(base: str, test: bool) -> str:
+    """Switch a webhook URL between production (/webhook/) and test (/webhook-test/)
+    without re-editing .env — works whichever form is configured."""
+    if test:
+        return base.replace("/webhook-test/", "/webhook/").replace("/webhook/", "/webhook-test/")
+    return base.replace("/webhook-test/", "/webhook/")
+
+
 @app.post("/jobs/{key_id}/send-n8n")
-def send_to_n8n(key_id: str):
+def send_to_n8n(key_id: str, test: bool = False):
     """Send an EMAIL-APPLY job's generated package to the n8n webhook (n8n sends
     the actual email). Requires the job to be generated and to have a contact
-    email, and N8N_WEBHOOK_URL to be set."""
+    email, and N8N_JOBS_WEBHOOK_URL to be set. `test=true` posts to the n8n
+    test webhook (use with 'Listen for test event')."""
     import json as _json
 
     import httpx
 
     from resume_gen.intake.companies import hr_email_for
-    from resume_gen.intake.store import get_job, set_applied, update_status
+    from resume_gen.intake.store import get_job, set_applied, stamp_sent, update_status
 
-    if not settings.n8n_webhook_url:
-        raise HTTPException(status_code=400, detail="N8N_WEBHOOK_URL is not set (.env).")
+    webhook = settings.n8n_jobs_webhook_url or settings.n8n_webhook_url
+    if not webhook:
+        raise HTTPException(status_code=400, detail="N8N_JOBS_WEBHOOK_URL (or N8N_WEBHOOK_URL) is not set (.env).")
+    webhook = _n8n_url(webhook, test)
     q = get_job(key_id)
     if q is None:
         raise HTTPException(status_code=404, detail="Job not found.")
@@ -1302,19 +1318,71 @@ def send_to_n8n(key_id: str):
             pass  # best-effort; an email with no attachment is still better than a 500
 
     payload = {
+        "type": "job_application", "source": q.source,
         "company": q.company, "title": q.title, "location": q.location,
         "contact_email": to_email, "apply_url": q.apply_url,
         "email": email, "folder": q.notes, "files": files,
     }
     try:
-        r = httpx.post(settings.n8n_webhook_url, json=payload, timeout=60.0)
+        r = httpx.post(webhook, json=payload, timeout=60.0)
         r.raise_for_status()
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"n8n webhook failed: {e}")
 
+    if test:
+        return {"sent": True, "to": "n8n (test)", "test": True}
     set_applied(key_id, True)
     update_status(key_id, "sent")
-    return {"sent": True, "to": "n8n", "job": get_job(key_id).model_dump()}
+    stamp_sent(key_id, to_email)
+    return {"sent": True, "to": to_email, "job": get_job(key_id).model_dump()}
+
+
+@app.post("/jobs/{key_id}/followup")
+def followup_n8n(key_id: str, test: bool = False):
+    """Send a short, LLM-tailored follow-up for an already-sent application via the
+    n8n webhook (no attachments). Reuses the job-apply webhook by default. Records
+    the follow-up on the job (unless test=true)."""
+    import httpx
+
+    from resume_gen.generate import generate_followup_email
+    from resume_gen.intake.companies import hr_email_for
+    from resume_gen.intake.store import get_job, record_followup
+
+    webhook = settings.n8n_followup_webhook_url or settings.n8n_jobs_webhook_url or settings.n8n_webhook_url
+    if not webhook:
+        raise HTTPException(status_code=400, detail="N8N_FOLLOWUP_WEBHOOK_URL (or N8N_JOBS_WEBHOOK_URL) is not set (.env).")
+    webhook = _n8n_url(webhook, test)
+    q = get_job(key_id)
+    if q is None:
+        raise HTTPException(status_code=404, detail="Job not found.")
+    if not (q.sent_at or "").strip():
+        raise HTTPException(status_code=400, detail="Send the application first, then follow up.")
+    to_email = (q.contact_email or "").strip() or hr_email_for(q.company)
+    if not to_email:
+        raise HTTPException(status_code=400, detail="No contact email on the job or saved for the company.")
+
+    target = q.to_target_role()
+    try:
+        followup = generate_followup_email(target).model_dump()
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Follow-up generation failed: {e}")
+
+    payload = {
+        "type": "followup", "source": q.source,
+        "company": q.company, "title": q.title, "location": q.location,
+        "contact_email": to_email, "apply_url": q.apply_url,
+        "email": followup, "folder": q.notes, "files": {},
+    }
+    try:
+        r = httpx.post(webhook, json=payload, timeout=60.0)
+        r.raise_for_status()
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"n8n webhook failed: {e}")
+
+    if test:
+        return {"sent": True, "to": "n8n (test)", "test": True}
+    record_followup(key_id)
+    return {"sent": True, "to": to_email, "job": get_job(key_id).model_dump()}
 
 
 @app.delete("/run")
