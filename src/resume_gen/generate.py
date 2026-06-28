@@ -148,7 +148,9 @@ def _profile_links(profile: dict) -> dict:
     return out
 
 
-def _worklink_line(profile: dict) -> str:
+def _portfolio_line(profile: dict, attached: bool = True) -> str:
+    """Work-links sentence. `attached=True` (application email) leads with the
+    resume attachment; `attached=False` (HR outreach with no attachment) doesn't."""
     L = _profile_links(profile)
     parts = []
     if L["portfolio"]:
@@ -156,8 +158,14 @@ def _worklink_line(profile: dict) -> str:
     if L["k2"]:
         parts.append(f"a few client builds live at {L['k2']}")
     if not parts:
-        return "My resume is attached."
-    return "My resume is attached. If it is easier to just see the work, " + " and ".join(parts) + "."
+        return "My resume is attached." if attached else ""
+    if attached:
+        return "My resume is attached. If it is easier to just see the work, " + " and ".join(parts) + "."
+    return "If you would like to see the work, " + " and ".join(parts) + "."
+
+
+def _worklink_line(profile: dict) -> str:
+    return _portfolio_line(profile, attached=True)
 
 
 def _signoff_block(profile: dict, closing: str) -> str:
@@ -229,6 +237,38 @@ def generate_followup_email(target: TargetRole, profile: dict | None = None,
     ])
     name = _signoff_name(profile)
     subject = f"Re: {role} application" + (f" - {name}" if name else "")
+    return humanize_email(ApplicationEmail(subject=subject, body=body))
+
+
+def generate_hr_followup(company: str, role_titles: list[str] | None = None, *,
+                         kind: str = "first", contact_name: str = "",
+                         profile: dict | None = None) -> ApplicationEmail:
+    """A short HR-outreach follow-up about a company's recent posting(s). Fully
+    template-driven (no model call) so it never fails; the user edits it in the
+    compose box before sending. `kind` is 'first' or 'second'."""
+    profile = profile or load_profile()
+    company = (company or "your team").strip()
+    titles = [t for t in (role_titles or []) if t]
+    roles = (titles[0] if len(titles) == 1
+             else (", ".join(titles[:2]) + (" and other roles" if len(titles) > 2 else ""))
+             if titles else "a few roles")
+    if kind == "second":
+        opener = f"Circling back on my note about the {roles} opening at {company}."
+        nudge = ("I am still very interested. If it is still open I would love to be considered, "
+                 "and if it has moved on, a quick line so I can close it out would be great.")
+    else:
+        opener = f"I saw {company} recently posted {roles}, so I wanted to reach out directly."
+        nudge = ("I think my background is a strong match and I have applied. I would welcome the "
+                 "chance to connect about it.")
+    body = "\n\n".join(p for p in [
+        _greeting(contact_name),
+        opener,
+        nudge,
+        _portfolio_line(profile, attached=False),   # HR outreach: no attachment
+        _signoff_block(profile, "Thanks for your time,"),
+    ] if p)
+    subject = (f"Following up on {roles} at {company}" if kind == "second"
+               else f"Interested in {roles} at {company}")
     return humanize_email(ApplicationEmail(subject=subject, body=body))
 
 

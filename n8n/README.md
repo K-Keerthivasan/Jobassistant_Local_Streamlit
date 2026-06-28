@@ -103,8 +103,20 @@ job detail).
 ---
 
 ## App-side status
-- **Workflow 2**: wired — `POST /jobs/{key_id}/send-n8n` posts the above to `N8N_JOBS_WEBHOOK_URL`
-  (falls back to `N8N_WEBHOOK_URL`).
-- **Workflow 1**: the bulk-HR-CSV upload + per-row generation + send is the next app build
-  (endpoint `POST /bulk-hr/send` + an upload UI). The contract above is final, so the n8n
-  workflow can be built and tested now with a sample POST.
+- **Workflow 2 (job applications)**: wired — `POST /jobs/{key_id}/send-n8n` → `N8N_JOBS_WEBHOOK_URL`.
+- **Single HR follow-up**: wired — Companies → **HR follow-ups** tab → compose → `POST
+  /companies/hr-followup/send` → **`N8N_BULK_HR_WEBHOOK_URL`** (one row per recipient, → HR Outreach
+  sheet, so the scheduled daily follow-up covers it too — same pipeline as the batch).
+- **Workflow 1 (bulk HR batch)**: wired — Companies → **HR follow-ups** tab → select companies +
+  **📤 Send batch** → `POST /companies/hr-batch/send` → `N8N_BULK_HR_WEBHOOK_URL`. The app builds
+  **one row per saved HR contact** from the chosen first/second template and posts them in a single
+  call. Payload: `{ batch_id, rows: [ {company, title, hr_name, hr_email, subject, body} ] }` (no
+  attachments for HR follow-ups). The workflow fans out, emails each, logs to **HR Outreach**, and
+  returns `{ sent, failed, results }`.
+
+### To enable the bulk-HR batch
+1. In n8n, build/import **Workflow 1** (`bulk-hr` webhook, **POST**), set the Gmail + Google Sheets
+   credentials and the **HR Outreach** spreadsheet ID, then **Publish/Activate** it.
+2. In the app `.env`, set `N8N_BULK_HR_WEBHOOK_URL=http://host.docker.internal:5678/webhook/bulk-hr`
+   and recreate the container (`docker compose -f docker/docker-compose.yml up -d --force-recreate`).
+3. Test with the sidebar **🧪 n8n test mode** ON (arm "Listen for test event" on the `bulk-hr` node).

@@ -101,15 +101,82 @@ def _resume_block(resume: Resume | dict[str, Any]) -> str:
     return "\n".join(lines).strip()
 
 
-def review_resume(
+# --------------------------------------------------------------------------- #
+# Skill-gap Q&A — Hermes lists JD skills the resume doesn't evidence, the user
+# confirms which they actually have, and only confirmed ones feed the rewrite.
+# --------------------------------------------------------------------------- #
+class SkillGap(BaseModel):
+    skill: str = Field(description="one specific skill/tool/technology the job wants")
+    why: str = Field(default="", description="short: where/why the job needs it")
+
+
+class SkillGaps(BaseModel):
+    gaps: list[SkillGap] = Field(default_factory=list)
+
+
+SKILL_GAP_SYSTEM = """You compare a RESUME against a TARGET_ROLE and list the specific skills, tools,
+and technologies the JOB clearly asks for that are NOT already evidenced anywhere in the resume.
+
+RULES:
+1. Only concrete, checkable skills/tools/technologies (e.g. "Kubernetes", "Power BI", "Java", "SEO",
+   "Active Directory", "Figma"). NOT soft skills, NOT responsibilities, NOT vague themes.
+2. Only items the job description actually mentions or clearly implies.
+3. EXCLUDE anything the resume already shows (skills, headline, summary, or bullets) — even loosely.
+4. Each gap is something we will ASK the candidate: "do you have this?". Keep `skill` to the bare name
+   and `why` to a few words (where the job needs it).
+5. Return at most 12, most important first. If there are no real gaps, return an empty list.
+
+Return ONE JSON object: {"gaps": [{"skill": "...", "why": "..."}, ...]} and nothing else.
+"""
+
+
+def find_skill_gaps(
     resume: Resume | dict[str, Any],
     target: TargetRole | dict[str, Any],
     *,
     model: str | None = None,
     **kw,
+) -> SkillGaps:
+    """Ask Hermes for the JD skills/tools not already in the resume, to ask the user about."""
+    t = target if isinstance(target, TargetRole) else TargetRole(**dict(target or {}))
+    user = (
+        "TARGET_ROLE:\n"
+        f"  company: {t.company}\n  title: {t.title}\n  location: {t.location}\n"
+        f"  job_description: |\n    {(t.description or '').strip()}\n\n"
+        "RESUME (list JD skills NOT already shown anywhere here):\n"
+        f"{_resume_block(resume)}\n"
+    )
+    from .llm import chat_structured
+
+    return chat_structured(SKILL_GAP_SYSTEM, user, SkillGaps,
+                           model=model or settings.hermes_model, **kw)
+
+
+def _user_requests(instructions: str, *, rewrite: bool) -> str:
+    """Format the user's own change requests as a guidance block, always subordinate
+    to the truth rules (the model must never invent facts to satisfy them)."""
+    s = (instructions or "").strip()
+    if not s:
+        return ""
+    if rewrite:
+        return ("\nUSER REQUESTS (apply ONLY where the candidate's real facts already support them; "
+                "NEVER invent, add, or inflate any fact, skill, or metric to satisfy these):\n"
+                f"{s}\n")
+    return ("\nUSER REQUESTS to specifically address in your critique (and say, for each, whether it "
+            f"can be done truthfully from the existing resume):\n{s}\n")
+
+
+def review_resume(
+    resume: Resume | dict[str, Any],
+    target: TargetRole | dict[str, Any],
+    *,
+    model: str | None = None,
+    instructions: str = "",
+    **kw,
 ) -> ResumeReview:
     """Have Hermes review `resume` against `target`. Defaults to the Hermes engine
-    (the whole point of this feature); pass `model` to override."""
+    (the whole point of this feature); pass `model` to override. `instructions` are
+    the user's own specific change requests to address in the critique."""
     t = target if isinstance(target, TargetRole) else TargetRole(**dict(target or {}))
     user = (
         "TARGET_ROLE:\n"
@@ -117,6 +184,7 @@ def review_resume(
         f"  job_description: |\n    {(t.description or '').strip()}\n\n"
         "RESUME (review this — do not rewrite it):\n"
         f"{_resume_block(resume)}\n"
+        + _user_requests(instructions, rewrite=False)
     )
     # Route through the engine layer; default to Hermes so this stays an agent task.
     from .llm import chat_structured
@@ -163,15 +231,25 @@ def rewrite_resume(
     *,
     review: ResumeReview | dict[str, Any] | None = None,
     model: str | None = None,
+    instructions: str = "",
+    confirmed_skills: list[str] | None = None,
     **kw,
 ) -> RewriteResult:
     """Have Hermes rewrite `resume` for `target`, preserving every fact (the caller
     MUST still run the deterministic truth-guard on the result). Optionally feeds the
-    review's suggestions + missing keywords as guidance."""
+    review's suggestions + missing keywords, the user's `instructions`, and
+    `confirmed_skills` the user attested to via the skill-gap Q&A."""
     t = target if isinstance(target, TargetRole) else TargetRole(**dict(target or {}))
     original = resume.model_dump() if isinstance(resume, Resume) else dict(resume or {})
 
     guidance = ""
+    cs = [s.strip() for s in (confirmed_skills or []) if s.strip()]
+    if cs:
+        guidance += ("\nCONFIRMED SKILLS — the candidate has PERSONALLY CONFIRMED they genuinely have "
+                     "these, so they are now true facts you SHOULD surface where they fit the role. Add "
+                     "them to the skills list, and weave them into the summary/relevant bullets only "
+                     "where they read naturally and honestly (do not fabricate projects or metrics for "
+                     "them): " + ", ".join(cs))
     if review is not None:
         r = review.model_dump() if isinstance(review, ResumeReview) else dict(review)
         if r.get("missing_keywords"):
@@ -180,6 +258,7 @@ def rewrite_resume(
         if r.get("suggestions"):
             guidance += "\nREVIEW SUGGESTIONS to act on (truthfully):\n" + "\n".join(
                 f"- {s}" for s in r["suggestions"])
+    guidance += _user_requests(instructions, rewrite=True)
 
     user = (
         "TARGET_ROLE:\n"
@@ -238,10 +317,11 @@ def review_cover_letter(
     target: TargetRole | dict[str, Any],
     *,
     model: str | None = None,
+    instructions: str = "",
     **kw,
 ) -> ResumeReview:
     """Have Hermes critique a cover letter against the job (reuses the ResumeReview
-    schema so the UI renders it the same way)."""
+    schema so the UI renders it the same way). `instructions` = the user's requests."""
     t = target if isinstance(target, TargetRole) else TargetRole(**dict(target or {}))
     user = (
         "TARGET_ROLE:\n"
@@ -249,6 +329,7 @@ def review_cover_letter(
         f"  job_description: |\n    {(t.description or '').strip()}\n\n"
         "COVER_LETTER (review this — do not rewrite it):\n"
         f"{_cover_block(cover)}\n"
+        + _user_requests(instructions, rewrite=False)
     )
     from .llm import chat_structured
 
@@ -290,10 +371,12 @@ def rewrite_cover_letter(
     *,
     review: ResumeReview | dict[str, Any] | None = None,
     model: str | None = None,
+    instructions: str = "",
     **kw,
 ) -> CoverRewriteResult:
     """Have Hermes rewrite a cover letter for the role, preserving every fact (the
-    caller MUST still run the deterministic cover-letter truth-guard on the result)."""
+    caller MUST still run the deterministic cover-letter truth-guard on the result).
+    `instructions` = the user's own specific change requests."""
     t = target if isinstance(target, TargetRole) else TargetRole(**dict(target or {}))
     original = cover.model_dump() if isinstance(cover, CoverLetter) else dict(cover or {})
 
@@ -303,6 +386,7 @@ def rewrite_cover_letter(
         if r.get("suggestions"):
             guidance += "\nREVIEW SUGGESTIONS to act on (truthfully):\n" + "\n".join(
                 f"- {s}" for s in r["suggestions"])
+    guidance += _user_requests(instructions, rewrite=True)
 
     user = (
         "TARGET_ROLE:\n"

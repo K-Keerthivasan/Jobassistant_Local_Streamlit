@@ -105,11 +105,21 @@ def get_company(company: str) -> dict | None:
 
 def save_company(company: str, data: dict) -> dict:
     """Merge `data` into the saved record for this company (create if new) and
-    stamp `updated_at` (the date the HR/company details were last changed)."""
+    stamp `updated_at` (the date the HR/company details were last changed).
+
+    Supports multiple HR contacts via `hr_contacts: [{name, email}]`; the first
+    contact is mirrored into the legacy `hr_email`/`hr_name` (the "primary"), so
+    auto-fill and `hr_email_for` keep working unchanged."""
     from . import db
 
     existing = get_company(company) or {"company": company}
     existing.update({k: v for k, v in (data or {}).items() if v not in (None, "")})
+    # Keep the primary fields in sync with the contact list.
+    contacts = existing.get("hr_contacts") or []
+    if contacts:
+        primary = contacts[0]
+        existing["hr_email"] = (primary.get("email") or existing.get("hr_email") or "").strip()
+        existing["hr_name"] = (primary.get("name") or existing.get("hr_name") or "").strip()
     existing["company"] = company
     existing["updated_at"] = datetime.now().date().isoformat()
     with db.connect() as conn:
@@ -147,6 +157,28 @@ def find_company(company: str) -> dict | None:
 
 
 def hr_email_for(company: str) -> str:
-    """Saved HR email for a company (used to auto-fill jobs with no contact email)."""
+    """Primary saved HR email for a company (auto-fills jobs with no contact email)."""
     rec = find_company(company) or {}
     return (rec.get("hr_email") or rec.get("contact_email") or "").strip()
+
+
+def hr_emails_for(company: str) -> list[str]:
+    """All saved HR emails for a company, primary first, deduped."""
+    rec = find_company(company) or {}
+    out: list[str] = []
+    for c in (rec.get("hr_contacts") or []):
+        e = (c.get("email") or "").strip()
+        if e and e not in out:
+            out.append(e)
+    primary = (rec.get("hr_email") or rec.get("contact_email") or "").strip()
+    if primary and primary not in out:
+        out.insert(0, primary)
+    return out
+
+
+def record_hr_followup(company: str) -> dict:
+    """Append today's date to the company's HR follow-up history."""
+    rec = find_company(company) or {"company": company}
+    hist = list(rec.get("hr_followups") or [])
+    hist.append(datetime.now().date().isoformat())
+    return save_company(rec.get("company", company), {"hr_followups": hist})

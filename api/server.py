@@ -491,11 +491,13 @@ def company_get(company: str):
 def import_companies_csv(payload: dict):
     """Import per-company HR details from CSV text. Columns are matched flexibly:
     company (required), hr_name, hr_email, hr_phone, ats, careers_url, notes.
-    Each row is merged into that company's saved record (stamping updated_at)."""
+    `hr_email` may hold MULTIPLE emails separated by ; or , — they become separate
+    HR contacts. Rows for the same company are merged (contacts appended, deduped)."""
     import csv
     import io
+    import re
 
-    from resume_gen.intake.companies import save_company
+    from resume_gen.intake.companies import find_company, save_company
 
     text = (payload or {}).get("csv", "")
     if not text.strip():
@@ -508,21 +510,45 @@ def import_companies_csv(payload: dict):
                     return (v or "").strip()
         return ""
 
+    # Accumulate across rows first, then save each company once.
+    acc: dict[str, dict] = {}
     reader = csv.DictReader(io.StringIO(text))
-    saved = 0
     for row in reader:
         company = g(row, "company", "employer", "organization", "business")
         if not company:
             continue
-        data = {
-            "hr_name": g(row, "hr_name", "hr", "contact_name", "recruiter", "name"),
-            "hr_email": g(row, "hr_email", "email", "contact_email", "hr_contact"),
-            "hr_phone": g(row, "hr_phone", "phone"),
-            "ats": g(row, "ats", "system"),
-            "careers_url": g(row, "careers_url", "careers", "url", "website"),
-            "notes": g(row, "notes", "note"),
-        }
-        save_company(company, {k: v for k, v in data.items() if v})
+        rec = acc.setdefault(company, {
+            "hr_name": "", "hr_phone": "", "ats": "", "careers_url": "", "notes": "",
+            "contacts": [],
+        })
+        name = g(row, "hr_name", "hr", "contact_name", "recruiter", "recruiter_name", "full_name", "name")
+        emails = [e.strip() for e in re.split(r"[;,]", g(
+            row, "hr_email", "email", "contact_email", "hr_contact", "email_address",
+            "hr_email_address", "work_email", "recruiter_email", "contact", "emails",
+        )) if e.strip() and "@" in e]
+        for e in emails:
+            rec["contacts"].append({"name": name, "email": e})
+        for f in ("hr_phone", "ats", "careers_url", "notes"):
+            val = g(row, f) or g(row, *{"hr_phone": ("phone",), "ats": ("system",),
+                                        "careers_url": ("careers", "url", "website"),
+                                        "notes": ("note",)}.get(f, ()))
+            if val and not rec[f]:
+                rec[f] = val
+
+    saved = 0
+    for company, rec in acc.items():
+        # Merge with any contacts already saved (dedupe by lowercased email).
+        existing = (find_company(company) or {}).get("hr_contacts") or []
+        merged, seen = [], set()
+        for c in existing + rec["contacts"]:
+            e = (c.get("email") or "").strip().lower()
+            if e and e not in seen:
+                seen.add(e)
+                merged.append({"name": (c.get("name") or "").strip(), "email": c["email"].strip()})
+        data = {k: rec[k] for k in ("hr_phone", "ats", "careers_url", "notes") if rec[k]}
+        if merged:
+            data["hr_contacts"] = merged
+        save_company(company, data)
         saved += 1
     return {"rows": saved, "saved": saved}
 
@@ -886,6 +912,22 @@ def mark_irrelevant(key_id: str, req: IrrelevantRequest):
     return q.model_dump()
 
 
+class SpecialRequest(BaseModel):
+    special: bool = True
+    program: str | None = None   # RCIP | RNIP | AIP | Other (optional)
+
+
+@app.post("/jobs/{key_id}/special")
+def mark_special(key_id: str, req: SpecialRequest):
+    """Flag a job 🍁 PR-potential (Special stream), optionally tagging its program."""
+    from resume_gen.intake.store import set_special
+
+    q = set_special(key_id, req.special, req.program)
+    if q is None:
+        raise HTTPException(status_code=404, detail="Job not found.")
+    return q.model_dump()
+
+
 class RepeatableRequest(BaseModel):
     repeatable: bool = True
 
@@ -1081,6 +1123,8 @@ class ReviewRequest(BaseModel):
     cover_letter: dict | None = None
     target: dict | None = None
     model: str | None = None         # defaults to the Hermes engine
+    instructions: str = ""           # the user's own specific change requests
+    confirmed_skills: list[str] = []  # skills the user attested to (skill-gap Q&A)
 
 
 def _doc_base(folder: Path, target: dict, suffix: str) -> str:
@@ -1130,18 +1174,25 @@ def review(req: ReviewRequest):
     tr = TargetRole(**{k: v for k, v in (target or {}).items() if k in TargetRole.model_fields})
     profile = load_profile()
 
+    instr = (req.instructions or "").strip()
+    confirmed = [s.strip() for s in (req.confirmed_skills or []) if s.strip()]
+    # A user instruction or a confirmed skill is itself a reason to produce a rewrite,
+    # even if the model judged the resume otherwise fine.
+    force_rewrite = bool(instr) or bool(confirmed)
+
     # --- Résumé review (+ truth-guarded rewrite when warranted) ---------------
     try:
-        result = review_resume(resume, target, model=req.model)
+        result = review_resume(resume, target, model=req.model, instructions=instr)
     except Exception as e:
         raise HTTPException(status_code=502, detail=str(e))
     data = result.model_dump()
 
-    if result.rewrite_recommended:
+    if result.rewrite_recommended or force_rewrite:
         try:
-            rw = rewrite_resume(resume, target, review=result, model=req.model)
+            rw = rewrite_resume(resume, target, review=result, model=req.model,
+                                instructions=instr, confirmed_skills=confirmed)
             guarded, rw_qa = enforce(rw.resume, profile, persona=select_persona(tr),
-                                     target_location=tr.location)
+                                     target_location=tr.location, extra_skills=confirmed)
             data["rewrite"] = guarded.model_dump()
             data["rewrite_changes"] = rw.changes
             data["rewrite_qa"] = rw_qa
@@ -1152,10 +1203,10 @@ def review(req: ReviewRequest):
     # --- Cover letter review (+ truth-guarded rewrite when warranted) ---------
     if cover:
         try:
-            c_result = review_cover_letter(cover, target, model=req.model)
+            c_result = review_cover_letter(cover, target, model=req.model, instructions=instr)
             data["cover_review"] = c_result.model_dump()
-            if c_result.rewrite_recommended:
-                crw = rewrite_cover_letter(cover, target, review=c_result, model=req.model)
+            if c_result.rewrite_recommended or force_rewrite:
+                crw = rewrite_cover_letter(cover, target, review=c_result, model=req.model, instructions=instr)
                 c_guarded, c_qa = enforce_cover_letter(crw.cover_letter, profile,
                                                        target_location=tr.location)
                 data["cover_rewrite"] = c_guarded.model_dump()
@@ -1169,6 +1220,34 @@ def review(req: ReviewRequest):
     if run_id is not None:
         runs_store.update_run(run_id, review=data)
     return data
+
+
+@app.post("/review/skill-gaps")
+def review_skill_gaps(req: ReviewRequest):
+    """Ask Hermes which skills/tools the job wants that aren't already in the résumé,
+    so the UI can ask the user 'do you have this?' (yes/no). Confirmed ones are then
+    passed back to POST /review as `confirmed_skills` for a truth-guarded rewrite."""
+    from resume_gen.llm import hermes_client
+    from resume_gen.review import find_skill_gaps
+
+    if not hermes_client.available():
+        raise HTTPException(status_code=400, detail="HERMES_API_KEY is not set — the Hermes engine is off.")
+
+    from resume_gen.intake import runs as runs_store
+
+    resume, target = req.resume, req.target
+    if req.folder_name:
+        bundle = runs_store.get_run(req.folder_name)
+        if bundle is None:
+            raise HTTPException(status_code=404, detail="Run not found.")
+        resume = bundle.get("resume") or {}
+        target = bundle.get("target") or {}
+    if not resume or not target:
+        raise HTTPException(status_code=400, detail="Provide folder_name, or both resume and target.")
+    try:
+        return find_skill_gaps(resume, target, model=req.model).model_dump()
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=str(e))
 
 
 class ApplyRewriteRequest(BaseModel):
@@ -1324,7 +1403,7 @@ def send_to_n8n(key_id: str, test: bool = False):
     import httpx
 
     from resume_gen.intake.companies import hr_email_for
-    from resume_gen.intake.store import get_job, set_applied, stamp_sent, update_status
+    from resume_gen.intake.store import append_sent_log, get_job, set_applied, stamp_sent, update_status
 
     webhook = settings.n8n_jobs_webhook_url or settings.n8n_webhook_url
     if not webhook:
@@ -1378,6 +1457,7 @@ def send_to_n8n(key_id: str, test: bool = False):
     set_applied(key_id, True)
     update_status(key_id, "sent")
     stamp_sent(key_id, to_email)
+    append_sent_log(key_id, "application", to_email, email.get("subject", ""), email.get("body", ""))
     return {"sent": True, "to": to_email, "job": get_job(key_id).model_dump()}
 
 
@@ -1392,7 +1472,7 @@ def followup_n8n(key_id: str, test: bool = False):
 
     from resume_gen.generate import generate_followup_email
     from resume_gen.intake.companies import find_company, hr_email_for
-    from resume_gen.intake.store import get_job, record_followup
+    from resume_gen.intake.store import append_sent_log, get_job, record_followup
 
     webhook = settings.n8n_followup_webhook_url or settings.n8n_jobs_webhook_url or settings.n8n_webhook_url
     if not webhook:
@@ -1431,7 +1511,211 @@ def followup_n8n(key_id: str, test: bool = False):
     if test:
         return {"sent": True, "to": "n8n (test)", "test": True}
     record_followup(key_id)
+    append_sent_log(key_id, "followup", to_email, followup.get("subject", ""), followup.get("body", ""))
     return {"sent": True, "to": to_email, "job": get_job(key_id).model_dump()}
+
+
+@app.post("/jobs/{key_id}/email-hr")
+def email_hr(key_id: str, kind: str = "first", test: bool = False):
+    """Send a single, job-specific note to the company's HR (e.g. 'I applied to your
+    {role} posting') via the working followup webhook. Usable at apply time or later.
+    Sends to all saved HR contacts for the company (or the job's own contact email)."""
+    from resume_gen.generate import generate_hr_followup
+    from resume_gen.intake.companies import find_company, hr_emails_for
+    from resume_gen.intake.store import append_sent_log, get_job, stamp_hr_emailed
+
+    q = get_job(key_id)
+    if q is None:
+        raise HTTPException(status_code=404, detail="Job not found.")
+    recipients = hr_emails_for(q.company) or ([q.contact_email.strip()] if (q.contact_email or "").strip() else [])
+    if not recipients:
+        raise HTTPException(status_code=400, detail="No HR email saved for this company (or on the job).")
+
+    rec = find_company(q.company) or {}
+    email = generate_hr_followup(q.company, [q.title], kind=kind,
+                                 contact_name=(rec.get("hr_name") or ""))
+    _post_hr_email(q.company, recipients, email.subject, email.body, test)
+
+    if test:
+        return {"sent": True, "to": "n8n (test)", "test": True}
+    stamp_hr_emailed(key_id)
+    append_sent_log(key_id, "hr", ", ".join(recipients), email.subject, email.body)
+    return {"sent": True, "to": recipients, "job": get_job(key_id).model_dump()}
+
+
+def _recent_role_titles(company: str, days: int = 30) -> list[str]:
+    """Distinct job titles this company posted within the last `days`, newest first."""
+    from datetime import date as _date
+
+    from resume_gen.intake.companies import slug as _slug
+    from resume_gen.intake.store import list_queue
+
+    today = _date.today()
+    cslug = _slug(company)
+    rows = []
+    for q in list_queue():
+        if _slug(q.company) != cslug:
+            continue
+        try:
+            if (today - _date.fromisoformat((q.found_at or "")[:10])).days > days:
+                continue
+        except Exception:
+            pass
+        rows.append(q)
+    rows.sort(key=lambda q: (q.found_at or ""), reverse=True)
+    seen, titles = set(), []
+    for q in rows:
+        t = (q.title or "").strip()
+        if t and t.lower() not in seen:
+            seen.add(t.lower())
+            titles.append(t)
+    return titles
+
+
+class HRFollowupPreview(BaseModel):
+    company: str
+    kind: str = "first"          # first | second
+    window_days: int = 30
+
+
+@app.post("/companies/hr-followup/preview")
+def hr_followup_preview(req: HRFollowupPreview):
+    """Prefill subject + body for an HR follow-up about a company's recent postings."""
+    from resume_gen.generate import generate_hr_followup
+    from resume_gen.intake.companies import find_company
+
+    rec = find_company(req.company) or {}
+    contact_name = (rec.get("hr_name") or "").strip()
+    titles = _recent_role_titles(req.company, req.window_days or 30)
+    email = generate_hr_followup(req.company, titles, kind=req.kind, contact_name=contact_name)
+    return {"subject": email.subject, "body": email.body, "roles": titles}
+
+
+class HRFollowupSend(BaseModel):
+    company: str
+    recipients: list[str] = []
+    subject: str = ""          # omit subject+body for a one-click templated send
+    body: str = ""
+    kind: str = "first"        # used to auto-build the email when subject/body omitted
+    test: bool = False
+
+
+def _company_contacts(rec: dict) -> list[dict]:
+    """Normalize a company's HR contacts to [{name, email}] (handles legacy primary)."""
+    if rec.get("hr_contacts"):
+        return [c for c in rec["hr_contacts"] if (c.get("email") or "").strip()]
+    if rec.get("hr_email"):
+        return [{"name": rec.get("hr_name", ""), "email": rec["hr_email"]}]
+    return []
+
+
+def _post_hr_email(company: str, recipients: list[str], subject: str, body: str, test: bool) -> None:
+    """Send ONE HR email (to one or more recipients) via the followup webhook — the
+    same working webhook as job applications. No bulk pipeline, no attachments."""
+    import httpx
+
+    webhook = settings.n8n_followup_webhook_url or settings.n8n_jobs_webhook_url or settings.n8n_webhook_url
+    if not webhook:
+        raise HTTPException(status_code=400, detail="N8N_FOLLOWUP_WEBHOOK_URL (or N8N_JOBS_WEBHOOK_URL) is not set (.env).")
+    webhook = _n8n_url(webhook, test)
+    payload = {
+        "type": "hr_followup", "company": company,
+        "contact_email": ", ".join(recipients),
+        "email": {"subject": subject, "body": body}, "files": {},
+    }
+    try:
+        r = httpx.post(webhook, json=payload, timeout=60.0)
+        r.raise_for_status()
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"n8n webhook failed: {e}")
+
+
+def _post_bulk_hr(rows: list[dict], test: bool) -> None:
+    """Post HR-outreach rows (one per recipient) to the bulk-hr webhook → HR Outreach
+    sheet. Shared by single and batch HR sends so all HR email lands in one pipeline."""
+    from datetime import datetime as _dt
+
+    import httpx
+
+    webhook = settings.n8n_bulk_hr_webhook_url or settings.n8n_webhook_url
+    if not webhook:
+        raise HTTPException(status_code=400, detail="N8N_BULK_HR_WEBHOOK_URL (or N8N_WEBHOOK_URL) is not set (.env).")
+    webhook = _n8n_url(webhook, test)
+    payload = {"batch_id": _dt.now().isoformat(timespec="seconds"), "rows": rows}
+    try:
+        r = httpx.post(webhook, json=payload, timeout=120.0)
+        r.raise_for_status()
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"n8n webhook failed: {e}")
+
+
+@app.post("/companies/hr-followup/send")
+def hr_followup_send(req: HRFollowupSend):
+    """Send a single HR follow-up via the bulk-hr webhook (→ HR Outreach sheet) and
+    record it on the company. If subject/body are omitted, the email is auto-built
+    from the first/second template (one-click send). One row per recipient."""
+    from resume_gen.generate import generate_hr_followup
+    from resume_gen.intake.companies import find_company, hr_emails_for, record_hr_followup
+
+    recipients = [e.strip() for e in (req.recipients or []) if e.strip()] or hr_emails_for(req.company)
+    if not recipients:
+        raise HTTPException(status_code=400, detail="No HR recipients for this company.")
+
+    rec = find_company(req.company) or {}
+    titles = _recent_role_titles(req.company, 30)
+    subject, body = req.subject.strip(), req.body.strip()
+    if not (subject and body):
+        email = generate_hr_followup(req.company, titles, kind=req.kind,
+                                     contact_name=(rec.get("hr_name") or ""))
+        subject, body = email.subject, email.body
+    _post_hr_email(req.company, recipients, subject, body, req.test)
+    if req.test:
+        return {"sent": True, "to": "n8n (test)", "test": True}
+    rec2 = record_hr_followup(req.company)
+    return {"sent": True, "to": recipients, "company": rec2}
+
+
+class HRBatchSend(BaseModel):
+    companies: list[str] = []
+    kind: str = "first"          # first | second
+    window_days: int = 30
+    test: bool = False
+
+
+@app.post("/companies/hr-batch/send")
+def hr_batch_send(req: HRBatchSend):
+    """Send a templated HR follow-up to MANY companies in one bulk-hr webhook call:
+    one row per HR contact (all saved contacts), auto-built from the first/second
+    template. Records a follow-up per company and logs to the HR Outreach sheet."""
+    from resume_gen.generate import generate_hr_followup
+    from resume_gen.intake.companies import find_company, record_hr_followup
+
+    rows, used = [], []
+    for company in (req.companies or []):
+        rec = find_company(company)
+        contacts = _company_contacts(rec or {})
+        if not contacts:
+            continue
+        titles = _recent_role_titles(company, req.window_days or 30)
+        email = generate_hr_followup(company, titles, kind=req.kind,
+                                     contact_name=(rec.get("hr_name") or "") if rec else "")
+        for c in contacts:
+            rows.append({
+                "company": company, "title": titles[0] if titles else "",
+                "hr_name": c.get("name", ""), "hr_email": c["email"].strip(),
+                "subject": email.subject, "body": email.body,
+            })
+        used.append(company)
+
+    if not rows:
+        raise HTTPException(status_code=400, detail="None of the selected companies have a saved HR email.")
+
+    _post_bulk_hr(rows, req.test)
+    if req.test:
+        return {"sent": True, "test": True, "rows": len(rows), "companies": len(used)}
+    for company in used:
+        record_hr_followup(company)
+    return {"sent": True, "rows": len(rows), "companies": len(used)}
 
 
 @app.delete("/run")

@@ -224,9 +224,14 @@ def _grounded(atom: str, skill_text: str) -> bool:
 
 # --------------------------------------------------------------------------- #
 def enforce(resume: Resume, profile: dict, *, strict: bool = False,
-            persona: dict | None = None, target_location: str = "") -> tuple[Resume, dict]:
+            persona: dict | None = None, target_location: str = "",
+            extra_skills: list[str] | None = None) -> tuple[Resume, dict]:
+    """`extra_skills`: skills the USER has personally confirmed they have (via the
+    skill-gap Q&A). They aren't in the master profile but the user attested to them,
+    so they're treated as grounded for this run instead of being stripped."""
     report: dict = {"identity_fixed": [], "skills_dropped": [],
                     "fabricated_numbers": [], "education_replaced": False}
+    _extra = {s.strip().lower() for s in (extra_skills or []) if s.strip()}
 
     # --- IDENTITY -----------------------------------------------------------
     true_name = profile.get("full_name", resume.fullName)
@@ -290,11 +295,13 @@ def enforce(resume: Resume, profile: dict, *, strict: bool = False,
     for s in resume.skills:
         atoms = [a.strip() for a in re.split(r"\s*[/&,]\s*", s) if a.strip()]
         for atom in atoms:
-            if _grounded(atom, skill_text):
+            if _grounded(atom, skill_text) or atom.lower() in _extra:
                 key = atom.lower()
                 if key not in seen:
                     seen.add(key)
                     kept.append(atom)
+                    if not _grounded(atom, skill_text):
+                        report.setdefault("skills_confirmed", []).append(atom)
             else:
                 report["skills_dropped"].append(atom)
 

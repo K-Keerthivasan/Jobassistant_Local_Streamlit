@@ -6,8 +6,12 @@
 <title>Resume Studio</title>
 <script>
   // Apply saved theme before first paint to avoid a flash.
+  // NOTE: accessing localStorage THROWS in Firefox when site storage is blocked
+  // (strict tracking protection / blocked cookies), so it must be guarded — an
+  // unguarded access here would abort the script and leave a blank/broken UI.
   (function () {
-    var t = localStorage.getItem('theme') || 'dark';
+    var t = 'dark';
+    try { t = localStorage.getItem('theme') || 'dark'; } catch (e) {}
     document.documentElement.setAttribute('data-theme', t);
   })();
 </script>
@@ -71,7 +75,10 @@
   .sidebar {
     background: var(--sidebar); color: #cdd7e6; padding: 18px 14px;
     display: flex; flex-direction: column; gap: 4px; position: sticky; top: 0; height: 100vh;
+    overflow-y: auto; overscroll-behavior: contain;
   }
+  .sidebar::-webkit-scrollbar { width: 8px; }
+  .sidebar::-webkit-scrollbar-thumb { background: #2a3f5f; border-radius: 8px; }
   .brand { display: flex; align-items: center; gap: 10px; padding: 6px 8px 16px; }
   .brand .logo {
     width: 32px; height: 32px; border-radius: 9px; background: linear-gradient(135deg,#2563eb,#7c3aed);
@@ -345,7 +352,13 @@
   .prio.pinned { box-shadow: inset 0 0 0 1px currentColor; }
   /* Grid / list view for Companies + Repeatable */
   .cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 10px; align-items: start; }
-  .cards-grid > * { margin-bottom: 0 !important; }
+  .cards-grid > * { margin-bottom: 0 !important; min-width: 0; }
+  .cards-grid .rp-group { margin: 0 !important; }
+  .cards-grid .rp-head { margin-top: 0 !important; }
+  /* In a narrow grid cell, let card button rows wrap instead of overflowing/clipping. */
+  .cards-grid .rp-card, .cards-grid .co-card { min-width: 0; max-width: 100%; overflow: hidden; }
+  .cards-grid .jl-rowbtns { flex-wrap: wrap; white-space: normal; justify-content: flex-start; }
+  .cards-grid .rp-card .jl-inp, .cards-grid .rp-card textarea { max-width: 100%; box-sizing: border-box; }
   .view-toggle { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
   .view-toggle button { background: var(--input-bg); color: var(--muted); border: 0; padding: 6px 11px; cursor: pointer; font-size: 13px; }
   .view-toggle button.on { background: var(--accent); color: #fff; }
@@ -505,6 +518,7 @@
       <button data-view="hermes-scrape"><span class="ic">🤖</span> Hermes Scraping</button>
       <button data-view="scraper"><span class="ic">💼</span> Jobs</button>
       <button data-view="repeatable"><span class="ic">🔁</span> Repeatable</button>
+      <button data-view="special"><span class="ic">🍁</span> Special (PR)</button>
       <button data-view="companies"><span class="ic">🏢</span> Companies</button>
       <button data-view="qa"><span class="ic">💬</span> Q&amp;A</button>
       <button data-view="bulk"><span class="ic">⚡</span> Bulk Generate</button>
@@ -702,6 +716,7 @@
         <button class="btn ghost sm" id="sk-manual">✍️ Add a job manually</button>
         <button class="btn ghost sm" id="sk-csv" title="Import a CSV (e.g. collected via n8n)">⬆ Upload CSV</button>
         <input type="file" id="sk-csv-file" accept=".csv,text/csv" style="display:none">
+        <button class="btn subtle sm" id="sk-dedupe" title="Remove duplicate jobs (same company + title + location, format-tolerant), keeping the best copy">🧹 Dedupe</button>
         <a class="btn subtle sm" id="sk-capture" target="_blank" rel="noreferrer" title="Browser-capture dashboard (Tampermonkey collector)">Browser capture ↗</a>
       </div>
       <div class="card jl-sources" id="sk-setup"></div>
@@ -716,6 +731,7 @@
           <option value="90">Last 3 months</option>
           <option value="" selected>All time</option>
         </select>
+        <span class="muted" style="font-weight:500;font-size:12px">· feeds + CSV only (browser-capture lives in Jobs)</span>
       </div>
       <div class="card jl-sources" id="sk-jobs"></div>
     </section>
@@ -813,6 +829,42 @@
       </div>
     </section>
 
+    <!-- ===== Special (PR-potential jobs: RCIP / RNIP / AIP) ===== -->
+    <section class="view" id="view-special">
+      <div class="sc-head">
+        <div>
+          <h1 class="page-h" style="margin:0">🍁 Special (PR) stream</h1>
+          <p class="page-sub" style="margin:4px 0 0">PR-potential jobs flagged 🍁. Filter/sort by <b>lane</b> (job category) and <b>NOC/TEER</b>, optionally tag each with a program (RCIP / RNIP / AIP), then generate and apply on this stream alone. Mark a job 🍁 from the <b>Jobs</b> tab.</p>
+        </div>
+        <div class="sc-actions">
+          <span class="view-toggle" id="sp-view" title="Grid or list view"><button data-spv="grid" class="on">▦ Grid</button><button data-spv="list">☰ List</button></span>
+          <button class="btn subtle sm" id="sp-refresh">↻ Refresh</button>
+        </div>
+      </div>
+      <div class="card" id="sp-filters" style="margin:12px 0;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+        <input id="sp-q" placeholder="🔎 Search title / company / location…" style="flex:1;min-width:180px" />
+        <select id="sp-lane" class="jl-inp" style="width:auto" title="Filter by lane (job category)">
+          <option value="">All lanes</option>
+        </select>
+        <select id="sp-prog" class="jl-inp" style="width:auto" title="Filter by program">
+          <option value="">All programs</option>
+          <option value="RCIP">RCIP</option>
+          <option value="RNIP">RNIP</option>
+          <option value="AIP">AIP</option>
+          <option value="Other">Other</option>
+          <option value="__none">Untagged</option>
+        </select>
+        <select id="sp-sort" class="jl-inp" style="width:auto" title="Sort">
+          <option value="lane">Lane</option>
+          <option value="program">Program</option>
+          <option value="date">Newest</option>
+          <option value="company">Company</option>
+        </select>
+        <span id="sp-count" style="font-size:13px;color:var(--muted)"></span>
+      </div>
+      <div id="sp-list"><div class="empty"><span class="spinner dark"></span></div></div>
+    </section>
+
     <!-- ===== Companies (HR contacts + jobs grouped by company) ===== -->
     <section class="view" id="view-companies">
       <div class="sc-head">
@@ -828,12 +880,42 @@
           <button class="btn subtle sm" id="co-refresh">↻ Refresh</button>
         </div>
       </div>
+      <div class="view-toggle" id="co-tabs" style="margin:12px 0 0">
+        <button data-cotab="all" class="on">🏢 All companies</button>
+        <button data-cotab="hr" title="Companies with a recent posting — send HR a follow-up">✉️ HR follow-ups</button>
+      </div>
+      <!-- All-companies filters -->
       <div class="card" id="co-filters" style="margin:12px 0;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
         <input id="co-q" placeholder="🔎 Search company / title…" style="flex:1;min-width:180px" />
         <label class="checks" style="margin:0"><input type="checkbox" id="co-hideempty" style="width:auto"> Only companies with saved HR</label>
+        <select id="co-sort" class="jl-inp" style="width:auto" title="Sort companies">
+          <option value="name">Name A–Z</option>
+          <option value="scraped">Last scraped</option>
+          <option value="applied">Last applied</option>
+          <option value="followup">Needs follow-up</option>
+        </select>
         <span id="co-count" style="font-size:13px;color:var(--muted)"></span>
       </div>
       <div id="co-list"><div class="empty"><span class="spinner dark"></span></div></div>
+      <!-- HR follow-ups view -->
+      <div class="card" id="hr-filters" style="display:none;margin:12px 0;gap:10px;flex-wrap:wrap;align-items:center">
+        <label class="checks" style="margin:0;font-size:13px" title="Off = show every company that has a saved HR email"><input type="checkbox" id="hr-recent" style="width:auto"> Recent posting only</label>
+        <select id="hr-window" class="jl-inp" style="width:auto" title="Posting window (used when 'Recent posting only' is on)">
+          <option value="7">7 days</option>
+          <option value="10">10 days</option>
+          <option value="14">14 days</option>
+          <option value="30" selected>30 days</option>
+        </select>
+        <input id="hr-q" placeholder="🔎 Search company…" style="flex:1;min-width:160px" />
+        <span id="hr-count" style="font-size:13px;color:var(--muted)"></span>
+        <!-- Bulk send is parked for now; single-click per company below. -->
+        <span id="hr-batch-controls" style="display:none">
+          <label class="checks" style="margin:0;font-size:13px"><input type="checkbox" id="hr-all" style="width:auto"> Select all</label>
+          <select id="hr-kind" class="jl-inp" style="width:auto"><option value="first">1st follow-up</option><option value="second">2nd follow-up</option></select>
+          <button class="btn primary sm" id="hr-batch" disabled>📤 Send batch (0)</button>
+        </span>
+      </div>
+      <div id="hr-list" style="display:none"></div>
     </section>
 
     <!-- ===== Profile (apply profile + repeat companies + saved company details) ===== -->
@@ -965,12 +1047,35 @@
   </div>
 </div>
 
+<div class="overlay" id="hrc-overlay">
+  <div class="modal" style="width:min(660px,100%)">
+    <div class="modal-h"><div class="mt" id="hrc-title">Follow up with HR</div><button class="mx" id="hrc-x">✕</button></div>
+    <div class="modal-b">
+      <div class="muted" style="font-size:12px;margin-bottom:6px">Recipients</div>
+      <div id="hrc-recips" style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px"></div>
+      <label class="fld">Subject</label>
+      <input id="hrc-subject" class="jl-inp" style="width:100%;box-sizing:border-box">
+      <label class="fld" style="display:block;margin-top:10px">Body <span class="muted" style="font-weight:400">— edit freely; sent as-is</span></label>
+      <textarea id="hrc-body" style="min-height:240px;width:100%;box-sizing:border-box"></textarea>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+        <button class="btn subtle sm" id="hrc-cancel">Cancel</button>
+        <button class="btn primary sm" id="hrc-send">Send follow-up</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
 const $ = (id) => document.getElementById(id);
 const esc = (s) => (s ?? "").toString().replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
 const enc = encodeURIComponent;
+// Safe localStorage: accessing localStorage THROWS in Firefox when site storage is
+// blocked (strict tracking protection / blocked cookies). Always go through these so
+// a blocked store degrades gracefully instead of aborting the whole script.
+const lsGet = (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
 
 async function api(path, opts) {
   const r = await fetch(path, { cache: 'no-store', ...opts });
@@ -995,11 +1100,12 @@ function showView(view) {
   btn.classList.add('active');
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   $('view-' + view).classList.add('active');
-  localStorage.setItem('view', view);   // remember across refresh
+  lsSet('view', view);   // remember across refresh
   renderHealth();
   if (view === 'scraper') loadJobs();
   if (view === 'repeatable') loadRepeatable();
   if (view === 'companies') loadCompanies();
+  if (view === 'special') loadSpecial();
   if (view === 'scrape') { renderSetup(); renderScrapedJobs(); }
   if (view === 'profile') renderSetup();   // fills #sk-applyprofile, #pf-repeats, #pf-saved
   if (view === 'hermes-scrape') { $('cs-enabled-note').innerHTML = CLOUD_ENABLED ? '' : '<b style="color:var(--warn)">Set HERMES_API_KEY in .env (the Hermes gateway API_SERVER_KEY) to enable.</b>'; }
@@ -1012,11 +1118,11 @@ document.querySelectorAll('.nav button').forEach(b => { if (!b.title) b.title = 
 /* ---------- Collapsible sidebar (hamburger) ---------- */
 function setNavCollapsed(collapsed) {
   document.querySelector('.app').classList.toggle('collapsed', collapsed);
-  try { localStorage.setItem('nav-collapsed', collapsed ? '1' : '0'); } catch {}
+  try { lsSet('nav-collapsed', collapsed ? '1' : '0'); } catch {}
 }
 $('nav-toggle')?.addEventListener('click', () =>
   setNavCollapsed(!document.querySelector('.app').classList.contains('collapsed')));
-try { if (localStorage.getItem('nav-collapsed') === '1') setNavCollapsed(true); } catch {}
+try { if (lsGet('nav-collapsed') === '1') setNavCollapsed(true); } catch {}
 
 /* ---------- Health + models ---------- */
 let ollamaUp = null;   // null = unknown, true/false from /health
@@ -1387,9 +1493,18 @@ function wirePreview(root) {
 // Build the full application block (QA + files + preview) into a container.
 function renderApplication(container, data, filesHTML) {
   const viol = data.qa_has_violations ?? (qaCount(data.qa) > 0);
+  container.classList.add('app-block');   // marker so Apply can refresh the preview
   container.innerHTML = renderQA(data.qa, viol) + reviewBlock(data) + filesHTML + previewBlock(data);
   wirePreview(container);
   wireReview(container, data);
+}
+// Re-render the preview tabs in place (after a rewrite is applied) so the editor
+// shows the rewritten résumé/cover, not the original generated text.
+function refreshPreview(fromEl, data) {
+  const root = fromEl.closest('.app-block'); if (!root) return;
+  const pv = root.querySelector('.preview'); if (!pv) return;
+  pv.outerHTML = previewBlock(data);
+  wirePreview(root);
 }
 
 /* ---------- Hermes review (LLM critique of the generated resume) ---------- */
@@ -1399,7 +1514,10 @@ function reviewBlock(data) {
     : 'Set <code>HERMES_API_KEY</code> in .env (the Hermes gateway key) to enable the Hermes review.';
   return `<div class="hr-review" style="margin:6px 0 14px">
     <button class="btn subtle sm" data-act="hr-review" ${CLOUD_ENABLED?'':'disabled'}>🤖 Review with Hermes</button>
+    <button class="btn subtle sm" data-act="hr-gaps" ${CLOUD_ENABLED?'':'disabled'} title="Hermes lists the job's skills/tools not in your résumé and asks if you have them. Confirm yes/no, then it rewrites using only what you confirm.">🔎 Skill gap check</button>
     <span class="muted" style="font-size:12px;margin-left:8px">${note}</span>
+    <textarea class="hr-instr" placeholder="(optional) specific change suggestions for Hermes — e.g. 'lead with my IT support experience', 'surface n8n and automation', 'shorten the summary to 2 lines'. Hermes applies them only where your real facts support it (never invents)." style="width:100%;min-height:60px;margin-top:8px;font-size:13px" ${CLOUD_ENABLED?'':'disabled'}></textarea>
+    <div class="hr-gaps-out" style="margin-top:10px"></div>
     <div class="hr-review-out" style="margin-top:10px"></div>
   </div>`;
 }
@@ -1410,8 +1528,10 @@ function wireReview(container, data) {
     const out = container.querySelector('.hr-review-out');
     const label = btn.textContent; btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Hermes is reviewing…';
     out.innerHTML = '';
+    const instr = (container.querySelector('.hr-instr')?.value || '').trim();
     const body = data.folder_name ? { folder_name: data.folder_name }
                : { resume: data.resume, target: data.target };
+    if (instr) body.instructions = instr;
     try {
       const r = await api('/review', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
       out.innerHTML = renderReview(r, data.folder_name);
@@ -1420,6 +1540,43 @@ function wireReview(container, data) {
     } catch (e) {
       out.innerHTML = `<div class="qa dirty">${esc(e.message)}</div>`;
     } finally { btn.disabled = false; btn.textContent = label; }
+  };
+
+  // Skill-gap Q&A: Hermes asks which JD skills you have; confirmed ones drive a rewrite.
+  const gbtn = container.querySelector('[data-act="hr-gaps"]');
+  if (gbtn) gbtn.onclick = async () => {
+    const gout = container.querySelector('.hr-gaps-out');
+    const label = gbtn.textContent; gbtn.disabled = true; gbtn.innerHTML = '<span class="spinner"></span> Analyzing…';
+    gout.innerHTML = '';
+    const body = data.folder_name ? { folder_name: data.folder_name } : { resume: data.resume, target: data.target };
+    try {
+      const r = await api('/review/skill-gaps', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+      const gaps = (r && r.gaps) || [];
+      if (!gaps.length) { gout.innerHTML = `<div class="qa clean">No missing JD skills found — your résumé already covers them.</div>`; loadUsage(); return; }
+      gout.innerHTML = `<div class="card" style="padding:12px 14px">
+        <div style="font-weight:700;margin-bottom:6px">🔎 Do you have these skills the job wants? <span class="muted" style="font-weight:400;font-size:12px">Tick the ones you genuinely have.</span></div>
+        ${gaps.map((g,i) => `<label class="checks" style="display:flex;gap:8px;margin:4px 0;font-size:13px"><input type="checkbox" class="gap-ck" value="${esc(g.skill)}" style="width:auto"> <span><b>${esc(g.skill)}</b>${g.why ? ` <span class="muted">— ${esc(g.why)}</span>` : ''}</span></label>`).join('')}
+        <div style="margin-top:10px"><button class="btn primary sm" data-act="gap-rewrite">✍️ Rewrite with my confirmed skills</button> <span class="muted" style="font-size:12px;margin-left:6px">Only ticked skills are added — and only where they fit truthfully.</span></div>
+        <div class="hr-gap-review" style="margin-top:10px"></div>
+      </div>`;
+      gout.querySelector('[data-act="gap-rewrite"]').onclick = async (e) => {
+        const rb = e.currentTarget;
+        const confirmed = [...gout.querySelectorAll('.gap-ck:checked')].map(c => c.value);
+        if (!confirmed.length) { toast('Tick at least one skill you have.', true); return; }
+        const rout = gout.querySelector('.hr-gap-review');
+        const lbl = rb.textContent; rb.disabled = true; rb.innerHTML = '<span class="spinner"></span> Hermes is rewriting…';
+        try {
+          const rr = await api('/review', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ ...body, confirmed_skills: confirmed }) });
+          rout.innerHTML = renderReview(rr, data.folder_name);
+          wireApplyRewrite(rout, data);
+          loadUsage();
+        } catch (err) { rout.innerHTML = `<div class="qa dirty">${esc(err.message)}</div>`; }
+        finally { rb.disabled = false; rb.textContent = lbl; }
+      };
+      loadUsage();
+    } catch (e) {
+      gout.innerHTML = `<div class="qa dirty">${esc(e.message)}</div>`;
+    } finally { gbtn.disabled = false; gbtn.textContent = label; }
   };
 }
 // Wire every "Apply rewrite" button (résumé and/or cover letter) in the review panel.
@@ -1437,7 +1594,8 @@ function wireApplyRewrite(out, data) {
           body: JSON.stringify({ folder_name: data.folder_name, kind }) });
         if (res.resume) data.resume = res.resume;            // reflect in the live preview
         if (res.cover_letter) data.cover_letter = res.cover_letter;
-        ab.textContent = '✓ Applied · DOCX/PDF re-rendered';
+        refreshPreview(ab, data);                            // update the editor/preview tabs in place
+        ab.textContent = '✓ Applied · preview + DOCX/PDF updated';
         toast(`Rewrite applied. Originals backed up in ${res.backup}.`);
       } catch (e) {
         ab.disabled = false; ab.textContent = lbl; toast('Apply failed: ' + e.message, true);
@@ -1899,8 +2057,8 @@ function rpRender() {
     .map(co => {
       const roles = byCompany[co].slice()
         .sort((a, b) => (a.title || '').toLowerCase().localeCompare((b.title || '').toLowerCase()));
-      return `<div style="margin:0 0 18px">
-        <div style="display:flex;align-items:center;gap:10px;margin:18px 0 10px;padding-bottom:6px;border-bottom:2px solid var(--accent)">
+      return `<div class="rp-group" style="margin:0 0 18px">
+        <div class="rp-head" style="display:flex;align-items:center;gap:10px;margin:0 0 10px;padding-bottom:6px;border-bottom:2px solid var(--accent)">
           <span style="font-weight:800;font-size:16px;color:var(--accent)">🏢 ${esc(co)}</span>
           <span class="jl-src" style="margin:0">${roles.length} role${roles.length > 1 ? 's' : ''}</span>
         </div>
@@ -2261,8 +2419,8 @@ function jobFromApi(j) {
   return { id: j.key_id, title: j.title || 'Untitled', company: j.company || '',
     location: j.location || '', source: j.source || '', date: jobDate(j), found,
     status: j.status, gen: j.status === 'generated', folder, email: (j.contact_email || '').trim(),
-    applied: !!j.applied, repeat: !!j.repeat, priority: !!j.priority, repeatable: !!j.repeatable, irrelevant: !!j.irrelevant, apply_url: j.apply_url || '', description: j.description || '', company_email: (j.company_email || '').trim(), generated_at: (j.generated_at || '').replace('T', ' ').slice(0, 16),
-    sent_at: (j.sent_at || '').replace('T', ' ').slice(0, 16), sent_to: (j.sent_to || '').trim(), followups: Array.isArray(j.followups) ? j.followups : [],
+    applied: !!j.applied, repeat: !!j.repeat, priority: !!j.priority, repeatable: !!j.repeatable, irrelevant: !!j.irrelevant, special: !!j.special, special_program: j.special_program || '', lane: j.lane || '', noc_teer: j.noc_teer || '', apply_url: j.apply_url || '', description: j.description || '', company_email: (j.company_email || '').trim(), generated_at: (j.generated_at || '').replace('T', ' ').slice(0, 16),
+    sent_at: (j.sent_at || '').replace('T', ' ').slice(0, 16), sent_to: (j.sent_to || '').trim(), followups: Array.isArray(j.followups) ? j.followups : [], hr_emailed_at: (j.hr_emailed_at || '').replace('T', ' ').slice(0, 16), sent_log: Array.isArray(j.sent_log) ? j.sent_log : [],
     priority_level: j.priority_level || 'low', priority_override: j.priority_override || '', priority_score: typeof j.priority_score === 'number' ? j.priority_score : 0 };
 }
 
@@ -2428,7 +2586,7 @@ function renderJobs() {
     return `<tr${j.irrelevant ? ' style="opacity:.5"' : ''}>
       <td class="jl-ck">${canSelect ? `<input type="checkbox" class="jl-rowck" data-k="${esc(j.id)}" ${jl.sel.has(j.id)?'checked':''}>` : ''}</td>
       <td>${j.id ? prioBadge(j, i) : ''}</td>
-      <td><span class="t" data-act="detail" data-i="${i}" style="cursor:pointer" title="View details">${esc(j.title)}</span>${j.id?`<span class="jl-emailbtn ${j.email?'on':''}" data-act="email" data-i="${i}" title="${j.email?'Email: '+esc(j.email)+' — click to edit':'Add an HR email (for the n8n email path)'}" style="cursor:pointer">${j.email?'📧':'✉️'}</span><span data-act="repeatable" data-i="${i}" title="${j.repeatable?'Repeatable role — saved. Click to remove':'Mark as a repeatable role (reapply often)'}" style="cursor:pointer;margin-left:4px;opacity:${j.repeatable?1:.3}">🔁</span><span data-act="irrelevant" data-i="${i}" title="${j.irrelevant?'Not relevant — hidden from active lists. Click to restore':'Flag as not relevant (hide it)'}" style="cursor:pointer;margin-left:4px;opacity:${j.irrelevant?1:.3}">🚫</span><span class="jl-info" title="${esc(jobInfoTitle(j))}" style="cursor:help;margin-left:5px;opacity:.55">ℹ️</span>`:''}</td>
+      <td><span class="t" data-act="detail" data-i="${i}" style="cursor:pointer" title="View details">${esc(j.title)}</span>${j.id?`<span class="jl-emailbtn ${j.email?'on':''}" data-act="email" data-i="${i}" title="${j.email?'Email: '+esc(j.email)+' — click to edit':'Add an HR email (for the n8n email path)'}" style="cursor:pointer">${j.email?'📧':'✉️'}</span><span data-act="repeatable" data-i="${i}" title="${j.repeatable?'Repeatable role — saved. Click to remove':'Mark as a repeatable role (reapply often)'}" style="cursor:pointer;margin-left:4px;opacity:${j.repeatable?1:.3}">🔁</span><span data-act="irrelevant" data-i="${i}" title="${j.irrelevant?'Not relevant — hidden from active lists. Click to restore':'Flag as not relevant (hide it)'}" style="cursor:pointer;margin-left:4px;opacity:${j.irrelevant?1:.3}">🚫</span><span data-act="special" data-i="${i}" title="${j.special?'Special / PR stream'+(j.special_program?' ('+esc(j.special_program)+')':'')+' — click to remove':'Mark as Special (PR potential: RCIP/RNIP/AIP)'}" style="cursor:pointer;margin-left:4px;opacity:${j.special?1:.3}">🍁</span><span class="jl-info" title="${esc(jobInfoTitle(j))}" style="cursor:help;margin-left:5px;opacity:.55">ℹ️</span>`:''}</td>
       <td class="muted">${esc(j.company)}${j.repeat?` <span class="jl-rep" title="Repeat company — saved details reused">🔁</span>`:''}</td>
       <td class="muted">${esc(j.location)}</td>
       <td><span class="jl-src">${esc(j.source || '—')}</span></td>
@@ -2438,6 +2596,7 @@ function renderJobs() {
       <td><div class="jl-rowbtns">
         ${j.gen ? `<button class="btn ghost sm" data-act="preview" data-i="${i}">Preview</button>` : ''}
         ${(j.gen && j.email && j.id) ? `<button class="btn ghost sm" data-act="send" data-i="${i}" title="Send to n8n (email apply)">📧 n8n</button>` : ''}
+        ${(j.id && (j.email || j.company_email)) ? `<button class="btn ghost sm" data-act="emailhr" data-i="${i}" title="${j.hr_emailed_at ? 'HR emailed ' + esc(j.hr_emailed_at) + ' — click to email again' : 'Email HR about this posting (' + esc(j.email || j.company_email) + ')'}">${j.hr_emailed_at ? '✅ HR' : '✉️ HR'}</button>` : ''}
         ${(j.id && j.sent_at) ? `<button class="btn ghost sm" data-act="followup" data-i="${i}" title="Send a follow-up to ${esc(j.sent_to || j.email || j.company_email)}${j.followups && j.followups.length ? ' ('+j.followups.length+' sent)' : ''}">🔔 Follow up</button>` : ''}
         ${j.apply_url ? `<a class="btn subtle sm" href="${esc(j.apply_url)}" target="_blank" rel="noreferrer" title="Open the application portal">Open ↗</a>` : ''}
         ${(j.apply_url && j.id) ? `<button class="btn subtle sm" data-act="autofill" data-i="${i}" title="Copy the Playwright autofill command (runs on your host)">⌨ Autofill</button>` : ''}
@@ -2462,6 +2621,7 @@ function renderJobs() {
   });
   body.querySelectorAll('[data-act="send"]').forEach(b => b.onclick = () => sendToN8n(jl.rows[+b.dataset.i].id, b));
   body.querySelectorAll('[data-act="followup"]').forEach(b => b.onclick = () => sendFollowup(jl.rows[+b.dataset.i].id, b));
+  body.querySelectorAll('[data-act="emailhr"]').forEach(b => b.onclick = () => emailHr(jl.rows[+b.dataset.i].id, b));
   body.querySelectorAll('[data-act="del"]').forEach(b => b.onclick = () => delJob(jl.rows[+b.dataset.i], b));
   body.querySelectorAll('[data-act="deljob"]').forEach(b => b.onclick = () => deleteJobEntry(jl.rows[+b.dataset.i], b));
   body.querySelectorAll('[data-act="detail"]').forEach(el => el.onclick = () => openJobDetail(jl.rows[+el.dataset.i]));
@@ -2504,6 +2664,16 @@ function renderJobs() {
       j.irrelevant = val;
       toast(val ? 'Flagged not relevant — hidden from the active lists.' : 'Restored — no longer flagged.');
       renderJobs();   // re-apply the relevance filter (row hides unless "Show all")
+    } catch (err) { toast('Update failed: ' + err.message, true); }
+  });
+  body.querySelectorAll('[data-act="special"]').forEach(el => el.onclick = async (e) => {
+    e.stopPropagation();
+    const j = jl.rows[+el.dataset.i], val = !j.special;
+    try {
+      await api(`/jobs/${j.id}/special`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ special: val }) });
+      j.special = val; if (!val) j.special_program = '';
+      toast(val ? '🍁 Added to the Special (PR) stream.' : 'Removed from Special.');
+      renderJobs();
     } catch (err) { toast('Update failed: ' + err.message, true); }
   });
   body.querySelectorAll('[data-act="autofill"]').forEach(b => b.onclick = () => {
@@ -2589,6 +2759,20 @@ async function sendToN8n(key, btn) {
     return false;
   }
 }
+// One-click: email this job's company HR an "I applied to your posting" note.
+async function emailHr(key, btn) {
+  const test = n8nTestMode();
+  const label = btn.textContent; btn.disabled = true; btn.textContent = '⏳';
+  try {
+    const res = await api(`/jobs/${key}/email-hr${test ? '?test=true' : ''}`, { method: 'POST' });
+    if (test) { toast('Posted HR note to n8n TEST webhook (not recorded).'); btn.disabled = false; btn.textContent = label; }
+    else { toast(`Emailed HR${res && res.to ? ' (' + (Array.isArray(res.to) ? res.to.join(', ') : res.to) + ')' : ''}.`); loadJobs(); loadCompanies(); }
+    return true;
+  } catch (e) {
+    toast('Email HR failed: ' + e.message, true); btn.disabled = false; btn.textContent = label;
+    return false;
+  }
+}
 async function sendFollowup(key, btn) {
   const test = n8nTestMode();
   const label = btn.textContent; btn.disabled = true; btn.textContent = '⏳';
@@ -2647,8 +2831,8 @@ async function genJob(job, btn) {
   $(id).addEventListener(id === 'jl-search' ? 'input' : 'change', renderJobs);
 });
 // Persist the Jobs day filter across reloads.
-try { const d = localStorage.getItem('jl-days'); if (d !== null) $('jl-days').value = d; } catch {}
-$('jl-days').addEventListener('change', () => { try { localStorage.setItem('jl-days', $('jl-days').value); } catch {} });
+try { const d = lsGet('jl-days'); if (d !== null) $('jl-days').value = d; } catch {}
+$('jl-days').addEventListener('change', () => { try { lsSet('jl-days', $('jl-days').value); } catch {} });
 document.querySelectorAll('.jl-sort').forEach(th => th.onclick = () => {
   const k = th.dataset.sort;
   jl.sort = { key: k, dir: jl.sort.key === k && jl.sort.dir === 'asc' ? 'desc' : 'asc' };
@@ -2720,16 +2904,18 @@ $('jl-tobulk').onclick = () => {
 };
 
 /* Jobs: remove duplicate rows (same company + title + location), keep the best. */
-$('jl-dedupe').onclick = async () => {
-  if (!await uiConfirm({ title: 'Remove duplicate jobs?', message: 'Duplicates share company + title + location.\n\nThe best copy of each (generated/applied/repeatable/priority, else newest) is kept; the rest are deleted.', ok: 'Dedupe', danger: true })) return;
-  const btn = $('jl-dedupe'); btn.disabled = true; const label = btn.textContent; btn.textContent = '⏳ Deduping…';
+async function runDedupe(btn) {
+  if (!await uiConfirm({ title: 'Remove duplicate jobs?', message: 'Duplicates share company + title + location (format-tolerant).\n\nThe best copy of each (generated/applied/repeatable/priority, else newest) is kept; the rest are deleted.', ok: 'Dedupe', danger: true })) return;
+  const label = btn.textContent; btn.disabled = true; btn.textContent = '⏳ Deduping…';
   try {
     const r = await api('/jobs/dedupe', { method: 'POST' });
     toast(r.removed ? `Removed ${r.removed} duplicate${r.removed>1?'s':''} across ${r.groups} role${r.groups>1?'s':''}.` : 'No duplicates found.');
-    loadJobs(); loadLibrary();
+    loadJobs(); loadLibrary(); renderScrapedJobs();
   } catch (e) { toast('Dedupe failed: ' + e.message, true); }
   finally { btn.disabled = false; btn.textContent = label; }
-};
+}
+$('jl-dedupe').onclick = () => runDedupe($('jl-dedupe'));
+$('sk-dedupe').onclick = () => runDedupe($('sk-dedupe'));
 
 /* Jobs: refresh the list */
 $('jl-refresh').onclick = () => loadJobs();
@@ -2796,8 +2982,10 @@ async function renderScrapedJobs() {
     if (!jobs.length) { box.innerHTML = '<div class="muted">No jobs scraped yet. Add a source above and hit Fetch new jobs.</div>'; return; }
     const daysVal = ($('sk-days') || {}).value || '';
     const bySrc = {};
-    const rows = jobs.map(jobFromApi).filter(j => jobInRange(j, daysVal) && !j.irrelevant);
-    if (!rows.length) { box.innerHTML = '<div class="muted">No jobs match this date filter.</div>'; return; }
+    // This tab = source-feed + CSV intake only. Browser-capture (collector) has its
+    // own dashboard and lives in the Jobs tab, so don't mix it in here.
+    const rows = jobs.map(jobFromApi).filter(j => !j.irrelevant && (j.source || 'other') !== 'collector' && jobInRange(j, daysVal));
+    if (!rows.length) { box.innerHTML = '<div class="muted">No feed/CSV jobs match this date filter. (Browser-capture jobs are in the Jobs tab.)</div>'; return; }
     rows.forEach(j => { (bySrc[j.source || 'other'] = bySrc[j.source || 'other'] || []).push(j); });
     const allIds = rows.map(j => j.id);
     const groups = Object.entries(bySrc).sort((a, b) => b[1].length - a[1].length).map(([src, js]) =>
@@ -2969,8 +3157,108 @@ $('s-add').onclick = async () => {
   finally { btn.disabled = false; btn.textContent = label; }
 };
 
+/* ---------- Special (PR-potential) stream ---------- */
+const spState = { jobs: [] };
+const SP_PROGRAMS = ['RCIP', 'RNIP', 'AIP', 'Other'];
+let spView = lsGet('sp-view') || 'grid';
+async function loadSpecial() {
+  const box = $('sp-list'); if (!box) return;
+  box.innerHTML = '<div class="empty"><span class="spinner dark"></span></div>';
+  try {
+    const { jobs } = await api('/jobs');
+    spState.jobs = (jobs || []).map(jobFromApi).filter(j => j.special);
+    spRender();
+  } catch (e) { box.innerHTML = `<div class="qa dirty">${esc(e.message)}</div>`; }
+}
+function spRender() {
+  const box = $('sp-list'); if (!box) return;
+  // Populate the lane filter from the data (preserve the current selection).
+  const laneSel = $('sp-lane'), curLane = laneSel.value;
+  const lanes = [...new Set(spState.jobs.map(j => j.lane).filter(Boolean))].sort();
+  laneSel.innerHTML = '<option value="">All lanes</option>' + lanes.map(l => `<option value="${esc(l)}" ${l === curLane ? 'selected' : ''}>${esc(l)}</option>`).join('');
+  const q = (($('sp-q').value) || '').toLowerCase().trim();
+  const prog = $('sp-prog').value, lane = laneSel.value, sort = $('sp-sort').value;
+  let rows = spState.jobs.filter(j => {
+    if (prog === '__none') { if (j.special_program) return false; }
+    else if (prog && (j.special_program || '') !== prog) return false;
+    if (lane && (j.lane || '') !== lane) return false;
+    if (!q) return true;
+    return [j.title, j.company, j.location, j.lane, j.noc_teer].join(' ').toLowerCase().includes(q);
+  });
+  const byName = (a, b) => (a.company || '').toLowerCase().localeCompare((b.company || '').toLowerCase());
+  if (sort === 'date') rows.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  else if (sort === 'company') rows.sort(byName);
+  else if (sort === 'lane') rows.sort((a, b) => (a.lane || 'zzz').localeCompare(b.lane || 'zzz') || byName(a, b));
+  else rows.sort((a, b) => (a.special_program || 'zzz').localeCompare(b.special_program || 'zzz') || byName(a, b));
+  const byLane = {}; spState.jobs.forEach(j => { const p = j.lane || 'Untagged'; byLane[p] = (byLane[p] || 0) + 1; });
+  $('sp-count').textContent = `${rows.length} of ${spState.jobs.length} · ` + (Object.entries(byLane).sort((a, b) => b[1] - a[1]).map(([p, n]) => `${p} ${n}`).join(' · ') || 'none');
+  if (!rows.length) {
+    box.innerHTML = `<div class="empty"><div class="big">🍁</div>No Special jobs${prog ? ' for this filter' : ''} yet. In <b>Jobs</b>, click the 🍁 on a PR-potential posting to add it here.</div>`;
+    return;
+  }
+  box.innerHTML = rows.map(spCard).join('');
+  spWire(box);
+  box.classList.toggle('cards-grid', spView === 'grid');
+}
+function spCard(j) {
+  const email = (j.email || '').trim() || j.company_email;
+  const opt = (p) => `<option value="${p}" ${j.special_program === p ? 'selected' : ''}>${p}</option>`;
+  return `<div class="card co-card" data-jid="${esc(j.id)}">
+    <div class="co-head">
+      <span class="co-name" data-spact="detail" data-jid="${esc(j.id)}" style="cursor:pointer">${esc(j.title || 'Untitled')}</span>
+      <span class="jl-st ${esc(j.status)}">${esc(j.status)}</span>
+      <span style="flex:1"></span>
+      <select class="jl-inp sp-prog-sel" data-jid="${esc(j.id)}" style="width:auto;font-size:12px" title="PR program">
+        <option value="" ${!j.special_program ? 'selected' : ''}>Tag program…</option>
+        ${SP_PROGRAMS.map(opt).join('')}
+      </select>
+      <button class="btn subtle sm" data-spact="unspecial" data-jid="${esc(j.id)}" title="Remove from Special">🍁✕</button>
+    </div>
+    <div class="muted" style="font-size:12px;margin:4px 0 6px">${esc(j.company)}${j.location ? ' · ' + esc(j.location) : ''} · ${esc(j.date || '')}${email ? ' · 📧 ' + esc(email) : ''}${j.sent_at ? ' · <span style="color:var(--accent)">applied ' + esc(j.sent_at) + '</span>' : ''}</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">${j.lane ? `<span class="rp-chip">${esc(j.lane)}</span>` : ''}${j.noc_teer ? `<span class="rp-chip" title="NOC / TEER (PR eligibility)">${esc(j.noc_teer)}</span>` : ''}${j.applied ? '<span class="rp-chip" style="background:#1a9e5f1a;color:#1a9e5f">applied</span>' : ''}</div>
+    <div class="jl-rowbtns" style="justify-content:flex-start">
+      ${j.gen ? `<button class="btn ghost sm" data-spact="preview" data-jid="${esc(j.id)}">Preview</button>` : ''}
+      ${j.apply_url ? `<a class="btn subtle sm" href="${esc(j.apply_url)}" target="_blank" rel="noreferrer">Open ↗</a>` : ''}
+      ${(j.gen && email) ? `<button class="btn ghost sm" data-spact="send" data-jid="${esc(j.id)}" title="Send to ${esc(email)} (email apply)">📧 Send</button>` : ''}
+      ${email ? `<button class="btn ghost sm" data-spact="emailhr" data-jid="${esc(j.id)}" title="${j.hr_emailed_at ? 'HR emailed ' + esc(j.hr_emailed_at) : 'Email HR about this posting'}">${j.hr_emailed_at ? '✅ HR' : '✉️ HR'}</button>` : ''}
+      ${j.sent_at ? `<button class="btn ghost sm" data-spact="followup" data-jid="${esc(j.id)}">🔔 Follow up</button>` : ''}
+      ${!j.gen ? `<button class="btn ghost sm" data-spact="bulk" data-jid="${esc(j.id)}">➕ Bulk</button>` : ''}
+      <button class="btn primary sm" data-spact="gen" data-jid="${esc(j.id)}">${j.gen ? 'Regenerate' : 'Generate'}</button>
+    </div>
+  </div>`;
+}
+function spWire(box) {
+  const byId = Object.fromEntries(spState.jobs.map(j => [j.id, j]));
+  box.querySelectorAll('.sp-prog-sel').forEach(s => s.onchange = async () => {
+    try {
+      await api(`/jobs/${s.dataset.jid}/special`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ special: true, program: s.value }) });
+      const j = byId[s.dataset.jid]; if (j) j.special_program = s.value;
+      toast(s.value ? `Tagged ${s.value}.` : 'Program cleared.'); spRender();
+    } catch (e) { toast('Update failed: ' + e.message, true); }
+  });
+  box.querySelectorAll('[data-spact="detail"]').forEach(b => b.onclick = () => openJobDetail(byId[b.dataset.jid]));
+  box.querySelectorAll('[data-spact="preview"]').forEach(b => b.onclick = () => { const j = byId[b.dataset.jid]; if (j && j.folder) openLibrary(j.folder); });
+  box.querySelectorAll('[data-spact="bulk"]').forEach(b => b.onclick = () => bulkAddFromJob(byId[b.dataset.jid]));
+  box.querySelectorAll('[data-spact="gen"]').forEach(b => b.onclick = () => genJob(byId[b.dataset.jid], b));
+  box.querySelectorAll('[data-spact="send"]').forEach(b => b.onclick = async () => { if (await sendToN8n(b.dataset.jid, b)) loadSpecial(); });
+  box.querySelectorAll('[data-spact="emailhr"]').forEach(b => b.onclick = () => emailHr(b.dataset.jid, b));
+  box.querySelectorAll('[data-spact="followup"]').forEach(b => b.onclick = async () => { if (await sendFollowup(b.dataset.jid, b)) loadSpecial(); });
+  box.querySelectorAll('[data-spact="unspecial"]').forEach(b => b.onclick = async () => {
+    try {
+      await api(`/jobs/${b.dataset.jid}/special`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ special: false }) });
+      toast('Removed from Special.'); loadSpecial(); loadJobs();
+    } catch (e) { toast('Update failed: ' + e.message, true); }
+  });
+}
+$('sp-refresh').onclick = loadSpecial;
+$('sp-q').oninput = spRender;
+$('sp-prog').onchange = spRender;
+$('sp-lane').onchange = spRender;
+$('sp-sort').onchange = spRender;
+document.querySelectorAll('#sp-view button').forEach(b => b.onclick = () => { spView = b.dataset.spv; try { lsSet('sp-view', spView); } catch {} document.querySelectorAll('#sp-view button').forEach(x => x.classList.toggle('on', x.dataset.spv === spView)); spRender(); });
+
 /* ---------- Companies (HR contacts + jobs grouped by company) ---------- */
-const coState = { saved: [], jobs: [] };
+const coState = { saved: [], jobs: [], expanded: new Set() };
 async function loadCompanies() {
   const box = $('co-list'); if (!box) return;
   box.innerHTML = '<div class="empty"><span class="spinner dark"></span></div>';
@@ -2981,39 +3269,101 @@ async function loadCompanies() {
     coRender();
   } catch (e) { box.innerHTML = `<div class="qa dirty">${esc(e.message)}</div>`; }
 }
-function coRender() {
-  const box = $('co-list'); if (!box) return;
-  const q = ($('co-q').value || '').toLowerCase().trim();
-  const hideEmpty = $('co-hideempty').checked;
-  const norm = s => (s || '').trim().toLowerCase();
+let coTab = 'all', coSort = 'name';
+const hrSel = new Set();   // selected company names for HR batch send
+function hrSyncBatch() {
+  const b = $('hr-batch'); if (b) { b.textContent = `📤 Send batch (${hrSel.size})`; b.disabled = !hrSel.size; }
+}
+const coNorm = s => (s || '').trim().toLowerCase();
+function coContacts(hr) {
+  if (!hr) return [];
+  if (Array.isArray(hr.hr_contacts) && hr.hr_contacts.length) return hr.hr_contacts;
+  if (hr.hr_email) return [{ name: hr.hr_name || '', email: hr.hr_email }];
+  return [];
+}
+function withinDays(d, n) {
+  d = (d || '').slice(0, 10); if (!d) return false;
+  const t = Date.parse(d); if (isNaN(t)) return false;
+  return (Date.now() - t) / 86400000 <= n;
+}
+function coGroups() {
   const savedMap = {};
-  coState.saved.forEach(r => { if (r.company) savedMap[norm(r.company)] = r; });
+  coState.saved.forEach(r => { if (r.company) savedMap[coNorm(r.company)] = r; });
   const byCo = {};
-  coState.jobs.forEach(j => { const k = norm(j.company || '—'); (byCo[k] = byCo[k] || { name: j.company || '—', jobs: [] }).jobs.push(j); });
-  coState.saved.forEach(r => { const k = norm(r.company); if (r.company && !byCo[k]) byCo[k] = { name: r.company, jobs: [] }; });
-  let groups = Object.keys(byCo).map(k => ({ name: byCo[k].name, jobs: byCo[k].jobs, hr: savedMap[k] || null }));
-  groups = groups.filter(g => {
-    if (hideEmpty && !g.hr) return false;
-    if (!q) return true;
-    return norm(g.name).includes(q) || g.jobs.some(j => norm(j.title).includes(q));
+  coState.jobs.forEach(j => { const k = coNorm(j.company || '—'); (byCo[k] = byCo[k] || { name: j.company || '—', jobs: [] }).jobs.push(j); });
+  coState.saved.forEach(r => { const k = coNorm(r.company); if (r.company && !byCo[k]) byCo[k] = { name: r.company, jobs: [] }; });
+  return Object.keys(byCo).map(k => {
+    const jobs = byCo[k].jobs;
+    return {
+      name: byCo[k].name, jobs, hr: savedMap[k] || null,
+      lastScraped: jobs.reduce((m, j) => ((j.found || '') > m ? j.found : m), ''),
+      lastApplied: jobs.reduce((m, j) => ((j.sent_at || '') > m ? j.sent_at : m), ''),
+    };
   });
-  groups.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
-  $('co-count').textContent = `${groups.length} companies · ${coState.saved.length} with saved HR`;
+}
+function coFollowScore(g) {
+  if (!coContacts(g.hr).length) return -1;
+  const recent = g.jobs.some(j => withinDays(j.found, 14));
+  const fups = (g.hr && g.hr.hr_followups) || [];
+  const stale = !fups.length || !withinDays(fups[fups.length - 1], 10);
+  return (recent ? 2 : 0) + (stale ? 1 : 0);
+}
+function coRender() {
+  const allOn = coTab === 'all';
+  $('co-filters').style.display = allOn ? 'flex' : 'none';
+  $('co-list').style.display = allOn ? '' : 'none';
+  $('hr-filters').style.display = allOn ? 'none' : 'flex';
+  $('hr-list').style.display = allOn ? 'none' : '';
+  document.querySelectorAll('#co-tabs button').forEach(b => b.classList.toggle('on', b.dataset.cotab === coTab));
+  if (!allOn) { hrRender(); return; }
+  const box = $('co-list'); if (!box) return;
+  const q = coNorm($('co-q').value), hideEmpty = $('co-hideempty').checked;
+  let groups = coGroups().filter(g => {
+    if (hideEmpty && !coContacts(g.hr).length) return false;
+    if (!q) return true;
+    return coNorm(g.name).includes(q) || g.jobs.some(j => coNorm(j.title).includes(q));
+  });
+  const byName = (a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase());
+  if (coSort === 'scraped') groups.sort((a, b) => (b.lastScraped || '').localeCompare(a.lastScraped || '') || byName(a, b));
+  else if (coSort === 'applied') groups.sort((a, b) => (b.lastApplied || '').localeCompare(a.lastApplied || '') || byName(a, b));
+  else if (coSort === 'followup') groups.sort((a, b) => coFollowScore(b) - coFollowScore(a) || byName(a, b));
+  else groups.sort(byName);
+  const withHr = coGroups().filter(g => coContacts(g.hr).length).length;
+  $('co-count').textContent = `${groups.length} companies · ${withHr} with HR email`;
   if (!groups.length) { box.innerHTML = `<div class="empty"><div class="big">🏢</div>No companies yet. Upload an HR CSV or scrape some jobs.</div>`; return; }
   box.innerHTML = groups.map(coCard).join('');
+  coWire(box);
+  applyCoView();
+}
+function coWire(box) {
   const byId = Object.fromEntries(coState.jobs.map(j => [j.id, j]));
   box.querySelectorAll('.co-copy').forEach(el => el.onclick = () => { (navigator.clipboard?.writeText(el.dataset.copy) || Promise.resolve()); toast('Copied: ' + el.dataset.copy); });
-  box.querySelectorAll('[data-coact="edit"]').forEach(b => b.onclick = () => {
-    const ed = b.closest('[data-co]').querySelector('.co-hr-edit');
-    ed.style.display = ed.style.display === 'none' ? 'flex' : 'none';
+  box.querySelectorAll('[data-coact="toggle"]').forEach(el => el.onclick = () => {
+    const name = el.dataset.co, open = !coState.expanded.has(name);
+    open ? coState.expanded.add(name) : coState.expanded.delete(name);
+    const card = el.closest('.co-card');
+    card.querySelector('.co-jobs').style.display = open ? 'block' : 'none';
+    const ar = card.querySelector('.co-toggle'); if (ar) ar.textContent = open ? '▾' : '▸';
   });
+  box.querySelectorAll('[data-coact="edit"]').forEach(b => b.onclick = () => {
+    const ed = b.closest('.co-card').querySelector('.co-hr-edit');
+    ed.style.display = ed.style.display === 'none' ? 'block' : 'none';
+  });
+  box.querySelectorAll('[data-coact="addrow"]').forEach(b => b.onclick = () => {
+    const rows = b.closest('.co-card').querySelector('.co-hr-rows');
+    const tmp = document.createElement('div'); tmp.innerHTML = coEditRow({});
+    const row = tmp.firstElementChild; rows.appendChild(row);
+    row.querySelector('[data-coact="rmrow"]').onclick = () => row.remove();
+  });
+  box.querySelectorAll('[data-coact="rmrow"]').forEach(b => b.onclick = () => b.closest('.co-hr-row').remove());
   box.querySelectorAll('[data-coact="save"]').forEach(b => b.onclick = async () => {
-    const card = b.closest('[data-co]');
-    const hr_name = card.querySelector('.co-hr-name').value.trim();
-    const hr_email = card.querySelector('.co-hr-email').value.trim();
+    const card = b.closest('.co-card');
+    const contacts = [...card.querySelectorAll('.co-hr-row')]
+      .map(r => ({ name: r.querySelector('.co-c-name').value.trim(), email: r.querySelector('.co-c-email').value.trim() }))
+      .filter(c => c.email);
     try {
-      await api(`/companies/${encodeURIComponent(b.dataset.co)}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ hr_name, hr_email }) });
-      toast('HR details saved.'); loadCompanies(); loadJobs();
+      await api(`/companies/${encodeURIComponent(b.dataset.co)}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ hr_contacts: contacts }) });
+      toast('HR contacts saved.'); loadCompanies(); loadJobs();
     } catch (e) { toast('Save failed: ' + e.message, true); }
   });
   box.querySelectorAll('[data-coact="view"]').forEach(b => b.onclick = () => openJobDetail(byId[b.dataset.jid]));
@@ -3021,13 +3371,15 @@ function coRender() {
   box.querySelectorAll('[data-coact="gen"]').forEach(b => b.onclick = () => genJob(byId[b.dataset.jid], b));
   box.querySelectorAll('[data-coact="send"]').forEach(b => b.onclick = async () => { if (await sendToN8n(b.dataset.jid, b)) loadCompanies(); });
   box.querySelectorAll('[data-coact="followup"]').forEach(b => b.onclick = async () => { if (await sendFollowup(b.dataset.jid, b)) loadCompanies(); });
-  box.querySelectorAll('[data-coact="sendall"]').forEach(b => b.onclick = () => sendCompanyJobs(b.dataset.co, b.dataset.hr, b));
+  box.querySelectorAll('[data-coact="emailhr"]').forEach(b => b.onclick = () => emailHr(b.dataset.jid, b));
+  box.querySelectorAll('[data-coact="sendall"]').forEach(b => b.onclick = () => sendCompanyJobs(b.dataset.co, b));
 }
 // Send a separate, tailored application email per GENERATED job for one company.
-async function sendCompanyJobs(companyName, hrEmail, btn) {
-  const norm = s => (s || '').trim().toLowerCase();
+async function sendCompanyJobs(companyName, btn) {
+  const g = coGroups().find(x => coNorm(x.name) === coNorm(companyName));
+  const hrEmail = (coContacts(g && g.hr)[0] || {}).email || '';
   const test = n8nTestMode();
-  const jobs = coState.jobs.filter(j => norm(j.company) === norm(companyName) && j.id);
+  const jobs = coState.jobs.filter(j => coNorm(j.company) === coNorm(companyName) && j.id);
   const sendable = jobs.filter(j => j.gen && ((j.email || '').trim() || hrEmail));
   const needGen = jobs.filter(j => !j.gen).length;
   if (!sendable.length) { toast(needGen ? `Nothing generated yet (${needGen} need generating).` : 'No sendable jobs.', true); return; }
@@ -3042,29 +3394,42 @@ async function sendCompanyJobs(companyName, hrEmail, btn) {
   btn.disabled = false; btn.textContent = label;
   loadCompanies(); loadJobs();
 }
+function coEditRow(c) {
+  return `<div class="co-hr-row" style="display:flex;gap:8px;flex-wrap:wrap">
+    <input class="jl-inp co-c-name" placeholder="HR name" value="${esc((c && c.name) || '')}" style="flex:1;min-width:130px">
+    <input class="jl-inp co-c-email" placeholder="hr@company.com" value="${esc((c && c.email) || '')}" style="flex:1;min-width:150px">
+    <button class="btn subtle sm" data-coact="rmrow" title="Remove this contact">✕</button>
+  </div>`;
+}
 function coCard(g) {
-  const hr = g.hr || {};
-  const hrInline = (hr.hr_name || hr.hr_email)
-    ? `<span class="co-hr-inline">✎ ${hr.hr_name ? esc(hr.hr_name) + ' · ' : ''}${hr.hr_email ? `<span class="co-copy" data-copy="${esc(hr.hr_email)}" style="cursor:pointer;color:var(--accent)" title="Click to copy">${esc(hr.hr_email)}</span>` : ''}</span>`
+  const contacts = coContacts(g.hr), primary = contacts[0];
+  const expanded = coState.expanded.has(g.name);
+  const hrInline = primary
+    ? `<span class="co-hr-inline">✎ ${primary.name ? esc(primary.name) + ' · ' : ''}<span class="co-copy" data-copy="${esc(primary.email)}" style="cursor:pointer;color:var(--accent)" title="Click to copy">${esc(primary.email)}</span>${contacts.length > 1 ? ` <span class="muted">+${contacts.length - 1} more</span>` : ''}</span>`
     : '';
   const jobs = g.jobs.slice().sort((a, b) => (a.title || '').toLowerCase().localeCompare((b.title || '').toLowerCase()));
-  const jobsHtml = jobs.length ? jobs.map(j => coJobRow(j, hr.hr_email || '')).join('')
+  const jobsHtml = jobs.length ? jobs.map(j => coJobRow(j, primary ? primary.email : '')).join('')
     : '<div class="muted" style="font-size:12px;padding:4px 0">No jobs for this company yet.</div>';
+  const editRows = (contacts.length ? contacts : [{}]).map(coEditRow).join('');
   return `<div class="card co-card" data-co="${esc(g.name)}">
     <div class="co-head">
-      <span class="co-name">🏢 ${esc(g.name)}</span>
+      <span class="co-toggle" data-coact="toggle" data-co="${esc(g.name)}" style="cursor:pointer;color:var(--muted)">${expanded ? '▾' : '▸'}</span>
+      <span class="co-name" data-coact="toggle" data-co="${esc(g.name)}" style="cursor:pointer">🏢 ${esc(g.name)}</span>
       <span class="jl-src" style="margin:0">${g.jobs.length} job${g.jobs.length === 1 ? '' : 's'}</span>
       ${hrInline}
       <span style="flex:1"></span>
-      ${(hr.hr_email && g.jobs.some(j => j.gen && j.id)) ? `<button class="btn ghost sm" data-coact="sendall" data-co="${esc(g.name)}" data-hr="${esc(hr.hr_email)}" title="Send a separate tailored email per generated job to ${esc(hr.hr_email)}">📧 Email HR</button>` : ''}
-      <button class="btn subtle sm" data-coact="edit" data-co="${esc(g.name)}" title="${hrInline ? 'Edit HR contact' : 'Add HR contact'}">✎ HR</button>
+      ${(primary && g.jobs.some(j => j.gen && j.id)) ? `<button class="btn ghost sm" data-coact="sendall" data-co="${esc(g.name)}" title="Send a separate tailored email per generated job to ${esc(primary.email)}">📧 Email HR</button>` : ''}
+      <button class="btn subtle sm" data-coact="edit" data-co="${esc(g.name)}" title="${primary ? 'Edit HR contacts' : 'Add HR contacts'}">✎ HR</button>
     </div>
-    <div class="co-hr-edit" style="display:none;gap:8px;flex-wrap:wrap;margin:8px 0">
-      <input class="jl-inp co-hr-name" placeholder="HR name" value="${esc(hr.hr_name || '')}" style="flex:1;min-width:140px">
-      <input class="jl-inp co-hr-email" placeholder="hr@company.com" value="${esc(hr.hr_email || '')}" style="flex:1;min-width:160px">
-      <button class="btn primary sm" data-coact="save" data-co="${esc(g.name)}">Save</button>
+    <div class="co-hr-edit" style="display:none;margin:8px 0">
+      <div class="co-hr-rows" style="display:flex;flex-direction:column;gap:8px">${editRows}</div>
+      <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
+        <button class="btn ghost sm" data-coact="addrow">＋ Add contact</button>
+        <span style="flex:1"></span>
+        <button class="btn primary sm" data-coact="save" data-co="${esc(g.name)}">Save</button>
+      </div>
     </div>
-    <div class="co-jobs" style="margin-top:6px">${jobsHtml}</div>
+    <div class="co-jobs" style="margin-top:6px;display:${expanded ? 'block' : 'none'}">${jobsHtml}</div>
   </div>`;
 }
 function coJobRow(j, hrEmail) {
@@ -3079,29 +3444,154 @@ function coJobRow(j, hrEmail) {
       ${j.id ? `<button class="btn subtle sm" data-coact="view" data-jid="${esc(j.id)}">View</button>` : ''}
       ${j.id && !j.gen ? `<button class="btn ghost sm" data-coact="bulk" data-jid="${esc(j.id)}">➕ Bulk</button>` : ''}
       ${(j.id && j.gen && email) ? `<button class="btn ghost sm" data-coact="send" data-jid="${esc(j.id)}" title="Send to ${esc(email)} (email apply)">📧 Send</button>` : ''}
+      ${(j.id && email) ? `<button class="btn ghost sm" data-coact="emailhr" data-jid="${esc(j.id)}" title="${j.hr_emailed_at ? 'HR emailed ' + esc(j.hr_emailed_at) : 'Email HR about this posting'}">${j.hr_emailed_at ? '✅ HR' : '✉️ HR'}</button>` : ''}
       ${(j.id && j.sent_at) ? `<button class="btn ghost sm" data-coact="followup" data-jid="${esc(j.id)}" title="Send a follow-up${j.followups && j.followups.length ? ' ('+j.followups.length+' sent)' : ''}">🔔 Follow up</button>` : ''}
       ${j.id ? `<button class="btn primary sm" data-coact="gen" data-jid="${esc(j.id)}">${j.gen ? 'Regenerate' : 'Generate'}</button>` : ''}
     </div>
   </div>`;
 }
+/* HR follow-ups sub-view: companies with saved HR (optionally only recent postings). */
+function hrFilteredGroups() {
+  const win = parseInt($('hr-window').value) || 30, q = coNorm($('hr-q').value);
+  const recentOnly = $('hr-recent').checked;
+  let groups = coGroups().filter(g => coContacts(g.hr).length
+    && (!recentOnly || g.jobs.some(j => withinDays(j.found, win)))
+    && (!q || coNorm(g.name).includes(q)));
+  groups.sort((a, b) => (b.lastScraped || '').localeCompare(a.lastScraped || '') || a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+  return groups;
+}
+function hrRender() {
+  const box = $('hr-list'); if (!box) return;
+  const win = parseInt($('hr-window').value) || 30, recentOnly = $('hr-recent').checked;
+  const groups = hrFilteredGroups();
+  $('hr-count').textContent = recentOnly
+    ? `${groups.length} compan${groups.length === 1 ? 'y' : 'ies'} with a posting in ${win} days`
+    : `${groups.length} compan${groups.length === 1 ? 'y' : 'ies'} with saved HR`;
+  if (!groups.length) { box.innerHTML = `<div class="empty"><div class="big">✉️</div>${recentOnly ? `No companies with saved HR and a posting in the last ${win} days. Untick "Recent posting only" to see all, or import HR via CSV.` : 'No companies with a saved HR email yet. Import HR via CSV in the All companies tab.'}</div>`; return; }
+  box.innerHTML = groups.map(g => hrCard(g, win)).join('');
+  box.querySelectorAll('.co-copy').forEach(el => el.onclick = () => { navigator.clipboard?.writeText(el.dataset.copy); toast('Copied: ' + el.dataset.copy); });
+  box.querySelectorAll('[data-hract]').forEach(b => b.onclick = () => {
+    const k = b.dataset.hract;
+    if (k === 'edit') openHrCompose(b.dataset.co, 'first');
+    else sendHrDirect(b.dataset.co, k === 'send2' ? 'second' : 'first', b);
+  });
+  applyCoView();
+}
+// One-click HR follow-up: auto-build the template + send to all saved HR contacts.
+async function sendHrDirect(company, kind, btn) {
+  const g = coGroups().find(x => coNorm(x.name) === coNorm(company));
+  const contacts = coContacts(g && g.hr);
+  if (!contacts.length) { toast('No HR email saved for this company.', true); return; }
+  const test = n8nTestMode();
+  if (!await uiConfirm({
+    title: `Send ${kind === 'second' ? '2nd' : '1st'} follow-up to ${company}?`,
+    message: `To: ${contacts.map(c => c.email).join(', ')}${test ? '\n(TEST mode)' : ''}`, ok: 'Send',
+  })) return;
+  const lbl = btn.textContent; btn.disabled = true; btn.textContent = '⏳';
+  try {
+    await api('/companies/hr-followup/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ company, kind, test }) });
+    toast(test ? 'Posted to n8n TEST webhook (not recorded).' : 'Follow-up sent to HR.');
+    if (!test) loadCompanies(); else { btn.disabled = false; btn.textContent = lbl; }
+  } catch (e) { toast('Send failed: ' + e.message, true); btn.disabled = false; btn.textContent = lbl; }
+}
+function hrCard(g, win) {
+  const contacts = coContacts(g.hr), fups = (g.hr && g.hr.hr_followups) || [];
+  const recent = g.jobs.filter(j => withinDays(j.found, win)).sort((a, b) => (b.found || '').localeCompare(a.found || ''));
+  const roles = recent.slice(0, 3).map(j => esc(j.title)).join(', ') + (recent.length > 3 ? ' …' : '');
+  const status = fups.length ? `${fups.length} sent · last ${esc(fups[fups.length - 1])}` : 'no follow-up yet';
+  const emails = contacts.map(c => `<span class="co-copy" data-copy="${esc(c.email)}" style="cursor:pointer;color:var(--accent)" title="Click to copy">${esc(c.email)}</span>`).join(', ');
+  return `<div class="card co-card" data-co="${esc(g.name)}">
+    <div class="co-head">
+      <span class="co-name">🏢 ${esc(g.name)}</span>
+      <span class="jl-src" style="margin:0">${recent.length} new</span>
+      <span class="co-hr-inline">${emails}</span>
+      <span style="flex:1"></span>
+      <button class="btn primary sm" data-hract="send1" data-co="${esc(g.name)}" title="One-click: email all saved HR the 1st follow-up">📧 Send 1st</button>
+      <button class="btn subtle sm" data-hract="send2" data-co="${esc(g.name)}" title="One-click: 2nd follow-up">2nd</button>
+      <button class="btn subtle sm" data-hract="edit" data-co="${esc(g.name)}" title="Edit before sending">✎ Edit</button>
+    </div>
+    <div class="muted" style="font-size:12px;margin-top:6px">Recent: ${roles || '—'} · <span style="color:var(--accent)">${status}</span></div>
+  </div>`;
+}
+let hrcCompany = '';
+async function openHrCompose(company, kind) {
+  hrcCompany = company;
+  const g = coGroups().find(x => coNorm(x.name) === coNorm(company));
+  const contacts = coContacts(g && g.hr);
+  $('hrc-title').textContent = `${kind === 'second' ? 'Second' : 'First'} follow-up · ${company}`;
+  $('hrc-recips').innerHTML = contacts.length
+    ? contacts.map((c, i) => `<label class="checks" style="margin:0;font-size:13px"><input type="checkbox" class="hrc-r" value="${esc(c.email)}" ${i === 0 ? 'checked' : ''} style="width:auto"> ${c.name ? esc(c.name) + ' · ' : ''}${esc(c.email)}</label>`).join('')
+    : '<span class="muted">No HR emails saved for this company.</span>';
+  $('hrc-subject').value = 'Loading…'; $('hrc-body').value = 'Loading…';
+  $('hrc-overlay').classList.add('show');
+  try {
+    const res = await api('/companies/hr-followup/preview', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ company, kind, window_days: parseInt($('hr-window').value) || 30 }) });
+    $('hrc-subject').value = res.subject || ''; $('hrc-body').value = res.body || '';
+  } catch (e) { toast('Preview failed: ' + e.message, true); $('hrc-subject').value = ''; $('hrc-body').value = ''; }
+}
 // Grid / list view toggle for Companies + Repeatable (default grid, persisted).
-let coView = localStorage.getItem('co-view') || 'grid';
-let rpView = localStorage.getItem('rp-view') || 'grid';
+let coView = lsGet('co-view') || 'grid';
+let rpView = lsGet('rp-view') || 'grid';
 function applyCoView() {
-  const box = $('co-list'); if (box) box.classList.toggle('cards-grid', coView === 'grid');
+  ['co-list', 'hr-list'].forEach(id => { const box = $(id); if (box) box.classList.toggle('cards-grid', coView === 'grid'); });
   document.querySelectorAll('#co-view button').forEach(b => b.classList.toggle('on', b.dataset.cv === coView));
 }
 function applyRpView() {
   const box = $('rp-list'); if (box) box.classList.toggle('cards-grid', rpView === 'grid');
   document.querySelectorAll('#rp-view button').forEach(b => b.classList.toggle('on', b.dataset.rv === rpView));
 }
-document.querySelectorAll('#co-view button').forEach(b => b.onclick = () => { coView = b.dataset.cv; try { localStorage.setItem('co-view', coView); } catch {} applyCoView(); });
-document.querySelectorAll('#rp-view button').forEach(b => b.onclick = () => { rpView = b.dataset.rv; try { localStorage.setItem('rp-view', rpView); } catch {} applyRpView(); });
+document.querySelectorAll('#co-view button').forEach(b => b.onclick = () => { coView = b.dataset.cv; try { lsSet('co-view', coView); } catch {} applyCoView(); });
+document.querySelectorAll('#rp-view button').forEach(b => b.onclick = () => { rpView = b.dataset.rv; try { lsSet('rp-view', rpView); } catch {} applyRpView(); });
 applyCoView(); applyRpView();
 
 $('co-refresh').onclick = loadCompanies;
 $('co-q').oninput = coRender;
 $('co-hideempty').onchange = coRender;
+$('co-sort').onchange = () => { coSort = $('co-sort').value; coRender(); };
+document.querySelectorAll('#co-tabs button').forEach(b => b.onclick = () => { coTab = b.dataset.cotab; coRender(); });
+$('hr-window').onchange = () => { hrSel.clear(); hrRender(); };
+$('hr-recent').onchange = () => { hrSel.clear(); hrRender(); };
+$('hr-q').oninput = hrRender;
+$('hr-all').onclick = () => {
+  const names = hrFilteredGroups().map(g => g.name);
+  const on = $('hr-all').checked;
+  names.forEach(n => on ? hrSel.add(n) : hrSel.delete(n));
+  hrRender();
+};
+$('hr-batch').onclick = async () => {
+  const companies = [...hrSel]; if (!companies.length) return;
+  const kind = $('hr-kind').value, test = n8nTestMode();
+  if (!await uiConfirm({
+    title: `Send ${kind === 'second' ? '2nd' : '1st'} follow-up to ${companies.length} compan${companies.length === 1 ? 'y' : 'ies'}?`,
+    message: `One email per saved HR contact, auto-built from the ${kind === 'second' ? 'second' : 'first'}-follow-up template${test ? ' (TEST mode)' : ''}. Logs to the HR Outreach sheet.`,
+    ok: 'Send batch',
+  })) return;
+  const btn = $('hr-batch'); btn.disabled = true; const lbl = btn.textContent; btn.textContent = '⏳ Sending…';
+  try {
+    const res = await api('/companies/hr-batch/send', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ companies, kind, window_days: parseInt($('hr-window').value) || 30, test }) });
+    toast(test ? `Posted ${res.rows} test row${res.rows === 1 ? '' : 's'} to n8n (not recorded).`
+               : `Batch sent: ${res.rows} email${res.rows === 1 ? '' : 's'} across ${res.companies} compan${res.companies === 1 ? 'y' : 'ies'}.`);
+    if (!test) { hrSel.clear(); loadCompanies(); } else { btn.disabled = false; btn.textContent = lbl; }
+  } catch (e) { toast('Batch failed: ' + e.message, true); btn.disabled = false; btn.textContent = lbl; }
+};
+// HR follow-up compose modal
+$('hrc-x').onclick = $('hrc-cancel').onclick = () => $('hrc-overlay').classList.remove('show');
+$('hrc-overlay').onclick = (e) => { if (e.target === $('hrc-overlay')) $('hrc-overlay').classList.remove('show'); };
+$('hrc-send').onclick = async () => {
+  const recipients = [...document.querySelectorAll('.hrc-r:checked')].map(c => c.value);
+  if (!recipients.length) { toast('Pick at least one recipient.', true); return; }
+  const test = n8nTestMode();
+  const btn = $('hrc-send'); btn.disabled = true; const lbl = btn.textContent; btn.textContent = '⏳';
+  try {
+    await api('/companies/hr-followup/send', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ company: hrcCompany, recipients, subject: $('hrc-subject').value, body: $('hrc-body').value, test }) });
+    toast(test ? 'Posted to n8n TEST webhook (not recorded).' : `Follow-up sent to ${recipients.length} recipient${recipients.length === 1 ? '' : 's'}.`);
+    $('hrc-overlay').classList.remove('show');
+    if (!test) loadCompanies();
+  } catch (e) { toast('Send failed: ' + e.message, true); }
+  finally { btn.disabled = false; btn.textContent = lbl; }
+};
 $('co-csv').onclick = () => $('co-csv-file').click();
 $('co-csv-file').onchange = async (e) => {
   const file = e.target.files[0]; if (!file) return;
@@ -3255,6 +3745,22 @@ function openModalFor(data) {
 }
 
 /* Job detail modal: info + editable email + actions (Jobs tab) */
+const SENT_KIND_LABEL = { application: '📧 Application', followup: '🔔 Follow-up', hr: '✉️ HR email' };
+function sentHistoryHtml(j) {
+  if (!j.sent_log || !j.sent_log.length) return '';
+  const items = j.sent_log.slice().reverse().map(s => `
+    <details style="border:1px solid var(--line);border-radius:10px;padding:8px 10px;background:var(--soft-bg)">
+      <summary style="cursor:pointer;font-size:13px"><b>${esc(SENT_KIND_LABEL[s.kind] || s.kind)}</b> <span class="muted">· ${esc((s.at||'').replace('T',' ').slice(0,16))} · to ${esc(s.to||'')}</span></summary>
+      <div style="margin-top:8px">
+        <div style="font-size:11px;color:var(--faint)">SUBJECT</div>
+        <div style="font-weight:600;margin-bottom:8px">${esc(s.subject||'')}</div>
+        <div style="font-size:11px;color:var(--faint)">BODY</div>
+        <div style="white-space:pre-wrap;font-size:13px;background:var(--input-bg);border:1px solid var(--line);border-radius:8px;padding:10px">${esc(s.body||'')}</div>
+      </div>
+    </details>`).join('');
+  return `<label class="fld" style="display:block;margin-top:6px">Sent history (${j.sent_log.length}) — review what was emailed</label>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:6px">${items}</div>`;
+}
 function openJobDetail(j) {
   if (!j) return;
   openModalShell(j.title || 'Job', [j.company, j.location].filter(Boolean).join(' · '));
@@ -3265,6 +3771,7 @@ function openJobDetail(j) {
       ${meta('Date', esc(j.date))}${meta('Applied', j.applied?'Yes':'No')}
       ${meta('Last generated', j.gen ? esc(j.generated_at || '—') : 'Not generated yet')}
       ${j.sent_at ? meta('Emailed', esc(j.sent_at) + (j.sent_to ? ' → ' + esc(j.sent_to) : '')) : ''}
+      ${j.hr_emailed_at ? meta('HR emailed', esc(j.hr_emailed_at)) : ''}
       ${(j.followups && j.followups.length) ? meta('Follow-ups', j.followups.length + ' (last ' + esc((j.followups[j.followups.length-1]||'').replace('T',' ').slice(0,16)) + ')') : ''}
     </div>
     <label class="fld">Contact email (HR) — edit & save to enable email apply${(!j.email && j.company_email)?' <span style="color:var(--accent)">· prefilled from saved company HR</span>':''}</label>
@@ -3279,6 +3786,7 @@ function openJobDetail(j) {
       ${j.id?`<button class="btn danger sm" id="jd-del">🗑 Delete job</button>`:''}
       ${j.id?`<button class="btn primary sm" id="jd-gen">${j.gen?'Regenerate':'Generate'}</button>`:''}
     </div>
+    ${sentHistoryHtml(j)}
     <label class="fld">Job description</label>
     <div class="summary-box" style="max-height:42vh;overflow:auto;white-space:pre-wrap;background:var(--soft-bg);border:1px solid var(--line);border-radius:10px;padding:12px;font-size:13px">${esc(j.description) || '<span class="muted">No description.</span>'}</div>`;
   const save = $('jd-email-save');
@@ -3318,7 +3826,7 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') document.que
 /* ---------- Theme toggle ---------- */
 function applyTheme(t) {
   document.documentElement.setAttribute('data-theme', t);
-  localStorage.setItem('theme', t);
+  lsSet('theme', t);
   const dark = t === 'dark';
   $('theme-ic').textContent = dark ? '☀️' : '🌙';
   $('theme-lbl').textContent = dark ? 'Light mode' : 'Dark mode';
@@ -3327,11 +3835,11 @@ $('theme-toggle').onclick = () =>
   applyTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
 
 /* ---------- Boot ---------- */
-applyTheme(localStorage.getItem('theme') || 'dark');
+applyTheme(lsGet('theme') || 'dark');
 loadHealth(); loadModels(); loadPersonas();
 // Persist the n8n test-mode toggle across reloads.
-try { const t = $('n8n-test'); if (t) { t.checked = localStorage.getItem('n8n-test') === '1'; t.onchange = () => { try { localStorage.setItem('n8n-test', t.checked ? '1' : '0'); } catch {} }; } } catch {}
-showView(localStorage.getItem('view') || 'generate');   // stay on the last tab after refresh
+try { const t = $('n8n-test'); if (t) { t.checked = lsGet('n8n-test') === '1'; t.onchange = () => { try { lsSet('n8n-test', t.checked ? '1' : '0'); } catch {} }; } } catch {}
+showView(lsGet('view') || 'generate');   // stay on the last tab after refresh
 setInterval(loadHealth, 15000);
 </script>
 </body>

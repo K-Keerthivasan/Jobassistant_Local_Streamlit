@@ -158,6 +158,28 @@ def record_followup(key_id: str) -> QueuedJob | None:
     return _save(q)
 
 
+def stamp_hr_emailed(key_id: str) -> QueuedJob | None:
+    """Record that an HR note was emailed for this job."""
+    q = get_job(key_id)
+    if q is None:
+        return None
+    q.hr_emailed_at = datetime.now().isoformat(timespec="seconds")
+    return _save(q)
+
+
+def append_sent_log(key_id: str, kind: str, to: str, subject: str, body: str) -> QueuedJob | None:
+    """Record the content of an email sent via n8n, so it can be reviewed later."""
+    q = get_job(key_id)
+    if q is None:
+        return None
+    q.sent_log = list(q.sent_log or [])
+    q.sent_log.append({
+        "at": datetime.now().isoformat(timespec="seconds"),
+        "kind": kind, "to": to, "subject": subject or "", "body": body or "",
+    })
+    return _save(q)
+
+
 def set_priority(key_id: str, priority: bool) -> QueuedJob | None:
     q = get_job(key_id)
     if q is None:
@@ -197,6 +219,19 @@ def set_irrelevant(key_id: str, irrelevant: bool) -> QueuedJob | None:
     return _save(q)
 
 
+def set_special(key_id: str, special: bool, program: str | None = None) -> QueuedJob | None:
+    """Flag/unflag a job as 🍁 PR-potential (Special), optionally tagging its program."""
+    q = get_job(key_id)
+    if q is None:
+        return None
+    q.special = special
+    if program is not None:
+        q.special_program = (program or "").strip()
+    if not special:
+        q.special_program = ""
+    return _save(q)
+
+
 def delete_job(key_id: str, *, forget_seen: bool = True) -> QueuedJob | None:
     """Remove a queued job. Optionally remove its key from `seen` so a future
     scrape can queue it again."""
@@ -210,14 +245,41 @@ def delete_job(key_id: str, *, forget_seen: bool = True) -> QueuedJob | None:
     return q
 
 
-def dedupe_jobs() -> dict:
-    """Collapse duplicate queued jobs that share company + title + location,
-    keeping the most valuable copy of each (generated/applied/repeatable/priority,
-    else the newest) and deleting the rest. Deleted keys stay in `seen` so they
-    don't come back on the next fetch."""
-    def _norm(s: str) -> str:
-        return re.sub(r"\s+", " ", (s or "").strip().lower())
+_LEGAL_SUFFIX = re.compile(
+    r"\b(inc|incorporated|llc|llp|ltd|limited|corp|corporation|co|company|"
+    r"plc|gmbh|pvt|sa|srl)\b", re.I)
+_COUNTRY_TOK = {"ca", "can", "canada", "us", "usa", "united", "states", "of", "america", "uk"}
 
+
+def _norm_company(s: str) -> str:
+    """Company key: lowercase, drop punctuation + legal suffixes ('Acme Inc.' == 'Acme')."""
+    t = re.sub(r"[^a-z0-9 ]", " ", (s or "").lower())
+    t = _LEGAL_SUFFIX.sub(" ", t)
+    return re.sub(r"\s+", " ", t).strip()
+
+
+def _norm_title(s: str) -> str:
+    """Title key: drop '- job post' tails, trailing 'xN' counts, and punctuation."""
+    t = (s or "").lower()
+    t = re.sub(r"\s*[-–—]\s*job post.*$", "", t)
+    t = re.sub(r"\bx\s*\d+\b", "", t)              # 'UX Designer x1'
+    t = re.sub(r"[^a-z0-9 ]", " ", t)
+    return re.sub(r"\s+", " ", t).strip()
+
+
+def _norm_loc(s: str) -> str:
+    """Location key: city+province only, format/country agnostic. So 'Mississauga, ON',
+    'Mississauga, ON, CA' and 'Mississauga (ON)' all collapse to 'mississauga on'."""
+    t = re.sub(r"[(),/.;|]", " ", (s or "").lower())
+    toks = [w for w in re.split(r"\s+", t) if w and w not in _COUNTRY_TOK]
+    return " ".join(toks)
+
+
+def dedupe_jobs() -> dict:
+    """Collapse duplicate queued jobs that share company + title + location, matched
+    tolerantly (punctuation, legal suffixes, and location formatting are ignored).
+    Keeps the most valuable copy of each (generated/applied/repeatable/priority, else
+    the newest) and deletes the rest. Deleted keys stay in `seen`."""
     def _score(j: QueuedJob):
         return (
             1 if j.status == "generated" else 0,
@@ -233,7 +295,7 @@ def dedupe_jobs() -> dict:
 
     groups: dict[tuple, list] = {}
     for j in jobs:
-        groups.setdefault((_norm(j.company), _norm(j.title), _norm(j.location)), []).append(j)
+        groups.setdefault((_norm_company(j.company), _norm_title(j.title), _norm_loc(j.location)), []).append(j)
 
     removed = 0
     dup_groups = 0

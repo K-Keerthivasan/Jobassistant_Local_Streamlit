@@ -40,9 +40,9 @@
         "resource": "message",
         "operation": "send",
         "sendTo": "={{ $json.hr_email }}",
-        "subject": "={{ 'Following up: ' + ($json.title || 'my application') }}",
+        "subject": "={{ 'Following up on ' + ($json.title || 'your roles') + ' at ' + ($json.company || 'your company') }}",
         "emailType": "text",
-        "message": "={{ 'Hi ' + ($json.hr_name || 'there') + ',\\n\\nJust following up on my application for ' + ($json.title || 'the role') + ' at ' + ($json.company || 'your company') + '. I\\'d welcome the chance to connect.\\n\\nThank you,' }}",
+        "message": "={{ 'Hi ' + ($json.hr_name || 'there') + ',\\n\\nCircling back on my note about ' + ($json.title || 'the role') + ' at ' + ($json.company || 'your company') + '. I am still very interested, and if it is still open I would love to be considered. If it has moved on, even a quick line so I can close it out would be appreciated.\\n\\nIf you would like to see the work, my portfolio is at dev.kkvasan.ca and a few client builds live at k2digitalmedia.ca.\\n\\nThanks for your time,\\nKeerthi\\n226-977-6398 | linkedin.com/in/kkvasan' }}",
         "options": {}
       },
       "id": "wf3-node-gmail",
