@@ -99,7 +99,7 @@ copy data\sources.sample.yaml data\sources.yaml
 - `type: collector` — pulls jobs you saved via the userscript.
 - `type: apify` — runs a job-scraping actor (needs `APIFY_TOKEN` in `.env`).
 - `type: greenhouse | lever | workday | generic` — ATS boards.
-- `filters.canada_only: true` keeps Canadian postings only (see [scraper.md](scraper.md)).
+- `filters.location_keywords` optionally limits results to selected locations.
 
 Run intake from the **Scraper** tab ("🔄 Fetch new jobs") or `POST /intake/run`.
 

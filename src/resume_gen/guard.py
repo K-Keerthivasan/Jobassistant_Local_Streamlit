@@ -40,9 +40,8 @@ def _profile_skill_text(profile: dict) -> str:
 
 
 def _display_location(profile: dict, target_location: str = "") -> str:
-    """Show the precise home city (London) only for local jobs; for jobs elsewhere
-    show a broader-but-true location (e.g. 'Ontario, Canada') so applying out of
-    town doesn't surface 'London'."""
+    """Show the precise home city only for local jobs; for jobs elsewhere show
+    the broader location from the profile so applications remain appropriate."""
     c = profile.get("contact", {})
     full = c.get("location", "")
     general = c.get("location_general", "") or full

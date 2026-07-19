@@ -169,14 +169,14 @@ def find_jobs(role: str, location: str = "", *, limit: int = 15,
     if not available():
         raise HermesError("HERMES_API_KEY is not set — cannot use Hermes Scraping.")
     model = model or settings.hermes_model
-    where = location.strip() or "Canada"
+    where = location.strip() or "Remote"
     system = (
         "You are a job-search assistant. Find REAL, CURRENT job postings that match "
         "the request. Return ONLY a JSON array (no prose, no code fences) of up to the "
         "requested count of objects with EXACTLY these keys: company, title, location, "
         "description, apply_url, contact_email. Use the real posting URL for apply_url; "
         'leave contact_email "" unless an application email is clearly stated. Prefer '
-        "postings in the requested location/Canada. Do not invent postings."
+        "postings in the requested location. Do not invent postings."
     )
     prompt = f'Find up to {limit} current "{role}" job postings in {where}.'
     start = time.perf_counter()

@@ -53,10 +53,7 @@ class QueuedJob(JobPosting):
     priority_override: str = ""  # manual priority pin: "" (auto) | high | medium | low
     repeatable: bool = False  # 🔁 saved as a recurring-role template (reapply often)
     irrelevant: bool = False  # 🚫 not a relevant job — hidden from the active lists
-    special: bool = False     # 🍁 PR-potential job (RCIP/RNIP/AIP…) — shown in the Special tab
-    special_program: str = ""  # optional program tag within Special (RCIP | RNIP | AIP | Other)
     lane: str = ""            # job category / stream (Full Stack, IT Support, Digital Marketing…)
-    noc_teer: str = ""        # NOC code + TEER level (for PR eligibility), e.g. "21232 / TEER 1"
     found_at: str = ""
     notes: str = Field(default="")
     # Email-apply tracking (set when the application is actually emailed via n8n).

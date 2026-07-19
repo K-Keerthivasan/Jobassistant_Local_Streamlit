@@ -13,7 +13,7 @@ Body (a `TargetRole` plus options):
 ```json
 {
   "company": "Shopify", "title": "Full Stack Developer",
-  "location": "Toronto, ON", "description": "…job text…",
+  "location": "Remote", "description": "…job text…",
   "persona": "auto", "model": null, "strict": true, "pdf": true
 }
 ```

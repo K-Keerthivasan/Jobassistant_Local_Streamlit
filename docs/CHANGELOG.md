@@ -109,7 +109,7 @@ UI/architecture rework separating *finding jobs* from *generating*:
 - **RSS Scraping** (renamed from Automatic Scrape) — the source-driven scrape.
 - **🤖 Claude Scraping** (new tab) — `POST /scrape/claude` → `anthropic_client.find_jobs`
   uses Claude + the **web_search** tool to pull real, current jobs and queue them
-  (source `claude`, curated → no keyword/Canada filter). Needs `ANTHROPIC_API_KEY`.
+  (source `claude`, curated → configured filters do not apply). Needs `ANTHROPIC_API_KEY`.
 - **Engine selector** (sidebar): **Auto** (⭐ priority → Claude, else local), or pick a
   specific local/Claude model. `resolveModel(priority)` drives Generate, Bulk, and
   per-job generation; per-job **⭐ priority** toggle (`POST /jobs/{key}/priority`,
@@ -127,7 +127,7 @@ UI/architecture rework separating *finding jobs* from *generating*:
   Anthropic, else Ollama). Set **`ANTHROPIC_API_KEY`** in `.env` to enable; the
   truth-guard still runs on the output. (`anthropic` SDK added to requirements.)
 - **Scraper fix**: jobs from **curated sources** (collector / manual / CSV) now
-  bypass the title-keyword **and** Canada filters — you saved/entered them on
+  bypass the title-keyword and location filters — you saved/entered them on
   purpose, so they always appear in the queue (previously a saved "Executive
   Assistant" was dropped by the dev-keyword filter). Reminder: collector jobs reach
   the app only after **🔄 Fetch new jobs**.
@@ -165,8 +165,8 @@ Job Bank's RSS is dead (returns 0 items even with a live session). Built a prope
 search results (`a.resultJobItem` → title/company/location/date/posting URL) and
 pulls each posting's clean description from `[property='description']` (+
 `.job-posting-brief`). Params: `search`, `location`, `limit`, `detail`. Addable from
-**⚙️ Setup → Add source → Job Bank (Canada)** (keyword + optional location);
-`POST /sources/add` extended. Verified live: a "software developer / Ontario" source
+**⚙️ Setup → Add source → Job Bank** (keyword + optional location);
+`POST /sources/add` extended. Verified live with a software-developer source that
 pulled ~25 real postings through intake. (Working RSS test feeds: WeWorkRemotely,
 RemoteOK.)
 
@@ -230,7 +230,7 @@ Safe "fill the repetitive fields, stop before submit" system (see
   groups, preserving relevance order; leftovers under `Other`). `render_resume` now
   takes the profile.
 - **Adaptive location**: the precise home city (London) shows only for local jobs;
-  for jobs elsewhere/remote it shows `contact.location_general` ("Ontario, Canada") so
+  for jobs elsewhere/remote it shows `contact.location_general` so
   applying out of town doesn't surface "London". New `location_general` profile field;
   threaded via `enforce(..., target_location=)` and the cover-letter contact line.
 
@@ -370,14 +370,9 @@ companies "CloudScale Solutions", inflated "Senior Software Engineer", 500k+ use
 - **Bill Gosling preserved**: `preserve: true` + a prompt rule so a
   collections/customer-service role is never recast as sales/dev.
 
-### Job search: Canada-only
-- `filters.canada_only` (+ `keep_unknown_location`, `location_keywords`) in
-  `sources.yaml`; `_in_canada()` matcher. Applies to all sources.
-- **Patch:** the remote-keeping rule was too broad and let "Remote, US",
-  "Remote, India", etc. through. Now only a **bare** "Remote" (no place named)
-  counts as unknown (`_is_bare_remote`); multi-region postings that include
-  Canada ("Remote, Canada; Remote, US") are kept, the rest dropped. Set
-  `keep_unknown_location: false` to also drop bare "Remote".
+### Job search: location filtering
+- `filters.location_keywords` provides a general substring allow-list for job
+  locations and can be left empty to accept postings from anywhere.
 
 ### Dark-mode dropdown fix
 - Sidebar `<select>` options were dark-on-dark in dark mode — added an explicit

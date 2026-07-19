@@ -57,7 +57,7 @@ Tampermonkey (LinkedIn/Indeed)  ──POST /api/jobs──►  Collector (:8765,
 Resume Studio "Scraper" tab embeds the dashboard ◄────────┘  (iframe, theme-synced)
 
 POST /intake/run  ──►  fetch sources (collector / Apify / Greenhouse / Lever / Workday)
-                  ──►  filter (title keywords, canada_only, require_email)
+                  ──►  filter (title keywords, location keywords, require_email)
                   ──►  dedup (seen.json)  ──►  review queue (data/intake/queue/*.json)
                   ──►  Bulk "Generate from queue"  ──►  generation pipeline
 ```
@@ -110,7 +110,7 @@ Everything it changes is reported in `qa_report.json`.
 
 - **Phase 1 — Generation core** ✅ resume + cover + email, DOCX/PDF, CLI + API, web UI.
 - **Phase 2 — Intake** ✅ collector + userscript (LinkedIn/Indeed), Apify/ATS sources,
-  Canada filter, review queue, embedded dashboard.
+  configurable filters, review queue, embedded dashboard.
 - **Phase 3 — Auto-apply** (in progress) — email-to-HR path (`automation/email_sender.py`,
   SMTP) and per-site Selenium form-fill (`automation/apply.py`), behind a review gate.
 - **Phase 4 — Reach** — Tailscale so phone/other devices can trigger and review.

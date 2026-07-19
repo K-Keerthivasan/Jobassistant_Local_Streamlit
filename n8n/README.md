@@ -35,7 +35,7 @@ a per-row result the app shows as the "sent" report. A separate schedule handles
   "rows": [
     {
       "company": "Acme Inc", "title": "Software Developer",
-      "hr_name": "Jane Doe", "hr_email": "jane@acme.com", "location": "Toronto, ON",
+      "hr_name": "Jane Doe", "hr_email": "jane@acme.com", "location": "Remote",
       "subject": "Application: Software Developer",
       "body": "Hi Jane, ...",
       "resume": { "filename": "Acme_Software_Developer_K_Resume.pdf", "content_base64": "..." },
@@ -67,7 +67,7 @@ wired app-side: generate the job, then **📧 n8n** on the row (or the email-app
 **Webhook payload the app sends (one job per call):**
 ```json
 {
-  "type": "job_application", "source": "jobbank",
+  "type": "job_application", "delivery_id": "unique-request-id", "source": "jobbank",
   "company": "...", "title": "...", "location": "...",
   "contact_email": "hr@company.com", "apply_url": "...",
   "email": { "subject": "...", "body": "..." },
@@ -81,7 +81,16 @@ wired app-side: generate the job, then **📧 n8n** on the row (or the email-app
 
 **n8n nodes:** Webhook (POST, responseNode) → Gmail "Send" (To `contact_email`, Subject
 `email.subject`, body `email.body`, attach `files.resume` / `files.cover_letter`) →
-Google Sheets "Append" to **Job Applications** → Respond to Webhook (`{"sent": true}`).
+Google Sheets "Append" to **Job Applications** → Respond to Webhook
+(`{"sent": true, "delivery_id": "<the incoming delivery_id>"}`). The app only marks a
+job applied after that exact acknowledgement returns. An HTTP 200 without the matching
+ID is treated as a failure, and the generated package remains available for **Resend n8n**.
+
+The bundled workflow also has a safe `webhook_check` branch. The sidebar's
+**Verify n8n webhook** button uses it to confirm the selected production/test URL without
+reaching Gmail or Google Sheets. Re-import
+`n8n/workflows/job-application-email.workflow.json` (or reproduce its verification IF
+and response nodes) before using this button, then publish/activate the workflow.
 
 **Google Sheet "Job Applications" columns:**
 `date | company | title | location | source | contact_email | subject | status | applied`

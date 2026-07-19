@@ -43,12 +43,12 @@ Add an RSS source to `data/sources.yaml`:
 
 ```yaml
 - type: rss
-  url: "https://www.jobbank.gc.ca/jobsearch/jobsearchRSS?searchstring=developer&locationstring=Ontario"
+  url: "https://www.jobbank.gc.ca/jobsearch/jobsearchRSS?searchstring=developer"
   # company: "override if the feed omits it"
 ```
 
-Run a search on jobbank.gc.ca and copy its RSS link. Items become jobs in the queue
-(Canada-filtered like every source). RSS jobs that expose a **contact email** go down
+Run a search on jobbank.gc.ca and copy its RSS link. Items become jobs in the queue.
+RSS jobs that expose a **contact email** go down
 the **email-apply path** (generate → `📧 n8n` → n8n sends the email).
 
 ## 5. Playwright autofill (run on your host)
@@ -107,7 +107,7 @@ Gmail's attachment field differs, point it at the binary properties `resume` and
 
 ```
 Schedule/Manual Trigger
-  → POST /intake/run            (scrape Job Bank RSS + ATS + collector, Canada-filtered)
+  → POST /intake/run            (scrape Job Bank RSS + ATS + collector)
   → GET  /jobs?status=new       (+ each job's `repeat` flag)
   → Filter: experience ≤ 3 yrs / good match
   → Branch:

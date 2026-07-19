@@ -78,6 +78,12 @@ class EmailHook(BaseModel):
     hook: str = ""
 
 
+class FollowupNote(BaseModel):
+    """One fresh 'new value proposition' line for a follow-up message."""
+
+    value: str = ""
+
+
 class ScreeningAnswer(BaseModel):
     """A first-person answer to one application screening question."""
 

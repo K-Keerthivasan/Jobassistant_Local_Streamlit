@@ -183,11 +183,8 @@ def _header(doc: Document, full_name: str, contact, *, headline: str = "") -> No
     name_p.paragraph_format.space_after = Pt(1)
     _run(name_p, full_name.upper(), bold=True, size=22, color=ACCENT)
 
-    if headline:
-        h = doc.add_paragraph()
-        h.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        h.paragraph_format.space_after = Pt(2)
-        _run(h, headline, size=11.5, color=ACCENT)
+    # Headline intentionally not rendered (removed per preference). The `headline`
+    # argument is kept for signature compatibility but no longer emitted.
 
     parts = [contact.location, contact.email, contact.phone]
     parts += [link.url for link in contact.links]

@@ -421,7 +421,7 @@ def fetch_rss(src: dict) -> list[JobPosting]:
 
 
 # --------------------------------------------------------------------------- #
-# Job Bank (Canada) — its RSS is dead, so scrape the search results page and pull
+# Job Bank — its RSS is dead, so scrape the search results page and pull
 # each posting's description + contact email from the posting's JSON-LD.
 # --------------------------------------------------------------------------- #
 _BROWSER_UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -502,7 +502,7 @@ def fetch_jobbank(src: dict) -> list[JobPosting]:
 SOURCE_REGISTRY: dict[str, dict] = {
     "jobbank": {
         "fetch": lambda s: fetch_jobbank(s),
-        "label": "Job Bank (Canada)", "input": "search",
+        "label": "Job Bank", "input": "search",
         "hint": "Job Bank search keyword (e.g. software developer)",
         "needs_location": True,
     },

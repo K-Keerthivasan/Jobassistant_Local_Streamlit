@@ -21,7 +21,7 @@ unknown columns are ignored.
 |-----------------|----------|---------------------------------------------------|-------|
 | `company`       | one of\* | `employer`, `organization`, `business`            | Hiring company |
 | `title`         | one of\* | `job_title`, `position`, `role`                   | Exact job title |
-| `location`      | no       | `city`, `place`                                   | e.g. `Toronto, ON` or `Remote` |
+| `location`      | no       | `city`, `place`                                   | e.g. `Remote` or a city name |
 | `description`   | no       | `description_summary`, `summary`, `jd`            | The job description — drives tailoring; the more, the better |
 | `apply_url`     | no       | `url`, `link`, `source_url`, `job_url`            | Direct posting/apply URL |
 | `contact_email` | no       | `email`, `contact_emails`, `hr_email`             | Application email if known (enables the 📧 n8n path) |
@@ -39,7 +39,7 @@ unknown columns are ignored.
 
 ```csv
 company,title,location,description,apply_url,contact_email
-"Acme Inc","Full-Stack Developer","Toronto, ON","Build React + Node apps. TypeScript, REST, Postgres. 0-3 yrs.","https://acme.com/jobs/123","jobs@acme.com"
+"Acme Inc","Full-Stack Developer","Remote","Build React + Node apps. TypeScript, REST, Postgres. 0-3 yrs.","https://acme.com/jobs/123","jobs@acme.com"
 "Globex","Backend Developer","Remote","Python, FastAPI, Docker, AWS.","https://globex.com/careers/45",""
 ```
 

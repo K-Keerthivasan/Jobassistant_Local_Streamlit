@@ -11,6 +11,7 @@ from .models import (
     ApplicationEmail,
     CoverLetter,
     EmailHook,
+    FollowupNote,
     JobExtract,
     Resume,
     ScreeningAnswer,
@@ -23,6 +24,7 @@ from .prompts import (
     COVER_LETTER_SYSTEM,
     EMAIL_HOOK_SYSTEM,
     EMAIL_PARSE_SYSTEM,
+    FOLLOWUP_SYSTEM,
     RESUME_SYSTEM,
     build_user_message,
 )
@@ -178,7 +180,7 @@ def _signoff_block(profile: dict, closing: str) -> str:
 
 
 def _short_location(profile: dict) -> str:
-    """'London, ON, Canada' -> 'London, ON' (for the subject line)."""
+    """Shorten a comma-separated location for the subject line."""
     loc = (profile.get("contact", {}) or {}).get("location", "") or ""
     parts = [p.strip() for p in loc.split(",") if p.strip()]
     return ", ".join(parts[:2])
@@ -217,22 +219,32 @@ def generate_email(target: TargetRole, profile: dict | None = None, persona: dic
     return humanize_email(ApplicationEmail(subject=subject, body=body))
 
 
+_FOLLOWUP_VALUE_FALLBACK = (
+    "Since applying I've kept building in this space, and I'm confident I can start adding value here quickly."
+)
+
+
 def generate_followup_email(target: TargetRole, profile: dict | None = None,
                             persona: dict | None = None, *, contact_name: str = "",
                             date_applied: str = "", **kw) -> ApplicationEmail:
-    """A short, polite follow-up to an already-sent application. Fully template-
-    driven (no model call), so it never fails or drifts off-format."""
+    """A follow-up that reopens the conversation: reaffirm fit in one line, add a
+    FRESH value proposition (model-written, truth-only, with a fallback), then ask
+    for next steps. Warm and confident, never desperate."""
     profile = profile or load_profile()
     role = (target.title or "the role").strip()
-    company = (target.company or "your company").strip()
-    when = (date_applied or "").strip() or "recently"
+    company = (target.company or "your team").strip()
+    # The one dynamic, model-generated piece: a fresh value proposition (truth-only).
+    value = ""
+    try:
+        value = (chat_structured(FOLLOWUP_SYSTEM, _context(profile, target, persona),
+                                 FollowupNote, **kw).value or "").strip()
+    except Exception:
+        value = ""
     body = "\n\n".join([
         _greeting(contact_name),
-        f"Floating this back to the top of your inbox. I applied for the {role} role on {when} and I am still genuinely keen.",
-        (f"Nothing has changed on my end except that I have read more about {company} since, and I am more "
-         "interested, not less. If the role is still open I would love to be in the running. If it has already "
-         "moved on, even a one line reply so I can close it out would be appreciated."),
-        "Resume is attached again for convenience.",
+        f"I wanted to follow up on my application for the {role} role at {company}. I'm confident it's a strong match for what you're building.",
+        value or _FOLLOWUP_VALUE_FALLBACK,
+        "Would it make sense to set up a quick call to talk through how I can help? I'm happy to work around your schedule.",
         _signoff_block(profile, "Thanks,"),
     ])
     name = _signoff_name(profile)

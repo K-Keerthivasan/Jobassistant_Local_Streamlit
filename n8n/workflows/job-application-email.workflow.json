@@ -17,13 +17,48 @@
     },
     {
       "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2 },
+          "conditions": [
+            {
+              "id": "condition-webhook-check",
+              "leftValue": "={{ ($json.body || $json).type }}",
+              "rightValue": "webhook_check",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "wf2-node-is-check",
+      "name": "Webhook verification?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"verified\": true, \"verification_id\": ($json.body || $json).verification_id || \"\" } }}",
+        "options": {}
+      },
+      "id": "wf2-node-verify-response",
+      "name": "Confirm webhook verification",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [680, 180],
+      "notes": "Safe handshake used by Resume Studio's Verify n8n webhook button. This branch never reaches Gmail or Google Sheets."
+    },
+    {
+      "parameters": {
         "jsCode": "// Build email fields + PDF binaries from the app's payload.\n// n8n's webhook node nests the POST body under $json.body.\nconst j = $json.body || $json;\nconst f = j.files || {};\n// Turn the plain-text cover-letter body into simple, well-spaced HTML.\nfunction textToHtml(text) {\n  const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\n  const paras = esc(text).trim().split(/\\n{2,}/).map((p) => '<p style=\"margin:0 0 12px\">' + p.replace(/\\n/g, '<br>') + '</p>').join('');\n  return '<div style=\"font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.5;color:#222\">' + paras + '</div>';\n}\nconst out = {\n  json: {\n    date: new Date().toISOString().slice(0, 10),\n    type: j.type || 'job_application',\n    source: j.source || '',\n    company: j.company || '',\n    title: j.title || '',\n    location: j.location || '',\n    contact_email: j.contact_email || '',\n    apply_url: j.apply_url || '',\n    subject: (j.email || {}).subject || `Application: ${j.title || ''}`,\n    body: (j.email || {}).body || '',\n    html: textToHtml((j.email || {}).body || ''),\n    folder: j.folder || '',\n    status: (j.type === 'followup') ? 'followup' : 'sent',\n    applied: (j.type === 'followup') ? '' : 'yes'\n  },\n  binary: {}\n};\nif (f.resume && f.resume.content_base64) {\n  out.binary.resume = { data: f.resume.content_base64, mimeType: 'application/pdf', fileName: f.resume.filename || 'resume.pdf' };\n}\nif (f.cover_letter && f.cover_letter.content_base64) {\n  out.binary.cover = { data: f.cover_letter.content_base64, mimeType: 'application/pdf', fileName: f.cover_letter.filename || 'cover.pdf' };\n}\nreturn [out];"
       },
       "id": "wf2-node-prep",
       "name": "Build email + attachments",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [460, 300]
+      "position": [680, 380]
     },
     {
       "parameters": {
@@ -46,7 +81,7 @@
       "name": "Send application email",
       "type": "n8n-nodes-base.gmail",
       "typeVersion": 2.1,
-      "position": [680, 300],
+      "position": [900, 380],
       "disabled": true,
       "notes": "DISABLED on import so the workflow runs/tests with no errors. Set your Gmail (OAuth2) credential, then re-enable (select node, press D)."
     },
@@ -75,24 +110,25 @@
       "name": "Log to Job Applications",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.5,
-      "position": [900, 300],
+      "position": [1120, 380],
       "notes": "Set Google Sheets credential + the spreadsheet ID. Tab 'Job Applications' with header row: date, company, title, location, source, contact_email, subject, status, applied"
     },
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ { \"sent\": true, \"company\": $json.company, \"to\": $json.contact_email } }}",
+        "responseBody": "={{ { \"sent\": true, \"delivery_id\": $node[\"Receive job application\"].json.body.delivery_id || \"\", \"company\": $json.company, \"to\": $json.contact_email } }}",
         "options": {}
       },
       "id": "wf2-node-respond",
       "name": "Respond OK",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [1120, 300]
+      "position": [1340, 380]
     }
   ],
   "connections": {
-    "Receive job application": { "main": [[{ "node": "Build email + attachments", "type": "main", "index": 0 }]] },
+    "Receive job application": { "main": [[{ "node": "Webhook verification?", "type": "main", "index": 0 }]] },
+    "Webhook verification?": { "main": [[{ "node": "Confirm webhook verification", "type": "main", "index": 0 }], [{ "node": "Build email + attachments", "type": "main", "index": 0 }]] },
     "Build email + attachments": { "main": [[{ "node": "Send application email", "type": "main", "index": 0 }]] },
     "Send application email": { "main": [[{ "node": "Log to Job Applications", "type": "main", "index": 0 }]] },
     "Log to Job Applications": { "main": [[{ "node": "Respond OK", "type": "main", "index": 0 }]] }

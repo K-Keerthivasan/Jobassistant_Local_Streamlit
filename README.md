@@ -65,7 +65,7 @@ facts.
 - [`docs/how-it-works.md`](docs/how-it-works.md) — **start here**: the whole flow end to end
 - [`docs/setup.md`](docs/setup.md) — full setup, every component
 - [`docs/architecture.md`](docs/architecture.md) — components, ports, data flow, truth-guard
-- [`docs/scraper.md`](docs/scraper.md) — collector, userscript (LinkedIn + Indeed), intake, Canada filter
+- [`docs/scraper.md`](docs/scraper.md) — collector, userscript (LinkedIn + Indeed), and job intake
 - [`docs/personas.md`](docs/personas.md) — role personas and how selection works
 - [`docs/auto-apply.md`](docs/auto-apply.md) — semi-auto apply (email → n8n, Playwright portal autofill)
 - [`docs/repeatable.md`](docs/repeatable.md) — repeatable roles (reapply templates) + email-alert intake

@@ -12,7 +12,7 @@ ready" — and how the parts fit together. For per-subsystem detail see
   ───────                ──────                  ─────────────────            ─────
   Tampermonkey ─┐
   (LinkedIn/     │   POST /intake/run        ┌─ ungenerated → Generate ─┐   has email →
-   Indeed) ──────┤→  fetch → Canada filter → │   (persona + truth-guard) │   📧 n8n sends
+   Indeed) ──────┤→  fetch → apply filters →  │   (persona + truth-guard) │   📧 n8n sends
   Job Bank RSS ──┤   → dedup → review queue  └─ generated → Preview ─────┘   the email
   Greenhouse/    │        (data/intake/queue)        ↓                       (review gate)
   Lever/Workday ─┤                              output/<folder>/            no email →
@@ -42,7 +42,7 @@ Jobs come from several places, all normalized to the same shape:
   **manual add** → pulled by intake.
 
 You configure these in `data/sources.yaml`. Filters there keep it relevant:
-`title_keywords`, `canada_only` (drops US/EMEA/etc.), `require_email`.
+`title_keywords`, `location_keywords`, and `require_email`.
 
 ## Stage 2 — Intake builds the queue
 
@@ -81,7 +81,7 @@ When you generate, for each job:
      dropped, and thin roles are topped up from your profile facts;
    - invented **years/metrics/team-sizes** stripped from headline, summary, bullets,
      **and the cover letter** (whose contact line is rebuilt from your profile);
-   - **location** shows your city only for local jobs, else "Ontario, Canada".
+   - **location** shows your city only for local jobs, otherwise the broader location from your profile.
 4. Files are written to `output/<Company>_<Title>_<date>/` (DOCX + PDF + JSON), and a
    `qa_report.json` lists everything that was changed/flagged.
 

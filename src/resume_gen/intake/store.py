@@ -219,19 +219,6 @@ def set_irrelevant(key_id: str, irrelevant: bool) -> QueuedJob | None:
     return _save(q)
 
 
-def set_special(key_id: str, special: bool, program: str | None = None) -> QueuedJob | None:
-    """Flag/unflag a job as 🍁 PR-potential (Special), optionally tagging its program."""
-    q = get_job(key_id)
-    if q is None:
-        return None
-    q.special = special
-    if program is not None:
-        q.special_program = (program or "").strip()
-    if not special:
-        q.special_program = ""
-    return _save(q)
-
-
 def delete_job(key_id: str, *, forget_seen: bool = True) -> QueuedJob | None:
     """Remove a queued job. Optionally remove its key from `seen` so a future
     scrape can queue it again."""
@@ -248,7 +235,7 @@ def delete_job(key_id: str, *, forget_seen: bool = True) -> QueuedJob | None:
 _LEGAL_SUFFIX = re.compile(
     r"\b(inc|incorporated|llc|llp|ltd|limited|corp|corporation|co|company|"
     r"plc|gmbh|pvt|sa|srl)\b", re.I)
-_COUNTRY_TOK = {"ca", "can", "canada", "us", "usa", "united", "states", "of", "america", "uk"}
+_COUNTRY_TOK = {"us", "usa", "united", "states", "of", "america", "uk"}
 
 
 def _norm_company(s: str) -> str:

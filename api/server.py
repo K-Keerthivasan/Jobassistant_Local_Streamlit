@@ -447,8 +447,10 @@ def jobs(status: str | None = None):
         d["repeat"] = _repeat(q.company)
         d["repeatable_role"] = role_key(q.company, q.title) in repeatable_keys
         d["company_email"] = _hr_email(q.company)
-        # When this job was last generated (the linked run's created_at), if any.
-        d["generated_at"] = runs_created.get(q.notes, "") if q.status == "generated" else ""
+        # Generation and delivery are independent states. A sent/applied job still
+        # owns its generated run and can preview or resend it without regenerating.
+        d["generated_at"] = runs_created.get(q.notes, "")
+        d["has_generated"] = bool(d["generated_at"])
         # Priority: manual pin wins, else an auto-score bucketed into high/medium/low.
         ov = (q.priority_override or "").strip().lower()
         if ov in ("high", "medium", "low"):
@@ -912,22 +914,6 @@ def mark_irrelevant(key_id: str, req: IrrelevantRequest):
     return q.model_dump()
 
 
-class SpecialRequest(BaseModel):
-    special: bool = True
-    program: str | None = None   # RCIP | RNIP | AIP | Other (optional)
-
-
-@app.post("/jobs/{key_id}/special")
-def mark_special(key_id: str, req: SpecialRequest):
-    """Flag a job 🍁 PR-potential (Special stream), optionally tagging its program."""
-    from resume_gen.intake.store import set_special
-
-    q = set_special(key_id, req.special, req.program)
-    if q is None:
-        raise HTTPException(status_code=404, detail="Job not found.")
-    return q.model_dump()
-
-
 class RepeatableRequest(BaseModel):
     repeatable: bool = True
 
@@ -1311,7 +1297,7 @@ def scrape_hermes(req: HermesScrape):
     except Exception as e:
         raise HTTPException(status_code=502, detail=str(e))
 
-    # Hermes-found jobs are curated (you searched for them) — no keyword/Canada filter.
+    # Hermes-found jobs are curated (you searched for them), so configured filters do not apply.
     postings = []
     for j in found:
         url = (j.get("apply_url") or "").strip()
@@ -1392,13 +1378,71 @@ def _n8n_url(base: str, test: bool) -> str:
     return base.replace("/webhook-test/", "/webhook/")
 
 
+def _n8n_ack(response, *, delivery_id: str = "", verification_id: str = "") -> dict:
+    """Require a structured acknowledgement from the end of the n8n workflow.
+
+    A plain HTTP 200 only proves that something answered the webhook. Requiring the
+    request id to come back proves that this exact execution reached its final
+    Respond to Webhook node before we change application state.
+    """
+    try:
+        data = response.json()
+    except Exception:
+        raise HTTPException(
+            status_code=502,
+            detail="n8n answered, but did not return the required JSON acknowledgement.",
+        )
+    if verification_id:
+        if data.get("verified") is not True or data.get("verification_id") != verification_id:
+            raise HTTPException(
+                status_code=502,
+                detail="n8n webhook responded, but the verification handshake did not complete. Import/update the bundled workflow and activate it.",
+            )
+    elif data.get("sent") is not True or data.get("delivery_id") != delivery_id:
+        raise HTTPException(
+            status_code=502,
+            detail="n8n did not confirm this delivery. The job was not marked applied and its generated files are still available to resend.",
+        )
+    return data
+
+
+@app.post("/n8n/verify")
+def verify_n8n_webhook(test: bool = False):
+    """Run a no-email handshake through the configured job-application webhook."""
+    import uuid
+
+    import httpx
+
+    webhook = settings.n8n_jobs_webhook_url or settings.n8n_webhook_url
+    if not webhook:
+        raise HTTPException(status_code=400, detail="N8N_JOBS_WEBHOOK_URL (or N8N_WEBHOOK_URL) is not set (.env).")
+    verification_id = uuid.uuid4().hex
+    payload = {
+        "type": "webhook_check",
+        "verification_id": verification_id,
+        "company": "Resume Studio webhook check",
+        "title": "No email should be sent",
+        "contact_email": "",
+        "email": {},
+        "files": {},
+    }
+    try:
+        response = httpx.post(_n8n_url(webhook, test), json=payload, timeout=30.0)
+        response.raise_for_status()
+    except Exception as exc:
+        mode_hint = " Arm 'Listen for test event' in n8n first." if test else " Make sure the workflow is active."
+        raise HTTPException(status_code=502, detail=f"n8n webhook is not reachable: {exc}.{mode_hint}")
+    _n8n_ack(response, verification_id=verification_id)
+    return {"verified": True, "mode": "test" if test else "production"}
+
+
 @app.post("/jobs/{key_id}/send-n8n")
 def send_to_n8n(key_id: str, test: bool = False):
     """Send an EMAIL-APPLY job's generated package to the n8n webhook (n8n sends
     the actual email). Requires the job to be generated and to have a contact
     email, and N8N_JOBS_WEBHOOK_URL to be set. `test=true` posts to the n8n
     test webhook (use with 'Listen for test event')."""
-    import json as _json
+    import uuid
 
     import httpx
 
@@ -1416,7 +1460,7 @@ def send_to_n8n(key_id: str, test: bool = False):
     to_email = (q.contact_email or "").strip() or hr_email_for(q.company)
     if not to_email:
         raise HTTPException(status_code=400, detail="No contact email on the job or saved for the company.")
-    if q.status != "generated" or not q.notes:
+    if not q.notes:
         raise HTTPException(status_code=400, detail="Generate the application first.")
 
     import base64
@@ -1440,8 +1484,10 @@ def send_to_n8n(key_id: str, test: bool = False):
         except Exception:
             pass  # best-effort; an email with no attachment is still better than a 500
 
+    delivery_id = uuid.uuid4().hex
     payload = {
         "type": "job_application", "source": q.source,
+        "delivery_id": delivery_id,
         "company": q.company, "title": q.title, "location": q.location,
         "contact_email": to_email, "apply_url": q.apply_url,
         "email": email, "folder": q.notes, "files": files,
@@ -1452,13 +1498,17 @@ def send_to_n8n(key_id: str, test: bool = False):
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"n8n webhook failed: {e}")
 
+    _n8n_ack(r, delivery_id=delivery_id)
+
     if test:
-        return {"sent": True, "to": "n8n (test)", "test": True}
+        return {"sent": True, "to": "n8n (test)", "test": True, "acknowledged": True}
+    resent = bool((q.sent_at or "").strip())
     set_applied(key_id, True)
     update_status(key_id, "sent")
     stamp_sent(key_id, to_email)
     append_sent_log(key_id, "application", to_email, email.get("subject", ""), email.get("body", ""))
-    return {"sent": True, "to": to_email, "job": get_job(key_id).model_dump()}
+    return {"sent": True, "resent": resent, "to": to_email,
+            "acknowledged": True, "job": get_job(key_id).model_dump()}
 
 
 @app.post("/jobs/{key_id}/followup")

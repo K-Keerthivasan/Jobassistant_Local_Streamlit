@@ -2,9 +2,9 @@
 
 Examples:
   python -m resume_gen.cli check
-  python -m resume_gen.cli generate --job data/jobs/opg.json
-  python -m resume_gen.cli generate --company "OPG" --title "Junior Full-Stack Developer" \\
-      --jd-file data/jobs/opg.txt --no-pdf
+  python -m resume_gen.cli generate --job data/jobs/example_job.json
+  python -m resume_gen.cli generate --company "Acme Inc" --title "Junior Full-Stack Developer" \\
+      --jd-file data/jobs/example_job.txt --no-pdf
 """
 
 from __future__ import annotations

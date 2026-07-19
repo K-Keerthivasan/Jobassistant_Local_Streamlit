@@ -32,9 +32,9 @@
     fullName: "Keerthi K",
     email: "your@email.com",
     phone: "519-000-0000",
-    city: "London",
-    province: "Ontario",
-    country: "Canada",
+    city: "",
+    province: "",
+    country: "",
     linkedin: "https://linkedin.com/in/kkvasan",
     website: "https://k2digitalmedia.ca",
     workAuth: "Yes",
@@ -728,7 +728,7 @@
     const authEl = document.querySelector("select[name*='auth' i], select[id*='auth' i], select[name*='work' i], input[name*='authorized' i]");
     if (authEl && authEl.tagName === "SELECT") {
       [...authEl.options].forEach((opt) => {
-        if (/yes|authorized|eligible|canada/i.test(opt.text)) {
+        if (/yes|authorized|eligible/i.test(opt.text)) {
           authEl.value = opt.value;
           authEl.dispatchEvent(new Event("change", { bubbles: true }));
           filled += 1;

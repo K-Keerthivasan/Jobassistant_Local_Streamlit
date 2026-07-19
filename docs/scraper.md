@@ -56,14 +56,8 @@ fetches every source, filters, dedups, and queues new postings.
 filters:
   title_keywords: ["developer", "engineer", ...]   # keep titles containing one
   require_email: false                              # keep only jobs with a contact email
-  canada_only: true                                 # keep Canadian postings only
-  keep_unknown_location: true                       # keep blank/"remote" (false = strict)
   location_keywords: []                             # optional substring allow-list
 ```
-
-**Canada filter:** `_in_canada()` matches "Canada", province names/codes (whole-word,
-so California's "CA" does **not** match), and major metros. Applies to *all* sources.
-It only affects **new** commits — it does not retroactively purge an existing queue.
 
 ### Queue
 

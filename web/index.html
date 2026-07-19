@@ -518,7 +518,6 @@
       <button data-view="hermes-scrape"><span class="ic">🤖</span> Hermes Scraping</button>
       <button data-view="scraper"><span class="ic">💼</span> Jobs</button>
       <button data-view="repeatable"><span class="ic">🔁</span> Repeatable</button>
-      <button data-view="special"><span class="ic">🍁</span> Special (PR)</button>
       <button data-view="companies"><span class="ic">🏢</span> Companies</button>
       <button data-view="qa"><span class="ic">💬</span> Q&amp;A</button>
       <button data-view="bulk"><span class="ic">⚡</span> Bulk Generate</button>
@@ -538,6 +537,8 @@
       </div>
       <label class="checks" style="margin:0 0 12px;font-size:12px;color:#9eb2d1" title="When on, 📧 n8n posts to the n8n TEST webhook (arm 'Listen for test event' first). Off = production webhook (workflow must be Active).">
         <input type="checkbox" id="n8n-test" style="width:auto"> 🧪 n8n test mode</label>
+      <button class="theme-btn" id="n8n-verify" title="Run a no-email handshake through the configured job-application webhook">✓ Verify n8n webhook</button>
+      <div id="n8n-verify-status" style="font-size:11px;color:#9eb2d1;margin:5px 0 10px"></div>
       <button class="theme-btn" id="theme-toggle"><span id="theme-ic">🌙</span> <span id="theme-lbl">Dark mode</span></button>
       <div class="health"><span class="dot" id="hdot"></span><span id="htext">checking…</span></div>
     </div>
@@ -557,8 +558,8 @@
             <button class="btn ghost sm" id="g-fromjob" type="button">📋 From a job</button>
           </div>
           <div class="row">
-            <div><label class="fld">Company</label><input type="text" id="g-company" placeholder="Ontario Power Generation" /></div>
-            <div><label class="fld">Location</label><input type="text" id="g-location" placeholder="Toronto, ON" /></div>
+            <div><label class="fld">Company</label><input type="text" id="g-company" placeholder="Acme Inc" /></div>
+            <div><label class="fld">Location</label><input type="text" id="g-location" placeholder="Remote or city" /></div>
           </div>
           <label class="fld">Job title</label>
           <input type="text" id="g-title" placeholder="Junior Full-Stack Developer" />
@@ -743,7 +744,7 @@
       <div class="card" style="max-width:680px">
         <div class="row">
           <div style="flex:2"><label class="fld">Role / keywords</label><input type="text" id="cs-role" placeholder="full-stack developer"></div>
-          <div><label class="fld">Location</label><input type="text" id="cs-loc" placeholder="Ontario" value="Ontario"></div>
+          <div><label class="fld">Location</label><input type="text" id="cs-loc" placeholder="Remote or city"></div>
           <div style="width:90px"><label class="fld">Max</label><input type="number" id="cs-limit" value="15" min="1" max="30"></div>
         </div>
         <button class="btn primary block" id="cs-go" style="margin-top:12px">🔎 Find jobs with Hermes</button>
@@ -827,42 +828,6 @@
         </table>
         <div class="empty" id="jl-empty"><div class="big">🛰️</div>No jobs match. Go to <b>Scrape</b> to fetch from sources or add one manually.</div>
       </div>
-    </section>
-
-    <!-- ===== Special (PR-potential jobs: RCIP / RNIP / AIP) ===== -->
-    <section class="view" id="view-special">
-      <div class="sc-head">
-        <div>
-          <h1 class="page-h" style="margin:0">🍁 Special (PR) stream</h1>
-          <p class="page-sub" style="margin:4px 0 0">PR-potential jobs flagged 🍁. Filter/sort by <b>lane</b> (job category) and <b>NOC/TEER</b>, optionally tag each with a program (RCIP / RNIP / AIP), then generate and apply on this stream alone. Mark a job 🍁 from the <b>Jobs</b> tab.</p>
-        </div>
-        <div class="sc-actions">
-          <span class="view-toggle" id="sp-view" title="Grid or list view"><button data-spv="grid" class="on">▦ Grid</button><button data-spv="list">☰ List</button></span>
-          <button class="btn subtle sm" id="sp-refresh">↻ Refresh</button>
-        </div>
-      </div>
-      <div class="card" id="sp-filters" style="margin:12px 0;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
-        <input id="sp-q" placeholder="🔎 Search title / company / location…" style="flex:1;min-width:180px" />
-        <select id="sp-lane" class="jl-inp" style="width:auto" title="Filter by lane (job category)">
-          <option value="">All lanes</option>
-        </select>
-        <select id="sp-prog" class="jl-inp" style="width:auto" title="Filter by program">
-          <option value="">All programs</option>
-          <option value="RCIP">RCIP</option>
-          <option value="RNIP">RNIP</option>
-          <option value="AIP">AIP</option>
-          <option value="Other">Other</option>
-          <option value="__none">Untagged</option>
-        </select>
-        <select id="sp-sort" class="jl-inp" style="width:auto" title="Sort">
-          <option value="lane">Lane</option>
-          <option value="program">Program</option>
-          <option value="date">Newest</option>
-          <option value="company">Company</option>
-        </select>
-        <span id="sp-count" style="font-size:13px;color:var(--muted)"></span>
-      </div>
-      <div id="sp-list"><div class="empty"><span class="spinner dark"></span></div></div>
     </section>
 
     <!-- ===== Companies (HR contacts + jobs grouped by company) ===== -->
@@ -979,7 +944,7 @@
       <p style="margin:0 0 12px;color:var(--muted);font-size:13px">Adds the job straight to your <b>Jobs</b> list (no collector/connector needed) — ready to generate right away.</p>
       <div class="row">
         <div><label class="fld">Company</label><input type="text" id="s-company" placeholder="Acme Corp"></div>
-        <div><label class="fld">Location</label><input type="text" id="s-location" placeholder="London, ON"></div>
+        <div><label class="fld">Location</label><input type="text" id="s-location" placeholder="Remote or city"></div>
       </div>
       <label class="fld">Job title</label><input type="text" id="s-title" placeholder="Full-Stack Developer">
       <div class="row">
@@ -1105,7 +1070,6 @@ function showView(view) {
   if (view === 'scraper') loadJobs();
   if (view === 'repeatable') loadRepeatable();
   if (view === 'companies') loadCompanies();
-  if (view === 'special') loadSpecial();
   if (view === 'scrape') { renderSetup(); renderScrapedJobs(); }
   if (view === 'profile') renderSetup();   // fills #sk-applyprofile, #pf-repeats, #pf-saved
   if (view === 'hermes-scrape') { $('cs-enabled-note').innerHTML = CLOUD_ENABLED ? '' : '<b style="color:var(--warn)">Set HERMES_API_KEY in .env (the Hermes gateway API_SERVER_KEY) to enable.</b>'; }
@@ -1442,7 +1406,6 @@ function resumeHTML(r) {
     ? `<div class="sec">Certifications</div>${r.certifications.map(x=>`<div class="edu">${esc(x)}</div>`).join('')}` : '';
   return `<div class="doc">
     <h3>${esc(r.fullName)}</h3>
-    <p class="headline">${esc(r.headline)}</p>
     <div class="contact">${esc(contact)}</div>
     <div class="sec">Summary</div><div>${esc(r.summary)}</div>
     <div class="sec">Skills</div><div class="skills">${skills}</div>
@@ -2396,7 +2359,7 @@ $('b-csv-file').onchange = async (e) => {
 };
 $('b-csv-tpl').onclick = () => {
   const csv = 'company,title,location,description,apply_url,contact_email\n'
-    + '"Acme Inc","Full-Stack Developer","Toronto, ON","Build React + Node apps. TypeScript, REST, Postgres. 0-3 yrs.","https://acme.com/jobs/123","jobs@acme.com"\n'
+    + '"Acme Inc","Full-Stack Developer","Remote","Build React + Node apps. TypeScript, REST, Postgres. 0-3 yrs.","https://acme.com/jobs/123","jobs@acme.com"\n'
     + '"Globex","Backend Developer","Remote","Python, FastAPI, Docker, AWS.","https://globex.com/careers/45",""\n';
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
@@ -2414,12 +2377,13 @@ const COLLECTOR = `http://${location.hostname || '127.0.0.1'}:8765`;
 const jl = { all: [], rows: [], sort: { key: 'priority', dir: 'desc' }, sel: new Set() };
 
 function jobFromApi(j) {
-  const folder = j.status === 'generated' ? (j.notes || '').split(/[\\/]/).pop() : '';
+  const hasGenerated = !!j.has_generated;
+  const folder = hasGenerated ? (j.notes || '').split(/[\\/]/).pop() : '';
   const found = (j.found_at || '').slice(0, 10);
   return { id: j.key_id, title: j.title || 'Untitled', company: j.company || '',
     location: j.location || '', source: j.source || '', date: jobDate(j), found,
-    status: j.status, gen: j.status === 'generated', folder, email: (j.contact_email || '').trim(),
-    applied: !!j.applied, repeat: !!j.repeat, priority: !!j.priority, repeatable: !!j.repeatable, irrelevant: !!j.irrelevant, special: !!j.special, special_program: j.special_program || '', lane: j.lane || '', noc_teer: j.noc_teer || '', apply_url: j.apply_url || '', description: j.description || '', company_email: (j.company_email || '').trim(), generated_at: (j.generated_at || '').replace('T', ' ').slice(0, 16),
+    status: j.status, gen: hasGenerated, folder, email: (j.contact_email || '').trim(),
+    applied: !!j.applied, repeat: !!j.repeat, priority: !!j.priority, repeatable: !!j.repeatable, irrelevant: !!j.irrelevant, lane: j.lane || '', apply_url: j.apply_url || '', description: j.description || '', company_email: (j.company_email || '').trim(), generated_at: (j.generated_at || '').replace('T', ' ').slice(0, 16),
     sent_at: (j.sent_at || '').replace('T', ' ').slice(0, 16), sent_to: (j.sent_to || '').trim(), followups: Array.isArray(j.followups) ? j.followups : [], hr_emailed_at: (j.hr_emailed_at || '').replace('T', ' ').slice(0, 16), sent_log: Array.isArray(j.sent_log) ? j.sent_log : [],
     priority_level: j.priority_level || 'low', priority_override: j.priority_override || '', priority_score: typeof j.priority_score === 'number' ? j.priority_score : 0 };
 }
@@ -2586,7 +2550,7 @@ function renderJobs() {
     return `<tr${j.irrelevant ? ' style="opacity:.5"' : ''}>
       <td class="jl-ck">${canSelect ? `<input type="checkbox" class="jl-rowck" data-k="${esc(j.id)}" ${jl.sel.has(j.id)?'checked':''}>` : ''}</td>
       <td>${j.id ? prioBadge(j, i) : ''}</td>
-      <td><span class="t" data-act="detail" data-i="${i}" style="cursor:pointer" title="View details">${esc(j.title)}</span>${j.id?`<span class="jl-emailbtn ${j.email?'on':''}" data-act="email" data-i="${i}" title="${j.email?'Email: '+esc(j.email)+' — click to edit':'Add an HR email (for the n8n email path)'}" style="cursor:pointer">${j.email?'📧':'✉️'}</span><span data-act="repeatable" data-i="${i}" title="${j.repeatable?'Repeatable role — saved. Click to remove':'Mark as a repeatable role (reapply often)'}" style="cursor:pointer;margin-left:4px;opacity:${j.repeatable?1:.3}">🔁</span><span data-act="irrelevant" data-i="${i}" title="${j.irrelevant?'Not relevant — hidden from active lists. Click to restore':'Flag as not relevant (hide it)'}" style="cursor:pointer;margin-left:4px;opacity:${j.irrelevant?1:.3}">🚫</span><span data-act="special" data-i="${i}" title="${j.special?'Special / PR stream'+(j.special_program?' ('+esc(j.special_program)+')':'')+' — click to remove':'Mark as Special (PR potential: RCIP/RNIP/AIP)'}" style="cursor:pointer;margin-left:4px;opacity:${j.special?1:.3}">🍁</span><span class="jl-info" title="${esc(jobInfoTitle(j))}" style="cursor:help;margin-left:5px;opacity:.55">ℹ️</span>`:''}</td>
+      <td><span class="t" data-act="detail" data-i="${i}" style="cursor:pointer" title="View details">${esc(j.title)}</span>${j.id?`<span class="jl-emailbtn ${j.email?'on':''}" data-act="email" data-i="${i}" title="${j.email?'Email: '+esc(j.email)+' — click to edit':'Add an HR email (for the n8n email path)'}" style="cursor:pointer">${j.email?'📧':'✉️'}</span><span data-act="repeatable" data-i="${i}" title="${j.repeatable?'Repeatable role — saved. Click to remove':'Mark as a repeatable role (reapply often)'}" style="cursor:pointer;margin-left:4px;opacity:${j.repeatable?1:.3}">🔁</span><span data-act="irrelevant" data-i="${i}" title="${j.irrelevant?'Not relevant — hidden from active lists. Click to restore':'Flag as not relevant (hide it)'}" style="cursor:pointer;margin-left:4px;opacity:${j.irrelevant?1:.3}">🚫</span><span class="jl-info" title="${esc(jobInfoTitle(j))}" style="cursor:help;margin-left:5px;opacity:.55">ℹ️</span>`:''}</td>
       <td class="muted">${esc(j.company)}${j.repeat?` <span class="jl-rep" title="Repeat company — saved details reused">🔁</span>`:''}</td>
       <td class="muted">${esc(j.location)}</td>
       <td><span class="jl-src">${esc(j.source || '—')}</span></td>
@@ -2595,7 +2559,7 @@ function renderJobs() {
       <td>${j.id ? `<input type="checkbox" class="jl-applied" data-i="${i}" ${j.applied?'checked':''} title="Mark applied">` : (j.applied?'✓':'')}</td>
       <td><div class="jl-rowbtns">
         ${j.gen ? `<button class="btn ghost sm" data-act="preview" data-i="${i}">Preview</button>` : ''}
-        ${(j.gen && j.email && j.id) ? `<button class="btn ghost sm" data-act="send" data-i="${i}" title="Send to n8n (email apply)">📧 n8n</button>` : ''}
+        ${(j.gen && (j.email || j.company_email) && j.id) ? `<button class="btn ghost sm" data-act="send" data-i="${i}" title="${j.sent_at ? 'Resend the existing generated package through n8n' : 'Send the generated package through n8n'}">${j.sent_at ? '↻ Resend n8n' : '📧 Send n8n'}</button>` : ''}
         ${(j.id && (j.email || j.company_email)) ? `<button class="btn ghost sm" data-act="emailhr" data-i="${i}" title="${j.hr_emailed_at ? 'HR emailed ' + esc(j.hr_emailed_at) + ' — click to email again' : 'Email HR about this posting (' + esc(j.email || j.company_email) + ')'}">${j.hr_emailed_at ? '✅ HR' : '✉️ HR'}</button>` : ''}
         ${(j.id && j.sent_at) ? `<button class="btn ghost sm" data-act="followup" data-i="${i}" title="Send a follow-up to ${esc(j.sent_to || j.email || j.company_email)}${j.followups && j.followups.length ? ' ('+j.followups.length+' sent)' : ''}">🔔 Follow up</button>` : ''}
         ${j.apply_url ? `<a class="btn subtle sm" href="${esc(j.apply_url)}" target="_blank" rel="noreferrer" title="Open the application portal">Open ↗</a>` : ''}
@@ -2666,16 +2630,6 @@ function renderJobs() {
       renderJobs();   // re-apply the relevance filter (row hides unless "Show all")
     } catch (err) { toast('Update failed: ' + err.message, true); }
   });
-  body.querySelectorAll('[data-act="special"]').forEach(el => el.onclick = async (e) => {
-    e.stopPropagation();
-    const j = jl.rows[+el.dataset.i], val = !j.special;
-    try {
-      await api(`/jobs/${j.id}/special`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ special: val }) });
-      j.special = val; if (!val) j.special_program = '';
-      toast(val ? '🍁 Added to the Special (PR) stream.' : 'Removed from Special.');
-      renderJobs();
-    } catch (err) { toast('Update failed: ' + err.message, true); }
-  });
   body.querySelectorAll('[data-act="autofill"]').forEach(b => b.onclick = () => {
     const j = jl.rows[+b.dataset.i];
     const cmd = `python -m resume_gen.automation.playwright_apply --job ${j.id}`;
@@ -2741,8 +2695,28 @@ async function deleteJobEntry(row, btn) {
 }
 
 function n8nTestMode() { const c = $('n8n-test'); return !!(c && c.checked); }
+async function verifyN8n(btn) {
+  const test = n8nTestMode(), status = $('n8n-verify-status');
+  const label = btn.textContent; btn.disabled = true; btn.textContent = '⏳ Verifying…';
+  status.textContent = test ? 'Waiting for the n8n test listener…' : 'Checking the active production workflow…';
+  try {
+    const res = await api(`/n8n/verify${test ? '?test=true' : ''}`, { method: 'POST' });
+    status.textContent = `✓ ${res.mode || (test ? 'test' : 'production')} webhook verified`;
+    status.style.color = '#63d49a';
+    toast('n8n webhook verified. The check did not send an email.');
+  } catch (e) {
+    status.textContent = '✕ Verification failed'; status.style.color = '#ff8d8d';
+    toast('n8n verification failed: ' + e.message, true);
+  } finally { btn.disabled = false; btn.textContent = label; }
+}
 async function sendToN8n(key, btn) {
   const test = n8nTestMode();
+  const known = jl.all.find(j => j.id === key) || ((typeof coState !== 'undefined' && coState.jobs) ? coState.jobs.find(j => j.id === key) : null);
+  if (known && known.sent_at && !await uiConfirm({
+    title: 'Resend this application?',
+    message: `The existing generated resume, cover letter, and email will be submitted to n8n again.${test ? '\n\nTEST mode still executes the n8n workflow; use Verify n8n webhook for a no-email check.' : ''}`,
+    ok: 'Resend',
+  })) return false;
   const label = btn.textContent; btn.disabled = true; btn.textContent = '⏳';
   try {
     const res = await api(`/jobs/${key}/send-n8n${test ? '?test=true' : ''}`, { method: 'POST' });
@@ -2750,7 +2724,7 @@ async function sendToN8n(key, btn) {
       toast('Posted to n8n TEST webhook (arm "Listen for test event" first). Job not marked applied.');
       btn.disabled = false; btn.textContent = label;
     } else {
-      toast(`Sent to ${res && res.to ? res.to : 'n8n'} (email apply). Marked applied.`);
+      toast(`${res && res.resent ? 'Resent' : 'Sent'} to ${res && res.to ? res.to : 'n8n'} and acknowledged. Marked applied.`);
       loadJobs();
     }
     return true;
@@ -3091,7 +3065,7 @@ async function renderSetup() {
       sources + addForm +
       `<div class="src-row" style="border-top:1px solid var(--line);margin-top:8px;padding-top:10px">
          <span class="src-type">filters</span>
-         <span class="muted">${f.canada_only ? 'Canada only · ' : ''}${(f.title_keywords||[]).length} title keyword(s)${f.require_email?' · email required':''}</span></div>`;
+         <span class="muted">${(f.title_keywords||[]).length} title keyword(s)${f.require_email?' · email required':''}</span></div>`;
 
     // Profile tab: saved company details (apply profile rendered below). Repeat
     // companies now live in the Repeatable tab (rpRenderCompanies).
@@ -3156,106 +3130,6 @@ $('s-add').onclick = async () => {
   } catch (e) { toast('Add failed: ' + e.message, true); }
   finally { btn.disabled = false; btn.textContent = label; }
 };
-
-/* ---------- Special (PR-potential) stream ---------- */
-const spState = { jobs: [] };
-const SP_PROGRAMS = ['RCIP', 'RNIP', 'AIP', 'Other'];
-let spView = lsGet('sp-view') || 'grid';
-async function loadSpecial() {
-  const box = $('sp-list'); if (!box) return;
-  box.innerHTML = '<div class="empty"><span class="spinner dark"></span></div>';
-  try {
-    const { jobs } = await api('/jobs');
-    spState.jobs = (jobs || []).map(jobFromApi).filter(j => j.special);
-    spRender();
-  } catch (e) { box.innerHTML = `<div class="qa dirty">${esc(e.message)}</div>`; }
-}
-function spRender() {
-  const box = $('sp-list'); if (!box) return;
-  // Populate the lane filter from the data (preserve the current selection).
-  const laneSel = $('sp-lane'), curLane = laneSel.value;
-  const lanes = [...new Set(spState.jobs.map(j => j.lane).filter(Boolean))].sort();
-  laneSel.innerHTML = '<option value="">All lanes</option>' + lanes.map(l => `<option value="${esc(l)}" ${l === curLane ? 'selected' : ''}>${esc(l)}</option>`).join('');
-  const q = (($('sp-q').value) || '').toLowerCase().trim();
-  const prog = $('sp-prog').value, lane = laneSel.value, sort = $('sp-sort').value;
-  let rows = spState.jobs.filter(j => {
-    if (prog === '__none') { if (j.special_program) return false; }
-    else if (prog && (j.special_program || '') !== prog) return false;
-    if (lane && (j.lane || '') !== lane) return false;
-    if (!q) return true;
-    return [j.title, j.company, j.location, j.lane, j.noc_teer].join(' ').toLowerCase().includes(q);
-  });
-  const byName = (a, b) => (a.company || '').toLowerCase().localeCompare((b.company || '').toLowerCase());
-  if (sort === 'date') rows.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
-  else if (sort === 'company') rows.sort(byName);
-  else if (sort === 'lane') rows.sort((a, b) => (a.lane || 'zzz').localeCompare(b.lane || 'zzz') || byName(a, b));
-  else rows.sort((a, b) => (a.special_program || 'zzz').localeCompare(b.special_program || 'zzz') || byName(a, b));
-  const byLane = {}; spState.jobs.forEach(j => { const p = j.lane || 'Untagged'; byLane[p] = (byLane[p] || 0) + 1; });
-  $('sp-count').textContent = `${rows.length} of ${spState.jobs.length} · ` + (Object.entries(byLane).sort((a, b) => b[1] - a[1]).map(([p, n]) => `${p} ${n}`).join(' · ') || 'none');
-  if (!rows.length) {
-    box.innerHTML = `<div class="empty"><div class="big">🍁</div>No Special jobs${prog ? ' for this filter' : ''} yet. In <b>Jobs</b>, click the 🍁 on a PR-potential posting to add it here.</div>`;
-    return;
-  }
-  box.innerHTML = rows.map(spCard).join('');
-  spWire(box);
-  box.classList.toggle('cards-grid', spView === 'grid');
-}
-function spCard(j) {
-  const email = (j.email || '').trim() || j.company_email;
-  const opt = (p) => `<option value="${p}" ${j.special_program === p ? 'selected' : ''}>${p}</option>`;
-  return `<div class="card co-card" data-jid="${esc(j.id)}">
-    <div class="co-head">
-      <span class="co-name" data-spact="detail" data-jid="${esc(j.id)}" style="cursor:pointer">${esc(j.title || 'Untitled')}</span>
-      <span class="jl-st ${esc(j.status)}">${esc(j.status)}</span>
-      <span style="flex:1"></span>
-      <select class="jl-inp sp-prog-sel" data-jid="${esc(j.id)}" style="width:auto;font-size:12px" title="PR program">
-        <option value="" ${!j.special_program ? 'selected' : ''}>Tag program…</option>
-        ${SP_PROGRAMS.map(opt).join('')}
-      </select>
-      <button class="btn subtle sm" data-spact="unspecial" data-jid="${esc(j.id)}" title="Remove from Special">🍁✕</button>
-    </div>
-    <div class="muted" style="font-size:12px;margin:4px 0 6px">${esc(j.company)}${j.location ? ' · ' + esc(j.location) : ''} · ${esc(j.date || '')}${email ? ' · 📧 ' + esc(email) : ''}${j.sent_at ? ' · <span style="color:var(--accent)">applied ' + esc(j.sent_at) + '</span>' : ''}</div>
-    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">${j.lane ? `<span class="rp-chip">${esc(j.lane)}</span>` : ''}${j.noc_teer ? `<span class="rp-chip" title="NOC / TEER (PR eligibility)">${esc(j.noc_teer)}</span>` : ''}${j.applied ? '<span class="rp-chip" style="background:#1a9e5f1a;color:#1a9e5f">applied</span>' : ''}</div>
-    <div class="jl-rowbtns" style="justify-content:flex-start">
-      ${j.gen ? `<button class="btn ghost sm" data-spact="preview" data-jid="${esc(j.id)}">Preview</button>` : ''}
-      ${j.apply_url ? `<a class="btn subtle sm" href="${esc(j.apply_url)}" target="_blank" rel="noreferrer">Open ↗</a>` : ''}
-      ${(j.gen && email) ? `<button class="btn ghost sm" data-spact="send" data-jid="${esc(j.id)}" title="Send to ${esc(email)} (email apply)">📧 Send</button>` : ''}
-      ${email ? `<button class="btn ghost sm" data-spact="emailhr" data-jid="${esc(j.id)}" title="${j.hr_emailed_at ? 'HR emailed ' + esc(j.hr_emailed_at) : 'Email HR about this posting'}">${j.hr_emailed_at ? '✅ HR' : '✉️ HR'}</button>` : ''}
-      ${j.sent_at ? `<button class="btn ghost sm" data-spact="followup" data-jid="${esc(j.id)}">🔔 Follow up</button>` : ''}
-      ${!j.gen ? `<button class="btn ghost sm" data-spact="bulk" data-jid="${esc(j.id)}">➕ Bulk</button>` : ''}
-      <button class="btn primary sm" data-spact="gen" data-jid="${esc(j.id)}">${j.gen ? 'Regenerate' : 'Generate'}</button>
-    </div>
-  </div>`;
-}
-function spWire(box) {
-  const byId = Object.fromEntries(spState.jobs.map(j => [j.id, j]));
-  box.querySelectorAll('.sp-prog-sel').forEach(s => s.onchange = async () => {
-    try {
-      await api(`/jobs/${s.dataset.jid}/special`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ special: true, program: s.value }) });
-      const j = byId[s.dataset.jid]; if (j) j.special_program = s.value;
-      toast(s.value ? `Tagged ${s.value}.` : 'Program cleared.'); spRender();
-    } catch (e) { toast('Update failed: ' + e.message, true); }
-  });
-  box.querySelectorAll('[data-spact="detail"]').forEach(b => b.onclick = () => openJobDetail(byId[b.dataset.jid]));
-  box.querySelectorAll('[data-spact="preview"]').forEach(b => b.onclick = () => { const j = byId[b.dataset.jid]; if (j && j.folder) openLibrary(j.folder); });
-  box.querySelectorAll('[data-spact="bulk"]').forEach(b => b.onclick = () => bulkAddFromJob(byId[b.dataset.jid]));
-  box.querySelectorAll('[data-spact="gen"]').forEach(b => b.onclick = () => genJob(byId[b.dataset.jid], b));
-  box.querySelectorAll('[data-spact="send"]').forEach(b => b.onclick = async () => { if (await sendToN8n(b.dataset.jid, b)) loadSpecial(); });
-  box.querySelectorAll('[data-spact="emailhr"]').forEach(b => b.onclick = () => emailHr(b.dataset.jid, b));
-  box.querySelectorAll('[data-spact="followup"]').forEach(b => b.onclick = async () => { if (await sendFollowup(b.dataset.jid, b)) loadSpecial(); });
-  box.querySelectorAll('[data-spact="unspecial"]').forEach(b => b.onclick = async () => {
-    try {
-      await api(`/jobs/${b.dataset.jid}/special`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ special: false }) });
-      toast('Removed from Special.'); loadSpecial(); loadJobs();
-    } catch (e) { toast('Update failed: ' + e.message, true); }
-  });
-}
-$('sp-refresh').onclick = loadSpecial;
-$('sp-q').oninput = spRender;
-$('sp-prog').onchange = spRender;
-$('sp-lane').onchange = spRender;
-$('sp-sort').onchange = spRender;
-document.querySelectorAll('#sp-view button').forEach(b => b.onclick = () => { spView = b.dataset.spv; try { lsSet('sp-view', spView); } catch {} document.querySelectorAll('#sp-view button').forEach(x => x.classList.toggle('on', x.dataset.spv === spView)); spRender(); });
 
 /* ---------- Companies (HR contacts + jobs grouped by company) ---------- */
 const coState = { saved: [], jobs: [], expanded: new Set() };
@@ -3380,9 +3254,10 @@ async function sendCompanyJobs(companyName, btn) {
   const hrEmail = (coContacts(g && g.hr)[0] || {}).email || '';
   const test = n8nTestMode();
   const jobs = coState.jobs.filter(j => coNorm(j.company) === coNorm(companyName) && j.id);
-  const sendable = jobs.filter(j => j.gen && ((j.email || '').trim() || hrEmail));
+  // Bulk company send is first-send only; resends must be deliberate per-job clicks.
+  const sendable = jobs.filter(j => j.gen && !j.sent_at && ((j.email || '').trim() || hrEmail));
   const needGen = jobs.filter(j => !j.gen).length;
-  if (!sendable.length) { toast(needGen ? `Nothing generated yet (${needGen} need generating).` : 'No sendable jobs.', true); return; }
+  if (!sendable.length) { toast(needGen ? `Nothing generated yet (${needGen} need generating).` : 'No unsent generated jobs. Use the per-job Resend button when needed.', true); return; }
   if (!await uiConfirm({ title: 'Email HR per job?', message: `Send ${sendable.length} separate email${sendable.length === 1 ? '' : 's'} to ${hrEmail}${test ? ' (TEST mode)' : ''}.${needGen ? `\n${needGen} job(s) not generated will be skipped.` : ''}`, ok: 'Send' })) return;
   const label = btn.textContent; btn.disabled = true; btn.textContent = '⏳';
   let sent = 0, failed = 0;
@@ -3418,7 +3293,7 @@ function coCard(g) {
       <span class="jl-src" style="margin:0">${g.jobs.length} job${g.jobs.length === 1 ? '' : 's'}</span>
       ${hrInline}
       <span style="flex:1"></span>
-      ${(primary && g.jobs.some(j => j.gen && j.id)) ? `<button class="btn ghost sm" data-coact="sendall" data-co="${esc(g.name)}" title="Send a separate tailored email per generated job to ${esc(primary.email)}">📧 Email HR</button>` : ''}
+      ${(primary && g.jobs.some(j => j.gen && !j.sent_at && j.id)) ? `<button class="btn ghost sm" data-coact="sendall" data-co="${esc(g.name)}" title="Send each unsent generated job to ${esc(primary.email)}">📧 Email HR</button>` : ''}
       <button class="btn subtle sm" data-coact="edit" data-co="${esc(g.name)}" title="${primary ? 'Edit HR contacts' : 'Add HR contacts'}">✎ HR</button>
     </div>
     <div class="co-hr-edit" style="display:none;margin:8px 0">
@@ -3443,7 +3318,7 @@ function coJobRow(j, hrEmail) {
     <div class="jl-rowbtns">
       ${j.id ? `<button class="btn subtle sm" data-coact="view" data-jid="${esc(j.id)}">View</button>` : ''}
       ${j.id && !j.gen ? `<button class="btn ghost sm" data-coact="bulk" data-jid="${esc(j.id)}">➕ Bulk</button>` : ''}
-      ${(j.id && j.gen && email) ? `<button class="btn ghost sm" data-coact="send" data-jid="${esc(j.id)}" title="Send to ${esc(email)} (email apply)">📧 Send</button>` : ''}
+      ${(j.id && j.gen && email) ? `<button class="btn ghost sm" data-coact="send" data-jid="${esc(j.id)}" title="${j.sent_at ? 'Resend the existing generated package' : 'Send to ' + esc(email)}">${j.sent_at ? '↻ Resend' : '📧 Send'}</button>` : ''}
       ${(j.id && email) ? `<button class="btn ghost sm" data-coact="emailhr" data-jid="${esc(j.id)}" title="${j.hr_emailed_at ? 'HR emailed ' + esc(j.hr_emailed_at) : 'Email HR about this posting'}">${j.hr_emailed_at ? '✅ HR' : '✉️ HR'}</button>` : ''}
       ${(j.id && j.sent_at) ? `<button class="btn ghost sm" data-coact="followup" data-jid="${esc(j.id)}" title="Send a follow-up${j.followups && j.followups.length ? ' ('+j.followups.length+' sent)' : ''}">🔔 Follow up</button>` : ''}
       ${j.id ? `<button class="btn primary sm" data-coact="gen" data-jid="${esc(j.id)}">${j.gen ? 'Regenerate' : 'Generate'}</button>` : ''}
@@ -3839,6 +3714,7 @@ applyTheme(lsGet('theme') || 'dark');
 loadHealth(); loadModels(); loadPersonas();
 // Persist the n8n test-mode toggle across reloads.
 try { const t = $('n8n-test'); if (t) { t.checked = lsGet('n8n-test') === '1'; t.onchange = () => { try { lsSet('n8n-test', t.checked ? '1' : '0'); } catch {} }; } } catch {}
+$('n8n-verify').onclick = (e) => verifyN8n(e.currentTarget);
 showView(lsGet('view') || 'generate');   // stay on the last tab after refresh
 setInterval(loadHealth, 15000);
 </script>
