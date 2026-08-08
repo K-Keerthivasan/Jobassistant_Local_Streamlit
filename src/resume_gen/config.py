@@ -43,6 +43,14 @@ class Settings:
     hermes_api_key: str = os.getenv("HERMES_API_KEY", os.getenv("API_SERVER_KEY", ""))
     hermes_model: str = os.getenv("HERMES_MODEL", "hermes-agent")
 
+    # Hermes is a full coding agent, but application generation only needs structured
+    # text. Fast mode avoids three redundant agent calls per application (semantic
+    # persona selection, email-hook prose, and semantic QA); keyword persona matching,
+    # deterministic email copy, and the hard truth guard still run.
+    hermes_fast_mode: bool = os.getenv("HERMES_FAST_MODE", "1").strip().lower() not in (
+        "0", "false", "no", "off"
+    )
+
     # Max seconds any single AI request (Ollama or Hermes) may run before it is
     # aborted with a clean error. Local models on CPU can be slow — keep generous.
     llm_timeout: float = float(os.getenv("LLM_TIMEOUT", "300"))

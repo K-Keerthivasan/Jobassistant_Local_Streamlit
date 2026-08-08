@@ -24,6 +24,45 @@ def reset_fallbacks() -> None:
     _local.fb = []
 
 
+def reset_run_metrics() -> None:
+    _local.metrics = {
+        "calls": 0,
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "seconds": 0.0,
+        "by_label": {},
+    }
+
+
+def record_run_tokens(model: str, input_tokens: int, output_tokens: int, label: str) -> None:
+    if not hasattr(_local, "metrics"):
+        reset_run_metrics()
+    m = _local.metrics
+    m["calls"] += 1
+    m["input_tokens"] += int(input_tokens or 0)
+    m["output_tokens"] += int(output_tokens or 0)
+    b = m["by_label"].setdefault(label or "unknown", {
+        "calls": 0, "input_tokens": 0, "output_tokens": 0, "seconds": 0.0,
+    })
+    b["calls"] += 1
+    b["input_tokens"] += int(input_tokens or 0)
+    b["output_tokens"] += int(output_tokens or 0)
+
+
+def run_metrics() -> dict:
+    m = getattr(_local, "metrics", None)
+    if not m:
+        reset_run_metrics()
+        m = _local.metrics
+    return {
+        **m,
+        "seconds": round(float(m["seconds"]), 3),
+        "total_tokens": int(m["input_tokens"]) + int(m["output_tokens"]),
+        "by_label": {k: {**v, "seconds": round(float(v["seconds"]), 3)}
+                     for k, v in m["by_label"].items()},
+    }
+
+
 def fallbacks() -> list[str]:
     return list(getattr(_local, "fb", []))
 
@@ -74,6 +113,13 @@ def chat_structured(system: str, user: str, schema: Type[T], *, model: str | Non
 def _log_time(model: str, elapsed: float, label: str) -> None:
     """Print + persist how long an AI call took (best-effort, never raises)."""
     print(f"[ai] {model} {label} took {elapsed:.1f}s", flush=True)
+    if not hasattr(_local, "metrics"):
+        reset_run_metrics()
+    _local.metrics["seconds"] += elapsed
+    b = _local.metrics["by_label"].setdefault(label or "unknown", {
+        "calls": 0, "input_tokens": 0, "output_tokens": 0, "seconds": 0.0,
+    })
+    b["seconds"] += elapsed
     try:
         from ..usage import record_time
         record_time(model, elapsed, label=label)

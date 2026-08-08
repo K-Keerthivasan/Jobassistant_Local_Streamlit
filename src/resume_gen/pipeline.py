@@ -101,8 +101,9 @@ def run(
     skills_focus: list[str] | None = None,
 ) -> dict:
     profile = profile or load_profile()
-    from .llm import reset_fallbacks, fallbacks
+    from .llm import fallbacks, reset_fallbacks, reset_run_metrics, run_metrics
     reset_fallbacks()                       # track any Hermes→Ollama fallbacks this run
+    reset_run_metrics()                     # calls/tokens/time for this generation only
     chosen = select_persona(target, persona)
     resume_model, letters_model = _resolve_engines(model)
     # Personalise the email greeting with the saved company HR name, when we have one.
@@ -146,9 +147,17 @@ def run(
     # (no fabrication — only font/spacing/margins scale), then page-validate. Renders
     # to a temp dir only; nothing persists. Gated on make_pdf; fail-safe → density 1.0.
     resume_density = 1.0
-    if make_pdf:
+    if make_pdf and not settings.hermes_fast_mode:
         from .render.autofit import fit_resume
         resume_density, qa["pages"] = fit_resume(resume, cover, doc_base, profile)
+    elif make_pdf:
+        # Exact page fitting launches LibreOffice repeatedly (up to five renders).
+        # In fast mode keep generation responsive and use the standard density;
+        # the requested document is still rendered normally on download/send.
+        qa["pages"] = {
+            "deferred": True,
+            "reason": "fast_mode_standard_density",
+        }
 
     target_data = target.model_dump()
     target_data["persona"] = (chosen or {}).get("id", "")
@@ -182,6 +191,7 @@ def run(
         # True if any Hermes call fell back to Ollama this run (UI surfaces a notice).
         "hermes_fallback": bool(fb),
         "engine_notes": fb,
+        "performance": run_metrics(),
         "qa": qa,
         "qa_has_violations": has_violations(qa),
         # Full generated content — the only copy. Preview + on-demand render read this.

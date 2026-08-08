@@ -84,7 +84,7 @@ def _extract_json_object(text: str) -> str:
 
 
 def _chat(messages: list[dict], *, model: str, timeout: float,
-          temperature: float | None = None) -> str:
+          temperature: float | None = None, label: str = "gateway") -> str:
     """One OpenAI-compatible chat call to the Hermes gateway; returns reply text."""
     url = f"{settings.hermes_base_url.rstrip('/')}/chat/completions"
     payload: dict = {"model": model, "messages": messages, "stream": False}
@@ -101,7 +101,19 @@ def _chat(messages: list[dict], *, model: str, timeout: float,
         raise HermesError(f"Hermes request failed ({model}): {e}") from e
     try:
         data = resp.json()
-        return data["choices"][0]["message"]["content"] or ""
+        content = data["choices"][0]["message"]["content"] or ""
+        usage = data.get("usage") or {}
+        input_tokens = int(usage.get("prompt_tokens") or 0)
+        output_tokens = int(usage.get("completion_tokens") or 0)
+        if input_tokens or output_tokens:
+            try:
+                from ..usage import record
+                record(model, input_tokens, output_tokens, label=label)
+                from . import record_run_tokens
+                record_run_tokens(model, input_tokens, output_tokens, label)
+            except Exception:
+                pass
+        return content
     except (KeyError, IndexError, ValueError) as e:
         raise HermesError(f"Hermes returned an unexpected response shape: {e}") from e
 
@@ -114,28 +126,35 @@ def chat_structured(
     model: str | None = None,
     temperature: float | None = None,
     timeout: float | None = None,
-    retries: int = 2,
+    retries: int = 0,
     **_: object,
 ) -> T:
     """Call Hermes and return a validated instance of `schema`. Asks for JSON-only
-    output and validates it; retries a couple of times on empty/invalid JSON."""
+    output and validates it. A caller can opt into retries, but the default is one
+    attempt because Hermes already retries provider failures internally."""
     if not available():
         raise HermesError("HERMES_API_KEY is not set — cannot use the Hermes engine.")
     model = model or settings.hermes_model
     timeout = settings.llm_timeout if timeout is None else timeout
 
-    schema_json = json.dumps(schema.model_json_schema())
+    schema_json = json.dumps(schema.model_json_schema(), separators=(",", ":"))
+    # Resume/cover prompts historically embedded a human-readable schema and then
+    # repeated the machine schema here. Keep only the authoritative machine copy.
+    system = system.split("\nSCHEMA:\n", 1)[0].rstrip()
     sys = (
         f"{system}\n\nYou MUST respond with a single JSON object that conforms to "
         f"this JSON Schema. Output ONLY the JSON — no prose, no explanation, no "
-        f"markdown code fences.\nJSON Schema:\n{schema_json}"
+        f"markdown code fences. Do not call or inspect any tools, skills, files, "
+        f"memory, or external services; everything required is already in this "
+        f"request.\nJSON Schema:\n{schema_json}"
     )
     messages = [{"role": "system", "content": sys}, {"role": "user", "content": user}]
 
     last_err: Exception | None = None
     for _attempt in range(retries + 1):
         try:
-            content = _chat(messages, model=model, timeout=timeout, temperature=temperature)
+            content = _chat(messages, model=model, timeout=timeout,
+                            temperature=temperature, label=schema.__name__)
             if not content.strip():
                 raise HermesError("Hermes returned an empty response.")
             return schema.model_validate(json.loads(_extract_json_object(content)))
@@ -183,7 +202,7 @@ def find_jobs(role: str, location: str = "", *, limit: int = 15,
     try:
         content = _chat(
             [{"role": "system", "content": system}, {"role": "user", "content": prompt}],
-            model=model, timeout=settings.llm_timeout,
+            model=model, timeout=settings.llm_timeout, label="find_jobs",
         )
     finally:
         _record_time(model, time.perf_counter() - start, "find_jobs")

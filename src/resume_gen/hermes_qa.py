@@ -73,6 +73,8 @@ def qa_resume(resume, profile, *, persona: dict | None = None, target=None,
     from .llm import hermes_client
 
     base = resume if isinstance(resume, Resume) else Resume(**dict(resume or {}))
+    if settings.hermes_fast_mode:
+        return base, {"ran": False, "reason": "hermes_fast_mode"}
     if not (settings.hermes_qa and hermes_client.available()):
         return base, {"ran": False, "reason": "hermes_unavailable_or_disabled"}
 

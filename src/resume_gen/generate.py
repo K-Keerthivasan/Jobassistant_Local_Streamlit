@@ -5,9 +5,11 @@ from __future__ import annotations
 
 import re
 
+from .config import settings
 from .humanize import humanize_answer, humanize_cover_letter, humanize_email
 from .llm import chat_structured
 from .models import (
+    ApplicationDraft,
     ApplicationEmail,
     CoverLetter,
     EmailHook,
@@ -20,6 +22,7 @@ from .models import (
 from .personas import persona_directive
 from .profile import load_profile, profile_to_prompt_block
 from .prompts import (
+    APPLICATION_DRAFT_SYSTEM,
     ANSWER_SYSTEM,
     COVER_LETTER_SYSTEM,
     EMAIL_HOOK_SYSTEM,
@@ -107,6 +110,28 @@ def generate_cover_letter(target: TargetRole, profile: dict | None = None, perso
     return humanize_cover_letter(cl)
 
 
+def generate_application_draft(
+    target: TargetRole,
+    profile: dict | None = None,
+    persona: dict | None = None,
+    *,
+    skills_focus: list[str] | None = None,
+    **kw,
+) -> ApplicationDraft:
+    """Generate resume + cover letter together, avoiding a duplicate full context."""
+    user = _context(profile, target, persona)
+    if skills_focus:
+        focus = ", ".join(s for s in skills_focus if s)
+        user += (
+            "\n\nSKILLS EMPHASIS: Prioritise these only where they are genuinely "
+            f"present in CANDIDATE_PROFILE: {focus}."
+        )
+    kw.setdefault("temperature", 0.25)
+    draft = chat_structured(APPLICATION_DRAFT_SYSTEM, user, ApplicationDraft, **kw)
+    draft.cover_letter = humanize_cover_letter(draft.cover_letter)
+    return draft
+
+
 # --------------------------------------------------------------------------- #
 # Application / follow-up emails — assembled from a FIXED template so the format
 # is always consistent; only the role-specific "hook" line is model-generated.
@@ -191,6 +216,13 @@ def _greeting(contact_name: str) -> str:
     return f"Hi {n}," if n else "Hi there,"
 
 
+def _uses_hermes(model: str | None) -> bool:
+    """Resolve whether this generation call would use the Hermes gateway."""
+    if model:
+        return str(model).startswith("hermes")
+    return settings.default_engine == "hermes" and bool(settings.hermes_api_key)
+
+
 def generate_email(target: TargetRole, profile: dict | None = None, persona: dict | None = None,
                    *, contact_name: str = "", **kw) -> ApplicationEmail:
     """Application email. Fixed template + one model-written, role-specific hook
@@ -199,11 +231,12 @@ def generate_email(target: TargetRole, profile: dict | None = None, persona: dic
     role = (target.title or "the role").strip()
     # The dynamic, model-generated pieces: a role-appropriate opener + a fit hook.
     opener = hook = ""
-    try:
-        eh = chat_structured(EMAIL_HOOK_SYSTEM, _context(profile, target, persona), EmailHook, **kw)
-        opener, hook = (eh.opener or "").strip(), (eh.hook or "").strip()
-    except Exception:
-        opener = hook = ""
+    if not (settings.hermes_fast_mode and _uses_hermes(kw.get("model"))):
+        try:
+            eh = chat_structured(EMAIL_HOOK_SYSTEM, _context(profile, target, persona), EmailHook, **kw)
+            opener, hook = (eh.opener or "").strip(), (eh.hook or "").strip()
+        except Exception:
+            opener = hook = ""
     body = "\n\n".join([
         _greeting(contact_name),
         opener or f"Your {role} posting caught my eye, it lines up closely with what I do day to day.",
@@ -294,10 +327,30 @@ def generate_all(target: TargetRole, profile: dict | None = None, persona: dict 
     `skills_focus` (résumé only) re-orders and emphasises specific real skills.
     `contact_name` personalises the email greeting (the saved company HR name)."""
     profile = profile or load_profile()
+    # Hermes is backed by a quota-bearing agent. In fast mode, one structured call
+    # produces both long-form artifacts instead of sending the same ~profile/JD
+    # context twice. Email remains deterministic, so a normal run is one AI call.
+    if (
+        settings.hermes_fast_mode
+        and resume_model == letters_model
+        and _uses_hermes(resume_model)
+    ):
+        draft = generate_application_draft(
+            target, profile, persona, model=resume_model,
+            skills_focus=skills_focus, **kw,
+        )
+        resume, cover = draft.resume, draft.cover_letter
+    else:
+        resume = generate_resume(
+            target, profile, persona, model=resume_model,
+            skills_focus=skills_focus, **kw,
+        )
+        cover = generate_cover_letter(
+            target, profile, persona, model=letters_model, **kw,
+        )
     return {
-        "resume": generate_resume(target, profile, persona, model=resume_model,
-                                  skills_focus=skills_focus, **kw),
-        "cover_letter": generate_cover_letter(target, profile, persona, model=letters_model, **kw),
+        "resume": resume,
+        "cover_letter": cover,
         "email": generate_email(target, profile, persona, model=letters_model,
                                 contact_name=contact_name, **kw),
     }

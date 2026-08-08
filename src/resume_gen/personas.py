@@ -114,7 +114,7 @@ def hermes_select(target) -> dict | None:
     """Ask the Hermes agent to pick the best-fit persona for the job (semantic).
     Cached per (title, company); gated by HERMES_PERSONA. Returns the persona dict,
     or None if disabled / Hermes is unavailable / it picks nothing."""
-    if not settings.hermes_persona:
+    if settings.hermes_fast_mode or not settings.hermes_persona:
         return None
     personas = load_personas()
     if not personas:

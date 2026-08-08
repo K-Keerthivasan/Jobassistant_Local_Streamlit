@@ -47,6 +47,9 @@ def chat_structured(
     temperature = settings.ollama_temperature if temperature is None else temperature
     timeout = settings.llm_timeout if timeout is None else timeout
 
+    # `format` already carries the complete schema. Do not also spend context on
+    # the legacy human-readable SCHEMA block embedded in some system prompts.
+    system = system.split("\nSCHEMA:\n", 1)[0].rstrip()
     payload = {
         "model": model,
         "messages": [
@@ -65,11 +68,22 @@ def chat_structured(
         try:
             resp = httpx.post(url, json=payload, timeout=timeout)
             resp.raise_for_status()
-            content = resp.json().get("message", {}).get("content", "")
+            response_data = resp.json()
+            content = response_data.get("message", {}).get("content", "")
             if not content.strip():
                 raise OllamaError("Ollama returned an empty response.")
             data = json.loads(_strip_code_fences(content))
-            return schema.model_validate(data)
+            validated = schema.model_validate(data)
+            try:
+                input_tokens = int(response_data.get("prompt_eval_count") or 0)
+                output_tokens = int(response_data.get("eval_count") or 0)
+                from ..usage import record
+                record(model, input_tokens, output_tokens, label=schema.__name__)
+                from . import record_run_tokens
+                record_run_tokens(model, input_tokens, output_tokens, schema.__name__)
+            except Exception:
+                pass
+            return validated
         except httpx.TimeoutException as e:
             # Don't retry a timeout — that would multiply the wait. Fail fast.
             raise OllamaError(

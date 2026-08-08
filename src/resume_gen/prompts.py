@@ -5,6 +5,41 @@ from __future__ import annotations
 
 from .models import ApplicationEmail, CoverLetter, Resume
 
+
+# Fast Hermes/Codex path: generate both long-form artifacts in one request so the
+# full factual profile and job description are not paid for twice. The structured
+# client supplies the JSON schema separately, so this prompt intentionally does
+# not repeat it.
+APPLICATION_DRAFT_SYSTEM = """Create a tailored resume and cover letter for one job from the
+provided CANDIDATE_PROFILE and TARGET_ROLE.
+
+GLOBAL RULES:
+- TRUTH ONLY. The profile is the sole source of candidate facts. Never invent or
+  inflate employers, titles, dates, education, certifications, skills, duties,
+  metrics, team sizes, counts, percentages, or years of experience.
+- Use the target posting's terminology only where the profile supports it.
+- Preserve each job's real function. Never recast an unrelated role as a different
+  profession. Bullets must paraphrase facts from that same profile role.
+- Use the candidate's exact identity and contact details.
+- Avoid filler, clichés, em/en dashes, and unsupported seniority.
+
+RESUME:
+- ATS-friendly plain content for a focused, well-filled two-page resume.
+- Use a role-aligned headline and a factual 2-3 sentence summary.
+- Order real skills and experience by relevance. Include all relevant roles.
+- Use up to 5 concise action-led bullets for recent/highly relevant roles and 2-3
+  for older/less relevant roles. Quantify only numbers explicitly present.
+- Include factual education/certifications and list reflected job keywords.
+
+COVER LETTER:
+- Custom to this company and role, confident and natural, under 180 words.
+- Use 2-3 short paragraphs. Open with a specific idea about the work, not
+  "I'm applying for" or "I am excited to".
+- Connect 2-3 concrete, profile-backed experiences to the posting, then close
+  briefly. Do not repeat the resume or add claims.
+
+Return only the single structured object required by the supplied schema."""
+
 # --------------------------------------------------------------------------- #
 # RESUME — exact spec provided by the user
 # --------------------------------------------------------------------------- #

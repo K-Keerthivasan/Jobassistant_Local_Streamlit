@@ -529,8 +529,8 @@
       <select id="persona" class="side-select"><option value="auto">Auto-detect</option></select>
       <label class="side-label">Engine (resume/cover generation)</label>
       <select id="model" class="side-select"></select>
-      <div class="health" id="usage-line" title="Engine token cost" style="margin-bottom:12px;display:none">
-        <span style="font-size:13px">☁ <span id="usage-cost">$0.0000</span> · <span id="usage-calls">0</span> calls</span>
+      <div class="health" id="usage-line" title="Hermes gateway token usage" style="margin-bottom:12px;display:none">
+        <span style="font-size:13px">☁ <span id="usage-tokens">0 tokens</span> · <span id="usage-calls">0</span> calls</span>
       </div>
       <div class="health" id="gentime-line" title="AI generation time (Ollama + Hermes)" style="margin-bottom:12px;display:none">
         <span style="font-size:13px">⏱ last <span id="gentime-last">0s</span> · avg <span id="gentime-avg">0s</span></span>
@@ -1134,7 +1134,7 @@ async function loadModels() {
     };
     const locals = (m.models && m.models.length) ? m.models : [m.default];
     if (CLOUD_ENABLED) {
-      addOpt(HERMES_DEFAULT, '🤖 Hermes (all · auto-fallback to Ollama)', sel, true);  // DEFAULT
+      addOpt(HERMES_DEFAULT, '🤖 Hermes · optimized single call', sel, true);  // DEFAULT
       addOpt('split', 'Split · résumé local + letters 🤖 Hermes', sel, false);
       addOpt('auto', 'Auto · ⭐ priority → Hermes, else local', sel, false);
       const g1 = document.createElement('optgroup'); g1.label = 'Local (Ollama)';
@@ -1166,6 +1166,13 @@ function usesHermes(model) { const m = (model || ''); return m.startsWith('herme
 // Surface a notice when a generation fell back from Hermes to Ollama mid-run.
 function notifyFallback(res) {
   if (res && res.hermes_fallback) toast('⚠ Hermes wasn’t reachable — generated with Ollama instead.', true);
+}
+function performanceText(res) {
+  const p = (res && res.performance) || {};
+  if (!p.calls) return '';
+  const tokens = p.total_tokens ? ` · ${Number(p.total_tokens).toLocaleString()} tokens` : '';
+  const seconds = p.seconds ? ` · ${fmtSecs(p.seconds)}` : '';
+  return ` · ${p.calls} AI call${p.calls === 1 ? '' : 's'}${tokens}${seconds}`;
 }
 
 // Styled single-field prompt → resolves with the value, or null if cancelled.
@@ -1221,11 +1228,13 @@ function uiConfirm({ title = 'Are you sure?', message = '', ok = 'Confirm', canc
 async function loadUsage() {
   try {
     const u = await api('/usage');
-    // Token-cost line — only when an engine actually accrues cost (local/Hermes is free).
+    // Hermes is locally hosted but may consume a remote provider quota. Show tokens
+    // even when dollar pricing is unknown/zero.
     const line = $('usage-line');
-    if (u.enabled && (u.total_cost || 0) > 0) {
+    const tokens = (u.total_input || 0) + (u.total_output || 0);
+    if (u.enabled && (u.calls || tokens)) {
       line.style.display = '';
-      $('usage-cost').textContent = '$' + (u.total_cost || 0).toFixed(4);
+      $('usage-tokens').textContent = tokens.toLocaleString() + ' tokens';
       $('usage-calls').textContent = u.calls || 0;
     } else {
       line.style.display = 'none';
@@ -1664,7 +1673,7 @@ $('g-go').onclick = async () => {
   try {
     const res = await api('/generate', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
     renderApplication(box, res, filesForRun(res));
-    toast('Generated' + (res.persona_label ? ` · ${res.persona_label} persona` : ' · neutral'));
+    toast('Generated' + (res.persona_label ? ` · ${res.persona_label} persona` : ' · neutral') + performanceText(res));
     notifyFallback(res);
     loadUsage();
   } catch (e) {
@@ -2271,7 +2280,9 @@ async function runBulk() {
   bulkRunning = false; btn.disabled = false;
   const ok = jobs.filter(j => j.status==='done').length;
   bulkRender();   // refresh the dynamic button label
-  toast(`Done — ${ok}/${jobs.length} generated.`);
+  const aiCalls = jobs.reduce((n, j) => n + Number((j.result && j.result.performance && j.result.performance.calls) || 0), 0);
+  const aiTokens = jobs.reduce((n, j) => n + Number((j.result && j.result.performance && j.result.performance.total_tokens) || 0), 0);
+  toast(`Done — ${ok}/${jobs.length} generated${aiCalls ? ` · ${aiCalls} AI calls · ${aiTokens.toLocaleString()} tokens` : ''}.`);
   if (jobs.some(j => j.result && j.result.hermes_fallback)) notifyFallback({ hermes_fallback: true });
   loadJobs(); loadLibrary();
 }
@@ -2785,7 +2796,7 @@ async function genJob(job, btn) {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ persona: activePersona(), strict: true, pdf: true, model }),
     });
-    toast(`Generated${viaHermes ? ' · Hermes' : ''}${result.persona_label ? ' · ' + result.persona_label : ''}.`);
+    toast(`Generated${viaHermes ? ' · Hermes' : ''}${result.persona_label ? ' · ' + result.persona_label : ''}${performanceText(result)}.`);
     notifyFallback(result);
     // Update this job in place — no full table reload / spinner flash, so the view
     // stays put and you don't lose your place. Library/RSS refresh on their own tab.

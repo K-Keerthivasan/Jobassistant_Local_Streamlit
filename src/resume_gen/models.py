@@ -65,6 +65,13 @@ class CoverLetter(BaseModel):
     signature: str
 
 
+class ApplicationDraft(BaseModel):
+    """Fast-path response: one model call produces both long-form artifacts."""
+
+    resume: Resume
+    cover_letter: CoverLetter
+
+
 class ApplicationEmail(BaseModel):
     subject: str
     body: str = Field(description="plain-text email body, ready to send")
