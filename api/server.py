@@ -862,6 +862,265 @@ def answers(req: MultiAnswerRequest):
     return {"answers": out}
 
 
+# --------------------------------------------------------------------------- #
+# Answers bank — every screening answer you've approved, reused fuzzily
+# --------------------------------------------------------------------------- #
+class BankAnswerIn(BaseModel):
+    question: str
+    answer: str
+    tags: list[str] | None = None
+    source_company: str = ""
+    verified: bool = True        # hand-entered answers are yours, so trusted
+    merge_into: str = ""         # file as an alternate phrasing of this record
+
+
+@app.get("/answers/bank")
+def answers_bank_list(q: str = ""):
+    """The answers bank. With `q`, also returns the best fuzzy match for it —
+    handy for checking what a form question would reuse before applying."""
+    from resume_gen.intake import answers as bank
+
+    payload = {"answers": bank.list_answers(), "threshold": bank.MATCH_THRESHOLD}
+    if q.strip():
+        match, score = bank.find_match(q)
+        payload["query"] = q
+        payload["match"] = match
+        payload["score"] = score
+        payload["would_reuse"] = match is not None
+    return payload
+
+
+@app.post("/answers/bank")
+def answers_bank_save(req: BankAnswerIn):
+    from resume_gen.intake import answers as bank
+
+    try:
+        return bank.save_answer(
+            req.question, req.answer, tags=req.tags,
+            source_company=req.source_company, verified=req.verified,
+            merge_into=req.merge_into,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.delete("/answers/bank/{answer_id}")
+def answers_bank_delete(answer_id: str):
+    from resume_gen.intake import answers as bank
+
+    if not bank.delete_answer(answer_id):
+        raise HTTPException(status_code=404, detail="Answer not found.")
+    return {"deleted": answer_id}
+
+
+# --------------------------------------------------------------------------- #
+# Semi-automated apply — prepare -> confirm -> submit -> log
+#
+# The browser driver (Playwright MCP, or an in-process script) reads the form and
+# does the typing; these endpoints own the decisions and the audit trail. Nothing
+# here submits anything: /apply/confirm is the only thing that can authorize it.
+# --------------------------------------------------------------------------- #
+class ApplyField(BaseModel):
+    """One field read off the application form by the browser driver."""
+
+    selector: str = ""            # how the driver will find it again
+    name: str = ""
+    id: str = ""
+    label: str = ""
+    placeholder: str = ""
+    type: str = ""                # text | textarea | select | radio | checkbox | file
+    required: bool = False
+    options: list[str] | None = None   # for select/radio
+    kind: str = ""                # force "screening" to skip standard-field mapping
+
+
+class ApplyPrepare(BaseModel):
+    job_url: str
+    company: str = ""
+    title: str = ""
+    description: str = ""
+    location: str = ""
+    contact_email: str = ""
+    fields: list[ApplyField] | None = None
+    run_id: str = ""              # reuse an already-generated application
+    regenerate: bool = False
+    model: str | None = None
+    max_words: int | None = None
+    dest_dir: str | None = None   # where to write the PDFs for upload
+
+
+class ApplyConfirm(BaseModel):
+    approved: bool
+    edits: dict | None = None     # {selector|name|question: corrected value}
+    note: str = ""
+    # "agent" = Claude clicks submit; "me" = the form is left filled and ready and
+    # the user clicks it themselves (login walls, CAPTCHAs, multi-step Workday).
+    submit_by: str = "agent"
+
+
+class ApplyLog(BaseModel):
+    status: str                   # submitted | rejected | failed
+    note: str = ""
+    verified_success: bool | None = None
+    submitted_by: str = ""        # "agent" | "me" (defaults to the confirm choice)
+
+
+@app.post("/apply/prepare")
+def apply_prepare(req: ApplyPrepare):
+    """Generate the tailored application, plan every field, and return a summary
+    for confirmation. Never submits."""
+    from resume_gen.automation import autoapply
+
+    try:
+        return autoapply.prepare(
+            job_url=req.job_url, company=req.company, title=req.title,
+            description=req.description, location=req.location,
+            contact_email=req.contact_email,
+            fields=[f.model_dump() for f in (req.fields or [])],
+            run_id=req.run_id, regenerate=req.regenerate,
+            model=req.model, max_words=req.max_words, dest_dir=req.dest_dir,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/apply/form-template")
+def apply_form_template(url: str):
+    """The remembered form for this URL's host, or `null` if the site is new.
+
+    Call this **before** reading the page. On a hit, the field schema (selectors,
+    labels, options, the site's own screening questions) comes back without the
+    page ever being snapshotted — which is the expensive part of applying. The
+    selectors must still be verified against the live page before they're trusted:
+    sites get redesigned, and filling stale selectors would be worse than a
+    cache miss."""
+    from resume_gen.intake import form_templates
+
+    t = form_templates.get_for_url(url)
+    return {
+        "url": url,
+        "host": form_templates.host_of(url),
+        "hit": t is not None,
+        "template": t,
+        "note": (
+            "Verify these selectors exist before filling; re-read the page if they don't."
+            if t else "New site — read the form, and it will be remembered for next time."
+        ),
+    }
+
+
+@app.get("/apply/form-templates")
+def apply_form_templates(host: str = ""):
+    """Everything the form library has learned (optionally for one host)."""
+    from resume_gen.intake import form_templates
+
+    rows = form_templates.list_templates(host=host)
+    return {
+        "templates": [
+            {k: v for k, v in t.items() if k != "fields"} | {"field_count": t.get("field_count", 0)}
+            for t in rows
+        ],
+        "count": len(rows),
+    }
+
+
+@app.delete("/apply/form-templates/{template_id}")
+def apply_form_template_delete(template_id: str):
+    """Forget one remembered form (use after a site redesign)."""
+    from resume_gen.intake import form_templates
+
+    if not form_templates.delete_template(template_id):
+        raise HTTPException(status_code=404, detail="Template not found.")
+    return {"deleted": template_id}
+
+
+@app.get("/apply/candidates")
+def apply_candidates(limit: int = 50, since: str = "", company: str = "",
+                     source: str = "", include_attempted: bool = False):
+    """The apply worklist: generated, unapplied jobs that have an apply URL.
+
+    Jobs drop off as they're attempted, so a batch run just re-fetches this to get
+    the next one — an interrupted run resumes with no state to restore."""
+    from resume_gen.automation import autoapply
+
+    rows = autoapply.candidates(limit=limit, since=since, company=company,
+                                source=source, include_attempted=include_attempted)
+    return {
+        "candidates": rows,
+        "count": len(rows),
+        "blocked": sum(1 for r in rows if r["likely_blocked"]),
+    }
+
+
+@app.get("/apply/progress")
+def apply_progress(since: str = ""):
+    """How a batch is going: attempts by outcome, plus what's left."""
+    from resume_gen.automation import autoapply
+    from resume_gen.intake import apply_sessions
+
+    counts: dict[str, int] = {}
+    by_hand = 0
+    for s in apply_sessions.list_sessions(limit=1000):
+        if since and (s.get("created_at") or "") < since:
+            continue
+        counts[s.get("status", "?")] = counts.get(s.get("status", "?"), 0) + 1
+        if s.get("status") == "submitted" and s.get("submitted_by") == "me":
+            by_hand += 1
+    return {
+        "attempts": counts,
+        "submitted_by_you": by_hand,
+        "remaining": len(autoapply.candidates(limit=10000)),
+    }
+
+
+@app.get("/apply/sessions")
+def apply_sessions_list(job_key: str = "", limit: int = 50):
+    from resume_gen.intake import apply_sessions
+
+    return {"sessions": apply_sessions.list_sessions(job_key=job_key, limit=limit)}
+
+
+@app.get("/apply/{session_id}")
+def apply_session_get(session_id: str):
+    from resume_gen.automation import autoapply
+    from resume_gen.intake import apply_sessions
+
+    session = apply_sessions.get_session(session_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail="Apply session not found.")
+    session["summary"] = autoapply.build_summary(session)
+    return session
+
+
+@app.post("/apply/{session_id}/confirm")
+def apply_confirm(session_id: str, req: ApplyConfirm):
+    """The submission gate. `may_submit` is true only when the user approved."""
+    from resume_gen.automation import autoapply
+
+    try:
+        return autoapply.confirm(session_id, approved=req.approved,
+                                 edits=req.edits, note=req.note,
+                                 submit_by=req.submit_by)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/apply/{session_id}/log")
+def apply_log(session_id: str, req: ApplyLog):
+    """Record the outcome against the existing queue job. Call this every time,
+    whatever happened."""
+    from resume_gen.automation import autoapply
+
+    try:
+        return autoapply.log_outcome(session_id, status=req.status, note=req.note,
+                                     verified_success=req.verified_success,
+                                     submitted_by=req.submitted_by)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 class AppliedRequest(BaseModel):
     applied: bool = True
 

@@ -2,6 +2,56 @@
 
 Newest first. Dates are work dates.
 
+## 2026-08-14 — Semi-automated apply on any site + the screening-answers bank
+
+- **`POST /apply/prepare` → `/apply/{id}/confirm` → `/apply/{id}/log`.** Given a job
+  URL and the form fields a browser driver read off the page, the app queues the job,
+  generates the tailored résumé + cover letter through the normal pipeline, plans every
+  field, and returns a confirmation summary. **Nothing can be submitted until
+  `/confirm` returns `may_submit: true`,** which only happens after the user approves;
+  the new `apply_sessions` table records every decision so the gate is auditable.
+  Orchestration in `automation/autoapply.py`; the browser driver is deliberately
+  external, so the same endpoints serve the Playwright MCP path today and an in-app
+  runner later.
+- **Answers bank** (`intake/answers.py`, table `answers`). Every approved screening
+  answer is stored and fuzzily reused on later forms: normalize → light stemming →
+  0.55·sequence + 0.45·keyword-overlap, threshold 0.72. Handles British/American
+  spelling and noun/verb forms; common semantic restatements ship pre-loaded as
+  alternate phrasings. Seeded from `apply_profile.commonAnswers`. A near-miss is filed
+  as an alternate phrasing of the existing record instead of a duplicate row.
+  **Only confirmed applications write to it.** CRUD at `GET/POST/DELETE /answers/bank`
+  (`?q=` reports what a question would reuse).
+- **Field planning is three-way, not two-way**: fillable (profile has the value),
+  question (answered via bank → profile → fresh draft), or **left blank and reported**.
+  Question-shaped labels never keyword-match an identity field — this is what stopped
+  "…authorized to work in the country of employment?" being filled with `country`
+  ("Canada") instead of `workAuthorization` ("Yes"). Nothing is invented for a field
+  the profile doesn't cover.
+- **Fixed: the Playwright script uploaded a stale résumé.** `_generated_docs` still
+  looked for `output/<folder>/*_Resume.pdf`, which stopped existing when generation
+  moved to DB + render-on-download — so it silently fell back to the *generic*
+  `apply_profile.resumePath`. It now renders the run's PDFs on demand
+  (`autoapply.materialize_documents`), keeping the legacy folder path as a fallback.
+  Its screening answers now come from the bank rather than only `commonAnswers`.
+- **Tracking reuses the review queue.** Jobs are matched on apply URL (so an existing
+  Job Bank / ATS row is reused, not duplicated) and outcomes append to the same
+  `sent_log` as emails via `store.record_apply_outcome`. Every attempt is logged —
+  submitted, declined, or failed.
+- **Reuses the application a job already has.** `prepare` reads the run id off the
+  queued job (`notes`) before generating, so a job generated earlier in the Library or
+  Bulk is reused rather than re-run — seconds instead of minutes of local model time.
+  Returns `reused_run: true` with the run's date; `regenerate: true` forces a fresh
+  one. Each attempt also saves the company's portal (`last_apply_url` + detected ATS)
+  to company memory, so repeat employers start warm.
+- **"I'll submit it myself" handoff.** `confirm` takes `submit_by: "agent"|"me"`. With
+  `"me"` the form is left filled and ready, `may_submit` stays false so nothing can
+  click it, and answers are still banked — for login walls, CAPTCHAs and multi-step
+  Workday flows. `log {"status":"submitted","submitted_by":"me"}` then marks the job
+  applied exactly as an agent submission would.
+- Playwright MCP registered with a persistent `--user-data-dir` (`.pw-profile`) so
+  portal logins survive between applications. Skill: `.claude/skills/apply-to-job/`.
+  `apply_profile` gained `noticePeriod`. Docs: `docs/auto-apply.md` §6.
+
 ## 2026-06-15 — Split engine, Hermes review→rewrite (résumé + cover), page validation
 
 - **Per-artifact "Split" engine.** New sidebar option (default when Hermes is on):

@@ -20,7 +20,10 @@ from ..models import CoverLetter, Resume
 ACCENT = RGBColor(0x1F, 0x4E, 0x79)  # deep blue, like the samples
 DARK = RGBColor(0x22, 0x22, 0x22)
 MUTED = RGBColor(0x55, 0x5B, 0x66)
-FONT = "Lato"  # clean, modern, ATS-safe (installed in the PDF container)
+# Arial is deliberately boring: it is available on essentially every Windows ATS
+# review workstation and has reliable metric-compatible substitutes on Linux. A
+# resume should not depend on a custom font being installed to preserve its layout.
+FONT = "Arial"
 
 # Friendly labels for the master-profile skill groups, in display order.
 SKILL_GROUP_LABELS = {
@@ -97,8 +100,10 @@ def _group_skills(skills, profile):
 # --------------------------------------------------------------------------- #
 def _base_styles(doc: Document, t: dict | None = None) -> None:
     t = t or typo(1.0)
+    _ats_safe_bullets(doc)
     style = doc.styles["Normal"]
     style.font.name = FONT
+    style._element.rPr.rFonts.set(qn("w:eastAsia"), FONT)
     style.font.size = Pt(t["body"])
     style.font.color.rgb = DARK
     pf = style.paragraph_format
@@ -141,18 +146,64 @@ def _run(paragraph, text, *, bold=False, size=11, color=DARK, italic=False):
     r.font.size = Pt(size)
     r.font.color.rgb = color
     r.font.name = FONT
+    # Set every Word font slot. Without this, Word/LibreOffice can substitute a
+    # different font for punctuation, making PDF extraction less predictable.
+    r._element.get_or_add_rPr().rFonts.set(qn("w:eastAsia"), FONT)
     return r
 
 
 def _heading(doc: Document, text: str, t: dict | None = None):
     t = t or typo(1.0)
-    p = doc.add_paragraph()
+    # A built-in heading style gives DOCX parsers a semantic section boundary;
+    # explicit formatting below preserves the existing visual design.
+    p = doc.add_paragraph(style="Heading 2")
     p.paragraph_format.space_before = Pt(t["head_before"])
     p.paragraph_format.space_after = Pt(t["head_after"])
     p.paragraph_format.keep_with_next = True  # heading never sits alone at page bottom
     _run(p, text.upper(), bold=True, size=t["heading_size"], color=ACCENT)
     _bottom_border(p)
     return p
+
+
+def _ats_safe_bullets(doc: Document) -> None:
+    """Make list bullets extract as a real U+2022 in every renderer.
+
+    python-docx's default template draws bullets with **F0B7 from the Symbol
+    font** — a Private Use Area codepoint with no standard meaning. Word quietly
+    maps it back to "•" when text is extracted, so this looks fine locally; but
+    LibreOffice, which renders the PDFs served from the container, emits the raw
+    PUA character. Every achievement line in the downloaded résumé then starts
+    with a glyph an ATS cannot interpret.
+
+    Rewriting the bullet levels to a literal "•" in the body font makes both
+    renderers produce the same, parseable character. The list *structure* is kept,
+    so DOCX parsers still see real lists.
+    """
+    try:
+        numbering = doc.part.numbering_part.element
+    except (AttributeError, KeyError, NotImplementedError, ValueError):
+        return                                  # no numbering part: nothing to fix
+
+    for lvl in numbering.iter(qn("w:lvl")):
+        fmt = lvl.find(qn("w:numFmt"))
+        if fmt is None or fmt.get(qn("w:val")) != "bullet":
+            continue
+        text_el = lvl.find(qn("w:lvlText"))
+        if text_el is not None:
+            text_el.set(qn("w:val"), "•")
+        # The level's own run properties choose the glyph's font; point them at
+        # the body font so the bullet isn't drawn from Symbol/OpenSymbol again.
+        rpr = lvl.find(qn("w:rPr"))
+        if rpr is None:
+            rpr = OxmlElement("w:rPr")
+            lvl.append(rpr)
+        fonts = rpr.find(qn("w:rFonts"))
+        if fonts is None:
+            fonts = OxmlElement("w:rFonts")
+            rpr.append(fonts)
+        for slot in ("w:ascii", "w:hAnsi", "w:cs"):
+            fonts.set(qn(slot), FONT)
+        fonts.attrib.pop(qn("w:hint"), None)    # 'hint=default' re-selects Symbol
 
 
 def _bullet(doc: Document, text: str, t: dict | None = None):
@@ -177,14 +228,11 @@ def _tab_right(paragraph) -> None:
 # --------------------------------------------------------------------------- #
 # header (shared by resume + cover letter)
 # --------------------------------------------------------------------------- #
-def _header(doc: Document, full_name: str, contact, *, headline: str = "") -> None:
+def _header(doc: Document, full_name: str, contact) -> None:
     name_p = doc.add_paragraph()
     name_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
     name_p.paragraph_format.space_after = Pt(1)
     _run(name_p, full_name.upper(), bold=True, size=22, color=ACCENT)
-
-    # Headline intentionally not rendered (removed per preference). The `headline`
-    # argument is kept for signature compatibility but no longer emitted.
 
     parts = [contact.location, contact.email, contact.phone]
     parts += [link.url for link in contact.links]
@@ -237,8 +285,10 @@ def render_resume(resume: Resume, out_path: Path, profile: dict | None = None,
                   density: float = 1.0) -> Path:
     t = typo(density)
     doc = Document()
+    doc.core_properties.title = f"{resume.fullName} - Resume"
+    doc.core_properties.subject = "Resume"
     _base_styles(doc, t)
-    _header(doc, resume.fullName, resume.contact, headline=resume.headline)
+    _header(doc, resume.fullName, resume.contact)
 
     if resume.summary:
         _heading(doc, "Professional Summary", t)
@@ -254,10 +304,12 @@ def render_resume(resume: Resume, out_path: Path, profile: dict | None = None,
                 p = doc.add_paragraph()
                 p.paragraph_format.space_after = Pt(t["skills_after"])
                 _run(p, f"{label}: ", bold=True, size=t["skills_size"], color=ACCENT)
-                _run(p, "  •  ".join(items), size=t["skills_size"])
+                # Commas tokenize consistently in old and new ATS parsers.
+                # Decorative glyphs can be lost during PDF extraction.
+                _run(p, ", ".join(items), size=t["skills_size"])
         else:
             p = doc.add_paragraph()
-            _run(p, "  •  ".join(resume.skills), size=t["body"])
+            _run(p, ", ".join(resume.skills), size=t["body"])
 
     if resume.experience:
         _heading(doc, "Experience", t)

@@ -25,7 +25,8 @@ GLOBAL RULES:
 
 RESUME:
 - ATS-friendly plain content for a focused, well-filled two-page resume.
-- Use a role-aligned headline and a factual 2-3 sentence summary.
+- Set `headline` to an empty string. Do not add a role label beneath the name.
+- Use a factual 2-3 sentence summary.
 - Order real skills and experience by relevance. Include all relevant roles.
 - Use up to 5 concise action-led bullets for recent/highly relevant roles and 2-3
   for older/less relevant roles. Quantify only numbers explicitly present.
@@ -74,10 +75,10 @@ RULES — follow exactly:
    and focuses on outcome/impact. Quantify only with numbers that already exist in
    CANDIDATE_PROFILE — never fabricate figures. Use up to 5 bullets for recent or
    highly relevant roles, and 2–3 for older or less relevant ones.
-4. SUMMARY + HEADLINE. The headline is a plain role title aligned to TARGET_ROLE
-   (e.g. "Full-Stack Developer") — NEVER append a years-of-experience or seniority
-   claim. Write a 2–3 sentence summary aimed at TARGET_ROLE, grounded only in real
-   facts; no invented duration, scale, or metrics.
+4. SUMMARY + HEADLINE. Set `headline` to an empty string. Do not add a target-role
+   title, professional label, tagline, or descriptor beneath the candidate's name.
+   Write a 2–3 sentence summary aimed at TARGET_ROLE, grounded only in real facts;
+   no invented duration, scale, or metrics.
 5. SKILLS. List skills ordered by relevance to TARGET_ROLE. Only skills the candidate
    actually has.
 6. LENGTH. Target a focused, well-filled TWO-PAGE resume. Include ALL relevant roles
@@ -94,7 +95,7 @@ RULES — follow exactly:
 SCHEMA:
 {
   "fullName": "string",
-  "headline": "string — role-aligned title, e.g. 'Full-Stack Developer'",
+  "headline": "string — always empty",
   "contact": {
     "email": "string",
     "phone": "string",

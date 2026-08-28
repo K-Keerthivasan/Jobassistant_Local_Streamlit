@@ -1,0 +1,24 @@
+{
+  "name": "job-application-copilot",
+  "version": "0.1.0",
+  "description": "Approval-first job application automation powered by Resume Studio.",
+  "author": {
+    "name": "Local developer"
+  },
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "Job Application Copilot",
+    "shortDescription": "Prepare and fill applications; you approve every submission.",
+    "longDescription": "Connects ChatGPT and Codex to Resume Studio for job discovery, tailored documents, form plans, screening answers, approval, and application tracking. Browser filling is automated, while final submission always requires your explicit decision.",
+    "developerName": "Local developer",
+    "category": "Productivity",
+    "capabilities": ["Interactive", "Write"],
+    "defaultPrompt": [
+      "Show my best unapplied jobs.",
+      "Prepare this job application and stop for approval.",
+      "Show applications waiting for my decision."
+    ],
+    "brandColor": "#2563EB"
+  }
+}

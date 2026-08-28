@@ -56,16 +56,33 @@ def _artifact(folder: Path, generic: str, pattern: str) -> str:
 
 
 def _generated_docs(job: dict) -> tuple[str, str]:
+    """The résumé + cover-letter PDFs for this job's generated application.
+
+    Generated applications live in the database and are rendered on demand, so
+    the PDFs are materialized to a temp directory here. Legacy on-disk
+    ``output/<folder>/`` runs (from before that migration) are still honoured.
+    """
     notes = job.get("notes") or ""
     if not notes:
         return "", ""
-    folder = (settings.output_dir / Path(notes).name).resolve()
-    if not folder.is_dir():
+
+    run_id = Path(notes).name
+    folder = (settings.output_dir / run_id).resolve()
+    if folder.is_dir():
+        return (
+            _artifact(folder, "resume.pdf", "*_Resume.pdf"),
+            _artifact(folder, "cover_letter.pdf", "*_Cover.pdf"),
+        )
+
+    try:
+        from .autoapply import materialize_documents
+
+        docs = materialize_documents(run_id)
+    except Exception as e:
+        print(f"Could not render the generated documents for {run_id}: {e}", file=sys.stderr)
         return "", ""
-    return (
-        _artifact(folder, "resume.pdf", "*_Resume.pdf"),
-        _artifact(folder, "cover_letter.pdf", "*_Cover.pdf"),
-    )
+    return (docs.get("resume", {}).get("path", ""),
+            docs.get("cover_letter", {}).get("path", ""))
 
 
 def detect_ats(url: str) -> str:
@@ -136,10 +153,26 @@ def fill_common(page, p: dict, resume: str, cover: str) -> list[str]:
     return log
 
 
+def _known_answers(p: dict) -> dict[str, str]:
+    """Question -> answer, from the answers bank (which is seeded from the
+    apply-profile's `commonAnswers` and grows every time an application is
+    confirmed). Falls back to the profile alone if the bank can't be read."""
+    try:
+        from ..intake import answers as bank
+
+        known = {rec["question"]: rec["answer"] for rec in bank.list_answers()
+                 if rec.get("question") and rec.get("answer")}
+        if known:
+            return known
+    except Exception:
+        pass
+    return p.get("commonAnswers", {}) or {}
+
+
 def answer_screening(page, p: dict) -> list[str]:
     """Best-effort answers to common Yes/No screening questions by matching label text."""
     log = []
-    answers = p.get("commonAnswers", {})
+    answers = _known_answers(p)
     for question, answer in answers.items():
         key = question.split("?")[0][:25].lower()
         try:

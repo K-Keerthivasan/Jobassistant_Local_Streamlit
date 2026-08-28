@@ -1,7 +1,7 @@
 """Role personas: pick a role-specific framing of the master profile and turn it
 into a directive the LLM applies on top of the TRUTH-ONLY profile.
 
-A persona never adds facts — it only reframes (headline, summary seed, which
+A persona never adds facts — it only reframes (summary seed, which
 experience to lead with, which skills to foreground, which links to show). The
 truth-guard still validates everything against master_profile.yaml.
 """
@@ -174,8 +174,8 @@ def persona_directive(persona: dict | None) -> str:
         "do NOT add anything not present there):",
         f"  target_persona: {persona.get('label', persona.get('id', ''))}",
     ]
-    if persona.get("headline"):
-        lines.append(f"  headline: use \"{persona['headline']}\" (or a close, truthful variant)")
+    # Persona headlines are classification metadata only. They must not become a
+    # visible role label beneath the candidate's name on the resume.
     if persona.get("summary_seed"):
         seed = " ".join(persona["summary_seed"].split())
         lines.append(f"  summary_framing (rewrite in the candidate's voice, do not copy verbatim): {seed}")

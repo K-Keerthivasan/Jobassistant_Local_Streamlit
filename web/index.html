@@ -517,6 +517,7 @@
       <button data-view="scrape"><span class="ic">🛰️</span> RSS &amp; CSV Intake</button>
       <button data-view="hermes-scrape"><span class="ic">🤖</span> Hermes Scraping</button>
       <button data-view="scraper"><span class="ic">💼</span> Jobs</button>
+      <button data-view="apply-center"><span class="ic">✅</span> Apply Center</button>
       <button data-view="repeatable"><span class="ic">🔁</span> Repeatable</button>
       <button data-view="companies"><span class="ic">🏢</span> Companies</button>
       <button data-view="qa"><span class="ic">💬</span> Q&amp;A</button>
@@ -759,7 +760,7 @@
       <div class="sc-head">
         <div>
           <h1 class="page-h" style="margin:0">Jobs</h1>
-          <p class="page-sub" style="margin:4px 0 0">All your jobs. 🔁 repeat company · 📧 email apply (n8n) · ⌨ Autofill = portal autofill (stops before submit). Generated → see them in <b>Library</b>.</p>
+          <p class="page-sub" style="margin:4px 0 0">All your jobs. 🔁 repeat company · 📧 email apply (n8n) · 🤖 AI Apply = ChatGPT/Codex fills the portal and waits for your final yes/no. Generated → see them in <b>Library</b>.</p>
         </div>
         <div class="sc-actions">
           <button class="btn subtle sm" id="jl-refresh" title="Pull jobs you saved in the browser, then refresh">🔄 Sync saved &amp; refresh</button>
@@ -828,6 +829,28 @@
         </table>
         <div class="empty" id="jl-empty"><div class="big">🛰️</div>No jobs match. Go to <b>Scrape</b> to fetch from sources or add one manually.</div>
       </div>
+    </section>
+
+    <!-- ===== Apply Center (human approval gate) ===== -->
+    <section class="view" id="view-apply-center">
+      <div class="sc-head">
+        <div>
+          <h1 class="page-h" style="margin:0">Apply Center</h1>
+          <p class="page-sub" style="margin:4px 0 0">Resume Studio MCP supplies the queue, facts, documents, answers, approval, and tracking; browser control fills one employer form at a time for you to submit.</p>
+        </div>
+        <div class="sc-actions">
+          <button class="btn ghost sm" id="ac-copy-prompt">Copy MCP queue request</button>
+          <button class="btn subtle sm" id="ac-refresh">↻ Refresh</button>
+        </div>
+      </div>
+      <div class="card" style="margin-bottom:14px">
+        <div class="sec-title" style="margin-bottom:7px">Connection</div>
+        <div style="font-size:13px;line-height:1.55">
+          <b>Resume Studio MCP:</b> <code>http://127.0.0.1:8090/mcp</code><br>
+          Enable <b>Job Application Copilot</b> plus a Chrome/browser-control plugin in ChatGPT or Codex. The copilot owns facts, documents, answers, approval, and tracking; browser control only navigates and types.
+        </div>
+      </div>
+      <div id="ac-list"><div class="empty"><span class="spinner dark"></span></div></div>
     </section>
 
     <!-- ===== Companies (HR contacts + jobs grouped by company) ===== -->
@@ -1068,6 +1091,7 @@ function showView(view) {
   lsSet('view', view);   // remember across refresh
   renderHealth();
   if (view === 'scraper') loadJobs();
+  if (view === 'apply-center') loadApplyCenter();
   if (view === 'repeatable') loadRepeatable();
   if (view === 'companies') loadCompanies();
   if (view === 'scrape') { renderSetup(); renderScrapedJobs(); }
@@ -2380,6 +2404,96 @@ $('b-csv-tpl').onclick = () => {
 /* from scraper queue: filtered, multi-select picker → add chosen jobs to the bulk list */
 $('b-queue').onclick = () => openPick('bulk');
 
+/* ---------- Apply Center (human approval gate) ---------- */
+const APPLY_PROMPT = `Use Resume Studio MCP and browser control only; do not use a userscript. Work through generated, unapplied jobs from the past seven days, one application at a time. Reuse each generated resume and cover letter. Fill the current form from the MCP plan and pause only for login, CAPTCHA, consent/legal attestation, sensitive demographic choices, missing required facts, or ambiguous options. For review, show only new answers, required blanks, and warnings; if there are none, say it is clean. Leave the final Submit button for me. When I say done, verify/log the outcome, return to Resume Studio, and continue with the next eligible job.`;
+
+function acList(values, empty = 'None') {
+  if (!values || !values.length) return `<span class="muted">${empty}</span>`;
+  return `<ul style="margin:6px 0 0;padding-left:20px">${values.map(v => `<li style="margin:5px 0">${esc(typeof v === 'string' ? v : JSON.stringify(v))}</li>`).join('')}</ul>`;
+}
+
+function acSessionCard(s) {
+  const summary = s.summary || {}, counts = summary.counts || {};
+  const pending = s.status === 'prepared';
+  const warnings = summary.warnings || s.warnings || [];
+  const newAnswers = summary.answers_new || [];
+  const blanks = summary.left_blank || [];
+  const statusTone = s.status === 'submitted' ? 'color:var(--ok)' :
+    s.status === 'rejected' || s.status === 'failed' ? 'color:var(--err)' :
+    s.status === 'approved' ? 'color:var(--warn)' : 'color:var(--accent)';
+  return `<div class="card" data-ac-session="${esc(s.session_id)}" style="margin-bottom:12px">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap">
+      <div><div style="font-weight:800;font-size:16px">${esc(s.title || 'Untitled role')}</div>
+        <div class="muted">${esc(s.company || '')} · ${esc((s.created_at || '').replace('T',' ').slice(0,16))}</div></div>
+      <div style="font-weight:800;text-transform:uppercase;font-size:12px;${statusTone}">${esc(s.status || '')}</div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0;font-size:12px">
+      <span class="jl-src">${Number(counts.standard_fields || 0)} fields</span>
+      <span class="jl-src">${Number(counts.reused || 0)} reused answers</span>
+      <span class="jl-src">${Number(counts.newly_drafted || 0)} new answers</span>
+      <span class="jl-src">${Number(counts.left_blank || 0)} blanks</span>
+    </div>
+    <details ${pending && (warnings.length || newAnswers.length || blanks.length) ? 'open' : ''}>
+      <summary style="cursor:pointer;font-weight:700">Review exact application packet</summary>
+      <div style="margin-top:10px;font-size:13px">
+        ${warnings.length ? `<b style="color:var(--warn)">Warnings</b>${acList(warnings)}` : ''}
+        ${newAnswers.length ? `<div style="margin-top:10px"><b>New AI-drafted answers — read closely</b>${acList(newAnswers.map(a => `${a.question}: ${a.answer}`))}</div>` : ''}
+        ${blanks.length ? `<div style="margin-top:10px"><b>Left blank</b>${acList(blanks.map(b => `${b.label}${b.required ? ' (required)' : ''}: ${b.reason}`))}</div>` : ''}
+        <div style="margin-top:10px"><b>Documents:</b> ${Object.entries(summary.documents || {}).map(([k,v]) => v.url ? `<a href="${esc(v.url)}" target="_blank">${esc(k)}</a>` : esc(`${k}: ${v.error || 'unavailable'}`)).join(' · ') || '<span class="muted">not prepared</span>'}</div>
+      </div>
+    </details>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+      ${s.job_url ? `<a class="btn subtle sm" href="${esc(s.job_url)}" target="_blank" rel="noreferrer">Open portal ↗</a>` : ''}
+      ${pending ? `<button class="btn primary sm" data-ac="approve-me">Approve answers · I'll submit</button>
+        <button class="btn danger sm" data-ac="reject">No · reject</button>` : ''}
+    </div>
+  </div>`;
+}
+
+async function loadApplyCenter() {
+  const out = $('ac-list');
+  try {
+    const { sessions } = await api('/apply/sessions?limit=50');
+    const full = await Promise.all((sessions || []).map(async s => {
+      try { return await api(`/apply/${enc(s.session_id)}`); } catch { return s; }
+    }));
+    out.innerHTML = full.length ? full.map(acSessionCard).join('') :
+      '<div class="empty"><div class="big">✅</div>No application sessions yet. Start from a job with <b>AI Apply</b> or ask ChatGPT to prepare one.</div>';
+    out.querySelectorAll('[data-ac-session]').forEach(card => {
+      const id = card.dataset.acSession;
+      card.querySelector('[data-ac="approve-me"]')?.addEventListener('click', () => acDecide(id, true, 'me'));
+      card.querySelector('[data-ac="reject"]')?.addEventListener('click', () => acDecide(id, false, 'me'));
+    });
+  } catch (e) {
+    out.innerHTML = `<div class="empty">Could not load approval sessions: ${esc(e.message)}</div>`;
+  }
+}
+
+async function acDecide(sessionId, approved, submitBy) {
+  const verb = approved ? (submitBy === 'agent' ? 'authorize the agent to submit' : 'approve and submit it yourself') : 'reject this application';
+  if (!await uiConfirm({
+    title: approved ? 'Final application decision' : 'Reject application?',
+    message: `This decision applies only to session ${sessionId}.\n\nDo you want to ${verb}?`,
+    ok: approved ? 'Yes, approve' : 'No, reject it',
+    danger: !approved,
+  })) return;
+  try {
+    const result = await api(`/apply/${enc(sessionId)}/confirm`, {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({approved, submit_by: submitBy})
+    });
+    toast(result.note || (approved ? 'Application approved.' : 'Application rejected.'));
+    loadApplyCenter();
+  } catch (e) { toast('Decision failed: ' + e.message, true); }
+}
+
+$('ac-refresh')?.addEventListener('click', loadApplyCenter);
+$('ac-copy-prompt')?.addEventListener('click', () => {
+  (navigator.clipboard?.writeText(APPLY_PROMPT) || Promise.reject()).then(
+    () => toast('ChatGPT application request copied.'),
+    () => uiPrompt({title:'Copy this into ChatGPT', value:APPLY_PROMPT, ok:'Close'}));
+});
+
 /* ---------- Jobs (native list) ---------- */
 // Collector (capture dashboard) on the same host, port 8765. Tracks how the app
 // was opened (localhost / Tailscale).
@@ -2574,7 +2688,7 @@ function renderJobs() {
         ${(j.id && (j.email || j.company_email)) ? `<button class="btn ghost sm" data-act="emailhr" data-i="${i}" title="${j.hr_emailed_at ? 'HR emailed ' + esc(j.hr_emailed_at) + ' — click to email again' : 'Email HR about this posting (' + esc(j.email || j.company_email) + ')'}">${j.hr_emailed_at ? '✅ HR' : '✉️ HR'}</button>` : ''}
         ${(j.id && j.sent_at) ? `<button class="btn ghost sm" data-act="followup" data-i="${i}" title="Send a follow-up to ${esc(j.sent_to || j.email || j.company_email)}${j.followups && j.followups.length ? ' ('+j.followups.length+' sent)' : ''}">🔔 Follow up</button>` : ''}
         ${j.apply_url ? `<a class="btn subtle sm" href="${esc(j.apply_url)}" target="_blank" rel="noreferrer" title="Open the application portal">Open ↗</a>` : ''}
-        ${(j.apply_url && j.id) ? `<button class="btn subtle sm" data-act="autofill" data-i="${i}" title="Copy the Playwright autofill command (runs on your host)">⌨ Autofill</button>` : ''}
+        ${(j.apply_url && j.id) ? `<button class="btn subtle sm" data-act="autofill" data-i="${i}" title="Copy an approval-first ChatGPT/Codex application request">🤖 AI Apply</button>` : ''}
         ${j.id ? `<a class="btn subtle sm" href="/jobs/${enc(j.id)}/download" download title="Download this job as JSON">⬇ JSON</a>` : ''}
         ${j.id ? `<button class="btn ghost sm" data-act="bulk" data-i="${i}" title="Add this job to the Bulk generate queue">➕ Bulk</button>` : ''}
         ${j.id ? `<button class="btn primary sm" data-act="gen" data-i="${i}">${j.gen?'Regenerate':'Generate'}</button>` : ''}
@@ -2643,10 +2757,10 @@ function renderJobs() {
   });
   body.querySelectorAll('[data-act="autofill"]').forEach(b => b.onclick = () => {
     const j = jl.rows[+b.dataset.i];
-    const cmd = `python -m resume_gen.automation.playwright_apply --job ${j.id}`;
-    (navigator.clipboard?.writeText(cmd) || Promise.reject()).then(
-      () => toast('Autofill command copied — run it in your terminal (opens a browser, stops before submit).'),
-      () => { prompt('Run this on your host:', cmd); });
+    const request = `Use Job Application Copilot and Chrome/browser control. Apply to ${j.title} at ${j.company}. Resume Studio job key: ${j.id}. Application URL: ${j.apply_url}. Inspect and fill the live form, upload the tailored documents, then stop before Submit and show me the exact approval packet. Ask me yes or no for this application.`;
+    (navigator.clipboard?.writeText(request) || Promise.reject()).then(
+      () => { toast('ChatGPT/Codex request copied — paste it into a chat with both plugins enabled.'); showView('apply-center'); },
+      () => uiPrompt({title:'Copy this into ChatGPT/Codex', value:request, ok:'Close'}));
   });
   body.querySelectorAll('.jl-applied').forEach(cb => cb.onclick = async (e) => {
     e.stopPropagation();

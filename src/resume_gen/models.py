@@ -40,7 +40,12 @@ class Resume(BaseModel):
     """One valid JSON object the generator returns, per the prompt SCHEMA."""
 
     fullName: str
-    headline: str
+    # Retained in stored/API JSON for backward compatibility. The resume layout no
+    # longer displays a target-role label beneath the candidate's name.
+    headline: str = Field(
+        default="",
+        description="Legacy field; always return an empty string.",
+    )
     contact: Contact
     summary: str
     skills: list[str] = Field(default_factory=list)

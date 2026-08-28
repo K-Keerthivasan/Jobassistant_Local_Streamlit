@@ -23,6 +23,47 @@ Returns: `folder`, `paths`, `resume`, `cover_letter`, `email`, `qa`,
 ### `GET /personas`
 `{ "personas": [ { "id", "label", "headline" } ] }`
 
+## Semi-automated apply
+
+See `docs/auto-apply.md` §6 for the full flow. The browser driver reads the form;
+these endpoints own the decisions and the audit trail.
+
+### `POST /apply/prepare`
+```json
+{"job_url": "https://…", "company": "Acme", "title": "Platform Engineer",
+ "description": "…full job text…",
+ "fields": [{"selector": "#email", "label": "Email Address", "type": "text",
+             "required": true, "options": []}]}
+```
+Queues the job, generates the tailored application, plans every field. Returns
+`session_id`, `standard_fields[]`, `screening_answers[]` (each with
+`source: bank|profile|new`), `unfilled_fields[]`, `documents`, and a `summary`.
+**Submits nothing.**
+
+### `POST /apply/{session_id}/confirm`
+`{"approved": true, "submit_by": "agent"|"me", "edits": {"#why": "corrected text"}}`
+→ `{"may_submit": …, "awaiting_user_submit": …, "banked": [...]}`. **The only thing
+that authorizes a submit.** Approval banks newly drafted answers (edited text
+wins); rejection banks nothing and is logged. `submit_by: "me"` keeps
+`may_submit` false and hands you the filled form to submit yourself.
+
+### `POST /apply/{session_id}/log`
+`{"status": "submitted|rejected|failed", "submitted_by": "agent"|"me",
+"verified_success": true, "note": ""}` → appends to the queue job's `sent_log`;
+`submitted` sets `applied` whoever clicked it. Call for every outcome.
+
+### `GET /apply/sessions` · `GET /apply/{session_id}`
+Recent attempts (optionally `?job_key=`), and one session with its summary.
+
+### `GET /apply/candidates`
+`GET /apply/candidates?limit=100&since=YYYY-MM-DD` returns generated, unapplied
+jobs for MCP-guided browser application, including their saved description and
+generated run id.
+
+### `GET /answers/bank` · `POST /answers/bank` · `DELETE /answers/bank/{id}`
+The screening-answers bank. `GET ?q=<question>` also returns `would_reuse`,
+`score` and the matching record — what that question would reuse on a real form.
+
 ### `GET /models`
 Locally installed Ollama models for the picker.
 

@@ -38,12 +38,10 @@ PROFILE (the only source of truth), the TARGET ROLE they are applying to, and a 
 Your job is QA: find every claim in the résumé that is NOT supported by the profile, and FIX it.
 
 Distinguish FRAMING from FABRICATION — this is the most important rule:
-- FRAMING (KEEP IT): orienting the candidate's REAL skills and experience toward the TARGET ROLE — a
-  role-relevant headline and a summary that leads with the profile-backed skills most relevant to the
-  job. If the APPROVED FRAMING below is supported by the profile's real skills, KEEP that direction.
-  NEVER neutralise a role-targeted headline/summary back into a generic or different profession when
-  the profile's skills support the target role (e.g. don't turn a "Digital Marketing" framing into
-  "Backend Developer" just because the profile also has backend work).
+- FRAMING (KEEP IT): orienting the candidate's REAL skills and experience toward the TARGET ROLE through
+  the summary, skills ordering, and supported experience. The `headline` field must remain empty; do not
+  add a target-role label beneath the candidate's name. If the APPROVED FRAMING below is supported by the
+  profile's real skills, KEEP that direction in the summary and content.
 - FABRICATION (REMOVE IT): claiming an employer, job title, date, degree, certification, metric,
   percentage, count, team size, "N years of experience", or a TOOL or specific job DUTY the profile
   does not contain (e.g. "managed a YouTube channel", "ran paid ad campaigns", "grew audience 30%"
@@ -89,8 +87,6 @@ def qa_resume(resume, profile, *, persona: dict | None = None, target=None,
             ctx += f"TARGET_ROLE_DESCRIPTION (for relevance only):\n{desc}\n"
     if persona:
         ctx += "APPROVED_FRAMING (persona-derived, truthful — preserve this DIRECTION):\n"
-        if persona.get("headline"):
-            ctx += f"  headline: {persona['headline']}\n"
         if persona.get("summary_seed"):
             ctx += f"  summary direction: {' '.join(persona['summary_seed'].split())}\n"
         if persona.get("foreground_skills"):

@@ -33,6 +33,13 @@ data/usage.json
 data/companies/*
 !data/companies/.gitkeep
 
+# Semi-auto apply: PDFs materialized for upload, screenshots, browser profile.
+# Transient artifacts of an application attempt — the generated content itself
+# lives in the DB, and these are rendered from it on demand.
+data/job-applications/
+.pw-profile/
+.playwright-mcp/
+
 # SQLite store (queue, seen, repeatable roles, company memory, output index)
 data/resume.db
 data/resume.db-wal

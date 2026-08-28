@@ -34,6 +34,30 @@ services:
       - ../data:/app/data
       - ../output:/app/output
 
+  # MCP bridge used by the Job Application Copilot plugin. It exposes focused
+  # Resume Studio tools at http://127.0.0.1:8090/mcp; browser control remains a
+  # separate capability and final submission is approval-gated in the app.
+  resume-mcp:
+    image: resume-gen-api:latest
+    container_name: resume-mcp
+    restart: unless-stopped
+    depends_on:
+      - resume-api
+    ports:
+      - "127.0.0.1:8090:8090"
+    env_file:
+      - ../.env
+    environment:
+      OLLAMA_HOST: http://host.docker.internal:11434
+      PDF_ENGINE: libreoffice
+      HERMES_BASE_URL: http://host.docker.internal:8642/v1
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ../data:/app/data
+      - ../output:/app/output
+    command: ["python", "-m", "resume_gen.mcp_server", "--transport", "streamable-http", "--host", "0.0.0.0", "--port", "8090"]
+
   # Optional: expose resume-api to your other devices over Tailscale.
   # Your n8n is already on the host, so it does NOT need this. Uncomment only
   # if you want remote devices to hit the API directly. Add TS_AUTHKEY to .env.

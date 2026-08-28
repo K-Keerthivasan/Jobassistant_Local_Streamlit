@@ -76,8 +76,6 @@ Be concise and concrete. Cap each list at about 6 items. Scores are integers 0-1
 def _resume_block(resume: Resume | dict[str, Any]) -> str:
     r = resume.model_dump() if isinstance(resume, Resume) else dict(resume or {})
     lines: list[str] = []
-    if r.get("headline"):
-        lines.append(f"HEADLINE: {r['headline']}")
     if r.get("summary"):
         lines.append(f"SUMMARY: {r['summary']}")
     if r.get("skills"):
@@ -121,7 +119,7 @@ RULES:
 1. Only concrete, checkable skills/tools/technologies (e.g. "Kubernetes", "Power BI", "Java", "SEO",
    "Active Directory", "Figma"). NOT soft skills, NOT responsibilities, NOT vague themes.
 2. Only items the job description actually mentions or clearly implies.
-3. EXCLUDE anything the resume already shows (skills, headline, summary, or bullets) — even loosely.
+3. EXCLUDE anything the resume already shows (skills, summary, or bullets) — even loosely.
 4. Each gap is something we will ASK the candidate: "do you have this?". Keep `skill` to the bare name
    and `why` to a few words (where the job needs it).
 5. Return at most 12, most important first. If there are no real gaps, return an empty list.
@@ -215,8 +213,9 @@ ABSOLUTE TRUTH RULES (breaking any of these is a failure):
 - Do NOT add metrics, percentages, dollar amounts, team sizes, or "N years of experience" that are
   not already present.
 - You MAY: reword bullets for impact and clarity, reorder bullets/skills to put the most
-  role-relevant first, tighten the headline/summary, and surface keywords from the job description
+  role-relevant first, tighten the summary, and surface keywords from the job description
   ONLY where the candidate's existing facts already support them.
+- Keep the `headline` field empty. Do not add a role title, label, or tagline beneath the name.
 - If a job keyword is not supported by the candidate's real experience, leave it out — never fake it.
 
 Output the rewritten resume in the SAME schema as the input, plus a short `changes` list describing

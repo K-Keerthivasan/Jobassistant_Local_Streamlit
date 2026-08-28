@@ -74,6 +74,60 @@ CREATE TABLE IF NOT EXISTS runs (
     data       TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_runs_created ON runs(created_at);
+
+-- Screening-question answers bank. Every custom question answered on an
+-- application form is kept here so the next form that asks something similar
+-- reuses the answer instead of drafting a new one. `norm` is the normalized
+-- question text used for matching; `id` is its hash (stable across rewrites).
+CREATE TABLE IF NOT EXISTS answers (
+    id            TEXT PRIMARY KEY,
+    norm          TEXT,
+    question      TEXT,
+    answer        TEXT,
+    verified      INTEGER DEFAULT 0,
+    times_used    INTEGER DEFAULT 0,
+    source_company TEXT,
+    date_added    TEXT,
+    data          TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_answers_norm ON answers(norm);
+
+-- Remembered application forms, keyed by the site they live on. Reading a career
+-- page's whole accessibility tree is by far the most expensive part of applying,
+-- and employers reuse one form across every posting they publish. Caching the
+-- field schema (selectors, labels, options, and the site's own custom screening
+-- questions) lets a repeat application skip that read entirely and fill straight
+-- from the answers bank. `signature` fingerprints the field set, so a site that
+-- changes its form is detected rather than filled with stale selectors.
+CREATE TABLE IF NOT EXISTS form_templates (
+    id          TEXT PRIMARY KEY,
+    host        TEXT,
+    ats         TEXT,
+    signature   TEXT,
+    field_count INTEGER DEFAULT 0,
+    times_used  INTEGER DEFAULT 0,
+    first_seen  TEXT,
+    last_seen   TEXT,
+    data        TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_form_host ON form_templates(host);
+
+-- One semi-automated application attempt: the extracted form, the fill plan,
+-- and the confirmation decision. Rows are the audit trail behind the
+-- "never submit without explicit confirmation" rule.
+CREATE TABLE IF NOT EXISTS apply_sessions (
+    session_id TEXT PRIMARY KEY,
+    job_key    TEXT,
+    run_id     TEXT,
+    job_url    TEXT,
+    company    TEXT,
+    title      TEXT,
+    status     TEXT,
+    created_at TEXT,
+    data       TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_apply_created ON apply_sessions(created_at);
+CREATE INDEX IF NOT EXISTS idx_apply_job     ON apply_sessions(job_key);
 """
 
 
@@ -144,7 +198,8 @@ def migrate_json(force: bool = False) -> dict:
     queue_dir = intake_dir / "queue"
     seen_file = intake_dir / "seen.json"
     repeat_dir = ROOT / "data" / "repeatable"  # legacy per-role JSON location
-    imported = {"jobs": 0, "seen": 0, "repeatable_roles": 0, "companies": 0, "runs": 0}
+    imported = {"jobs": 0, "seen": 0, "repeatable_roles": 0, "companies": 0,
+                "runs": 0, "answers": 0}
 
     with connect() as conn:
         # jobs
@@ -186,6 +241,14 @@ def migrate_json(force: bool = False) -> dict:
                         continue
                     _upsert_company_row(conn, f.stem, obj)
                     imported["companies"] += 1
+        # answers bank: seed from the hand-written `commonAnswers` in the
+        # apply-profile, so the bank starts out knowing your standard answers.
+        if force or _count(conn, "answers") == 0:
+            from .answers import seed_rows
+
+            for obj in seed_rows():
+                _upsert_answer_row(conn, obj)
+                imported["answers"] += 1
 
     # Past runs: backfill the `runs` table from any legacy output/<folder>/ dirs
     # so previously generated applications stay visible and re-downloadable.
@@ -289,6 +352,76 @@ def _upsert_company_row(conn, slug: str, obj: dict) -> None:
            ON CONFLICT(slug) DO UPDATE SET
              company=excluded.company, data=excluded.data""",
         (slug, obj.get("company", ""), json.dumps(obj, ensure_ascii=False)),
+    )
+
+
+def _upsert_answer_row(conn, obj: dict) -> None:
+    conn.execute(
+        """INSERT INTO answers (id, norm, question, answer, verified, times_used,
+                                source_company, date_added, data)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT(id) DO UPDATE SET
+             norm=excluded.norm, question=excluded.question,
+             answer=excluded.answer, verified=excluded.verified,
+             times_used=excluded.times_used,
+             source_company=excluded.source_company, data=excluded.data""",
+        (
+            obj.get("id", ""),
+            obj.get("norm", ""),
+            obj.get("question", ""),
+            obj.get("answer", ""),
+            1 if obj.get("verified") else 0,
+            int(obj.get("times_used") or 0),
+            obj.get("source_company", ""),
+            obj.get("date_added", ""),
+            json.dumps(obj, ensure_ascii=False),
+        ),
+    )
+
+
+def _upsert_form_template_row(conn, obj: dict) -> None:
+    conn.execute(
+        """INSERT INTO form_templates (id, host, ats, signature, field_count,
+                                       times_used, first_seen, last_seen, data)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT(id) DO UPDATE SET
+             host=excluded.host, ats=excluded.ats, signature=excluded.signature,
+             field_count=excluded.field_count, times_used=excluded.times_used,
+             last_seen=excluded.last_seen, data=excluded.data""",
+        (
+            obj.get("id", ""),
+            obj.get("host", ""),
+            obj.get("ats", ""),
+            obj.get("signature", ""),
+            int(obj.get("field_count") or 0),
+            int(obj.get("times_used") or 0),
+            obj.get("first_seen", ""),
+            obj.get("last_seen", ""),
+            json.dumps(obj, ensure_ascii=False),
+        ),
+    )
+
+
+def _upsert_apply_session_row(conn, obj: dict) -> None:
+    conn.execute(
+        """INSERT INTO apply_sessions (session_id, job_key, run_id, job_url, company,
+                                       title, status, created_at, data)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT(session_id) DO UPDATE SET
+             job_key=excluded.job_key, run_id=excluded.run_id,
+             job_url=excluded.job_url, company=excluded.company,
+             title=excluded.title, status=excluded.status, data=excluded.data""",
+        (
+            obj.get("session_id", ""),
+            obj.get("job_key", ""),
+            obj.get("run_id", ""),
+            obj.get("job_url", ""),
+            obj.get("company", ""),
+            obj.get("title", ""),
+            obj.get("status", ""),
+            obj.get("created_at", ""),
+            json.dumps(obj, ensure_ascii=False),
+        ),
     )
 
 

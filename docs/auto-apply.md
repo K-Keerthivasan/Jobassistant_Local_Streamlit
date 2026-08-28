@@ -119,8 +119,128 @@ Schedule/Manual Trigger
 Tracker statuses: `new → good match → application opened → autofilled → needs manual
 review → submitted → rejected → interview`.
 
+## 6. Agent-driven apply (any site) — `prepare → confirm → submit → log`
+
+The Playwright script above knows a fixed set of CSS selectors, so it only really
+works on portals someone has already taught it. The **agent-driven** path works on
+a site nobody has seen before: Claude Code reads whatever form is actually on the
+page via the **Playwright MCP** server, and this app makes every decision about
+what goes in it.
+
+```
+Claude Code + Playwright MCP          resume-api (:8088)
+  read posting + form         ──►  POST /apply/prepare      reuse or generate the
+                                                            résumé/cover, answer
+                                                            questions, plan the fill
+  fill the form (no submit)   ◄──  fill plan + summary
+  show summary, ASK USER
+  user says yes               ──►  POST /apply/{id}/confirm  bank new answers
+                              ◄──  may_submit / awaiting_user_submit
+  submit + verify  ── OR ──  you submit it yourself
+  outcome                     ──►  POST /apply/{id}/log      job → applied
+```
+
+**Nothing can submit without `/apply/{id}/confirm` returning `may_submit: true`,**
+and that only happens after you say yes. The `apply_sessions` table records every
+decision, so the gate is auditable rather than a promise made in a prompt.
+
+### Who clicks submit
+
+`confirm` takes `submit_by`:
+
+- **`"agent"`** (default) — Claude clicks submit and verifies the success state.
+- **`"me"`** — the form is left filled and ready and **you** click it. Use this
+  behind a login wall, a CAPTCHA, or partway through a multi-step Workday flow.
+  `may_submit` stays `false` so nothing can click it for you; the answers are
+  still banked.
+
+Either way, `POST /apply/{id}/log {"status": "submitted", "submitted_by": "me"}`
+marks the job **applied** in the review queue. An application you finished by hand
+is tracked exactly like one Claude submitted — that's the point of the handoff.
+
+### Reusing an application you already generated
+
+`prepare` looks for the run already attached to the queued job (`notes`) before
+generating anything, so a job you generated earlier in the Library or in Bulk is
+**reused**, not re-run — the difference between seconds and minutes of local
+model time. The response sets `reused_run: true` and the summary names the run and
+its date. Pass `"regenerate": true` when the posting or your profile has changed.
+
+Each application also saves the company's portal (`last_apply_url` + detected ATS)
+into company memory, so repeat postings from the same employer start warm.
+
+### Setup
+
+```bash
+claude mcp add playwright -- npx @playwright/mcp@latest \
+  --user-data-dir "<repo>/.pw-profile" \
+  --output-dir "<repo>/data/job-applications/mcp-output"
+```
+
+`--user-data-dir` is what makes saved logins stick between applications (the same
+trick the script above uses). Without it the MCP server starts from a throwaway
+profile and you re-login on every portal, every time.
+
+Then just give Claude Code a job URL — the `apply-to-job` skill
+(`.claude/skills/apply-to-job/SKILL.md`) drives the sequence.
+
+> **Docker note.** The PDFs are rendered wherever the API runs. If `resume-api` is
+> in a container, the `path` values in the response are container paths the host
+> browser can't read — download from the returned `/download/...` URL instead.
+> They're written under `data/job-applications/outbox/` (gitignored) rather than a
+> system temp dir, because the MCP server restricts file access to the workspace.
+
+### How each field gets its value
+
+| Source | When | Flagged? |
+|---|---|---|
+| `apply_profile.<key>` | a plain labelled input (Name, City, LinkedIn) | no — it's your data |
+| **answers bank** (`source: bank`) | a question you've answered before, matched fuzzily | no — you approved it once already |
+| `apply_profile` standing facts (`source: profile`) | work authorization, sponsorship, salary, notice period | no — no model involved |
+| **freshly drafted** (`source: new`) | a question nobody has answered before | **yes — unverified, review it** |
+| *left blank* | a plain input with no profile match | **yes — listed, never invented** |
+
+That last row is the important one: an input labelled "Internal referral code" is
+reported to you, not filled with plausible-looking prose.
+
+### The answers bank
+
+Every screening question you approve is kept in the `answers` table and reused on
+the next form that asks something similar. It is seeded from your
+`apply_profile.commonAnswers`, and grows with each confirmed application.
+
+- **Matching** is stdlib-only (normalize → light stemming → sequence similarity +
+  keyword overlap) with a 0.72 threshold. British/American spelling and
+  noun/verb forms are handled, so "Are you legally authorised…" matches "Are you
+  legally authorized…".
+- **Semantic** restatements that share no words ("in Canada" vs "in the country of
+  employment") can't be matched lexically, so the common ones ship pre-loaded as
+  alternate phrasings (`_SEED_TAGS` in `intake/answers.py`).
+- A near-miss becomes an **alternate phrasing of the existing answer** on approval
+  rather than a duplicate row, so the bank's recall grows while it stays small.
+- **Only confirmed applications write to the bank.** Reject one and it learns
+  nothing.
+
+Browse and edit it with `GET/POST/DELETE /answers/bank`. To check what a question
+*would* reuse before applying:
+
+```bash
+curl -G localhost:8088/answers/bank --data-urlencode "q=Do you require visa sponsorship?"
+# {"would_reuse": true, "score": 1.0, "match": {"answer": "No", …}}
+```
+
+### Tracking
+
+There is no second tracker. The job is resolved into the existing review queue
+(matched on apply URL, so a job already there from Job Bank or an ATS source is
+reused, not duplicated), and the outcome is appended to that job's `sent_log`
+alongside its emails — one timeline per job whatever channel it went out through.
+Submitting sets `applied = true` and `status = applied`.
+
 ## Roadmap
 
 - **V1 (now)**: scrape → filter → autofill common fields → **stop for review**.
 - **V2**: company-specific templates for your repeat companies (extend `run_template`).
 - **V3**: allow auto-submit only for trusted, simple portals you've confirmed.
+- **V4 (now)**: Resume Studio MCP exposes the seven-day application-candidate
+  queue and approval history for browser-controlled application runs.

@@ -22,7 +22,7 @@ automation.
 | **Generation core** | profile + persona + job → resume/cover/email, truth-guarded | `src/resume_gen/` |
 | **Personas** | Role-specific framings of your one true history | `data/profile/personas.yaml` |
 | **Scraper collector** | Local dashboard + store fed by the userscript | separate app on `:8765` (`Resume_Scraper/Scraper.py`) |
-| **Userscript** | Saves LinkedIn + Indeed jobs to the collector | `tampermonkey/tampermonkey.user.js` |
+| **Job-saver userscript** | Saves LinkedIn + Indeed jobs to Resume Studio | `tampermonkey/tampermonkey.user.js` |
 | **Intake** | Pull jobs (collector / Apify / ATS boards) → review queue | `src/resume_gen/intake/` |
 
 ## Quick start
@@ -61,6 +61,8 @@ metrics, and backfills a relevant skills section. Personas change *framing*, nev
 facts.
 
 ## Docs
+
+- [`docs/chatgpt-codex-automation.md`](docs/chatgpt-codex-automation.md) — ChatGPT/Codex browser automation with a final yes/no gate
 
 - [`docs/how-it-works.md`](docs/how-it-works.md) — **start here**: the whole flow end to end
 - [`docs/setup.md`](docs/setup.md) — full setup, every component

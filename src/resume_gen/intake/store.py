@@ -180,6 +180,29 @@ def append_sent_log(key_id: str, kind: str, to: str, subject: str, body: str) ->
     return _save(q)
 
 
+def record_apply_outcome(key_id: str, entry: dict, *, status: str = "",
+                         applied: bool | None = None) -> QueuedJob | None:
+    """Log one semi-automated application attempt against this job.
+
+    The attempt is appended to the same `sent_log` the email path writes to, so a
+    job's history reads as one timeline whatever channel it went out through.
+    Called for every outcome — submitted, declined, or failed — so the tracker
+    never loses an attempt."""
+    q = get_job(key_id)
+    if q is None:
+        return None
+    q.sent_log = list(q.sent_log or [])
+    q.sent_log.append({"at": datetime.now().isoformat(timespec="seconds"),
+                       "kind": "apply", **(entry or {})})
+    if status:
+        q.status = status
+    if applied is not None:
+        q.applied = applied
+        if applied:
+            q.sent_at = q.sent_at or datetime.now().isoformat(timespec="seconds")
+    return _save(q)
+
+
 def set_priority(key_id: str, priority: bool) -> QueuedJob | None:
     q = get_job(key_id)
     if q is None:

@@ -247,6 +247,12 @@ def enforce(resume: Resume, profile: dict, *, strict: bool = False,
     )
 
     # --- HEADLINE + SUMMARY (strip invented "N years of experience" + metrics) --
+    # The target-role headline/tagline beneath the name was intentionally removed
+    # from the resume design. Clear it as a hard backstop for every model engine.
+    if resume.headline:
+        report.setdefault("headline_fixed", []).append(f"'{resume.headline}' -> ''")
+        resume.headline = ""
+
     allowed_numbers = _numbers_in(_profile_number_text(profile))
 
     def _clean_prose(text: str) -> str:
@@ -257,10 +263,6 @@ def enforce(resume: Resume, profile: dict, *, strict: bool = False,
                 out = _strip_metrics(out)
         return out
 
-    new_headline = _clean_prose(resume.headline)
-    if new_headline != resume.headline:
-        report.setdefault("headline_fixed", []).append(f"'{resume.headline}' -> '{new_headline}'")
-        resume.headline = new_headline
     new_summary = _clean_prose(resume.summary)
     if new_summary != resume.summary:
         report["summary_fixed"] = True
