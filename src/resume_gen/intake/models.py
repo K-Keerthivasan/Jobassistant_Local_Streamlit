@@ -53,8 +53,35 @@ class QueuedJob(JobPosting):
     priority_override: str = ""  # manual priority pin: "" (auto) | high | medium | low
     repeatable: bool = False  # 🔁 saved as a recurring-role template (reapply often)
     irrelevant: bool = False  # 🚫 not a relevant job — hidden from the active lists
-    lane: str = ""            # job category / stream (Full Stack, IT Support, Digital Marketing…)
+    lane: str = ""            # free-text lane name as the sourcing engine wrote it
     found_at: str = ""
+    # --- batch import (jobs_import_<stream>_<date>.csv) ------------------------
+    lane_slug: str = ""       # resolved lane (data/lanes.index.json), "" when unresolved
+    track: str = ""           # technical | creative (from File 3, else the lane)
+    stream: str = ""          # streamA | streamB | streamC | streamD
+    run_date: str = ""        # the batch run date (ISO), not the posting date
+    batches: list[str] = Field(default_factory=list)   # every batch_id this role appeared in
+    priority_tag: str = ""    # the CSV `priority` column (always HIGH upstream)
+    noc: str = ""
+    teer: int | None = None
+    noc_teer_raw: str = ""
+    pathway_type: str = ""    # RCIP | AIP | PNP
+    pathway_detail: str = ""
+    relocation: bool = False
+    remote_type: str = ""     # REMOTE | US-REMOTE
+    hire_type: str = ""       # entity | eor | contractor (Stream D)
+    source_tag: str = ""      # SRC: value
+    tag_violations: list[str] = Field(default_factory=list)
+    description_raw: str = "" # the pipe-joined form as imported (kept for search)
+    # File 3 (fit_report) joined on company + title.
+    fit: dict = Field(default_factory=dict)        # verified_on, posting_live, years_line, fit_evidence, gap_flags, track
+    # Matrix grading (grading/grader.py): tier, gap_flags, fit_sentence, evidence_skill_ids, ...
+    grade: dict = Field(default_factory=dict)
+    seniority: dict = Field(default_factory=dict)  # seniority guard result (warning, never a filter)
+    # Application ledger fields Keerthi sets by hand (Phase 6).
+    date_sent: str = ""
+    ledger_status: str = ""   # pending | sent | no_response | screening | interview | offer | rejected | withdrawn
+    last_touch: str = ""
     notes: str = Field(default="")
     # Email-apply tracking (set when the application is actually emailed via n8n).
     sent_at: str = ""              # ISO datetime the application email was sent

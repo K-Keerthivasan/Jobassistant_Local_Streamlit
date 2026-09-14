@@ -128,6 +128,80 @@ CREATE TABLE IF NOT EXISTS apply_sessions (
 );
 CREATE INDEX IF NOT EXISTS idx_apply_created ON apply_sessions(created_at);
 CREATE INDEX IF NOT EXISTS idx_apply_job     ON apply_sessions(job_key);
+
+-- One row per three-file batch import (jobs_import / hr_companies / fit_report for
+-- one stream on one run date). Additive: a batch is never overwritten; the report
+-- of what it did is kept in `data`.
+CREATE TABLE IF NOT EXISTS import_batches (
+    batch_id    TEXT PRIMARY KEY,
+    stream      TEXT,
+    run_date    TEXT,
+    imported_at TEXT,
+    data        TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_batches_date ON import_batches(run_date);
+
+-- HR outreach. Contacts come from File 2; messages are drafted, approved one by
+-- one, dispatched to n8n, and updated by callback. Events are the audit log.
+CREATE TABLE IF NOT EXISTS outreach_contacts (
+    id              TEXT PRIMARY KEY,
+    company         TEXT,
+    company_norm    TEXT,
+    hr_email        TEXT,
+    confidence      TEXT,
+    do_not_contact  INTEGER DEFAULT 0,
+    updated_at      TEXT,
+    data            TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_oc_company ON outreach_contacts(company_norm);
+CREATE INDEX IF NOT EXISTS idx_oc_email   ON outreach_contacts(hr_email);
+
+CREATE TABLE IF NOT EXISTS outreach_messages (
+    id             TEXT PRIMARY KEY,
+    contact_id     TEXT,
+    job_id         TEXT,
+    template_id    TEXT,
+    sequence_id    TEXT,
+    sequence_step  INTEGER DEFAULT 1,
+    status         TEXT,
+    scheduled_for  TEXT,
+    sent_at        TEXT,
+    created_at     TEXT,
+    updated_at     TEXT,
+    data           TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_om_status  ON outreach_messages(status);
+CREATE INDEX IF NOT EXISTS idx_om_contact ON outreach_messages(contact_id);
+CREATE INDEX IF NOT EXISTS idx_om_seq     ON outreach_messages(sequence_id);
+
+CREATE TABLE IF NOT EXISTS outreach_events (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    at          TEXT,
+    kind        TEXT,
+    message_id  TEXT,
+    contact_id  TEXT,
+    actor       TEXT,
+    data        TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_oe_message ON outreach_events(message_id);
+CREATE INDEX IF NOT EXISTS idx_oe_kind    ON outreach_events(kind, at);
+
+-- Manual, permanent suppression: emails and companies never contacted.
+CREATE TABLE IF NOT EXISTS outreach_suppression (
+    key        TEXT PRIMARY KEY,
+    kind       TEXT,
+    reason     TEXT,
+    added_at   TEXT,
+    added_by   TEXT
+);
+
+-- Kill switch and caps. One row per setting.
+CREATE TABLE IF NOT EXISTS outreach_state (
+    key        TEXT PRIMARY KEY,
+    value      TEXT,
+    updated_at TEXT,
+    updated_by TEXT
+);
 """
 
 
