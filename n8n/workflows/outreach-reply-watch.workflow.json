@@ -1,0 +1,53 @@
+{
+  "name": "HR outreach reply and bounce watch (Gmail -> callback)",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": { "item": [ { "mode": "everyX", "value": 10, "unit": "minutes" } ] },
+        "simple": false,
+        "filters": { "q": "newer_than:2d -from:me (in:inbox OR from:mailer-daemon)" },
+        "options": {}
+      },
+      "id": "gm-trig", "name": "New inbox mail", "type": "n8n-nodes-base.gmailTrigger", "typeVersion": 1.2, "position": [0, 0],
+      "credentials": { "gmailOAuth2": { "id": "REPLACE_WITH_YOUR_GMAIL_CREDENTIAL_ID", "name": "Gmail account" } }
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.RESUME_STUDIO_URL || 'http://host.docker.internal:8088' }}/outreach/messages?status=sending,sent",
+        "options": {}
+      },
+      "id": "http-open", "name": "Fetch open outreach", "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2, "position": [220, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Match each inbound mail to an open outreach message by Gmail thread id first, then by sender address.\nconst mail = $('New inbox mail').first().json;\nconst open = $json.messages || [];\nconst from = String(mail.from?.value?.[0]?.address || mail.From || mail.from || '').toLowerCase();\nconst threadId = mail.threadId || '';\nconst subject = String(mail.subject || mail.Subject || '');\nconst text = String(mail.text || mail.snippet || '');\nconst isBounce = /mailer-daemon|postmaster/.test(from) || /delivery status notification|undeliverable|address not found/i.test(subject);\nlet match = open.find(m => threadId && m.thread_id && m.thread_id === threadId);\nif (!match && !isBounce) match = open.find(m => (m.to_email || '').toLowerCase() === from);\nif (!match && isBounce) {\n  const addr = (text.match(/[\\w.+-]+@[\\w-]+\\.[\\w.-]+/g) || []).map(a => a.toLowerCase());\n  match = open.find(m => addr.includes((m.to_email || '').toLowerCase()));\n}\nif (!match) return [];\nreturn [{ json: {\n  message_id: match.id,\n  event: isBounce ? 'bounced' : 'replied',\n  at: new Date().toISOString(),\n  provider_message_id: mail.id || '',\n  thread_id: threadId,\n  detail: isBounce ? { bounce_reason: subject.slice(0, 200) } : { reply_snippet: text.slice(0, 300), sentiment: '' }\n} }];"
+      },
+      "id": "code-match", "name": "Match to outreach message", "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [440, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.RESUME_STUDIO_URL || 'http://host.docker.internal:8088' }}/api/outreach/callback",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [ { "name": "X-Outreach-Secret", "value": "={{ $env.OUTREACH_SHARED_SECRET }}" } ] },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "cb", "name": "Callback: replied or bounced", "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2, "position": [660, 0]
+    }
+  ],
+  "connections": {
+    "New inbox mail": { "main": [ [ { "node": "Fetch open outreach", "type": "main", "index": 0 } ] ] },
+    "Fetch open outreach": { "main": [ [ { "node": "Match to outreach message", "type": "main", "index": 0 } ] ] },
+    "Match to outreach message": { "main": [ [ { "node": "Callback: replied or bounced", "type": "main", "index": 0 } ] ] }
+  },
+  "settings": { "executionOrder": "v1" },
+  "staticData": null,
+  "meta": { "templateCredsSetupCompleted": false },
+  "pinData": {},
+  "versionId": "1",
+  "tags": [ { "name": "resume-studio" } ]
+}

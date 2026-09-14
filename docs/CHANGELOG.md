@@ -2,6 +2,36 @@
 
 Newest first. Dates are work dates.
 
+## 2026-09-14 — v3.5 upgrade: lanes as data, batch import, grading, outreach, ledger
+
+- **Lane matrices live in the repo as data.** `data/lanes/source/*.md` is edited;
+  `python -m resume_gen.lanes sync` (also `npm run sync:lanes`) generates
+  `data/lanes/*.json`; `validate` gates it; the API refuses to boot on a malformed file.
+  Loader enumerates `data/lanes.index.json`, so a lane 13 needs no code change.
+- **Three-file batch import** (`POST /import/batch`): exact ten-column contract, the
+  `noc_teer` tag grammar parsed into first-class fields with Stream D validation,
+  dedupe on normalised company + title (C over B over A over D on the same day),
+  additive and idempotent, with an import report.
+- **Matrix grading** on import and on demand: Tier A/B/C, named gap flags, a fit
+  sentence assembled only from `evidence` text of claimable skills with the skill ids
+  stored, and the 0 to 3 year seniority guard as a warning.
+- **Lane guard in the generation path.** `building` and `not_yet` skills are stripped
+  from the Skills section and flagged or dropped in bullets, summary and cover letter;
+  `held` matrix terms count as grounded; the lane picks the persona and the portfolio
+  links. Cover letter is four paragraphs with gaps named. Header colour `#1F3864`,
+  date ranges use "to", files are `kk_[Company]_[Role].docx` and `_CL.docx`.
+- **HR outreach**: contacts with confidence, templates rendered in-app with rules
+  enforced (60-character subject, 150 words, no sponsorship words, no dashes), a
+  review screen, per-row approval, guardrails as code (kill switch, daily cap defers,
+  21-day cooldown, one live sequence per company, pattern_guess single touch,
+  suppression, bounce marks bad), dispatch to n8n with a shared secret and required
+  acknowledgement, idempotent callbacks, full audit log. n8n workflows and a test guide.
+- **Ledger and dashboard** (`/ledger`, `/dashboard`): by lane and pathway this week,
+  tier mix, reply rate by template and by address confidence, days since last touch,
+  designated-employer rows untouched.
+- Six new personas (QA, data analytics, social content, design, game dev, VFX) and
+  the matrices' held skill groups in the master profile. Tests: 88 in `tests/`.
+
 ## 2026-08-14 — Semi-automated apply on any site + the screening-answers bank
 
 - **`POST /apply/prepare` → `/apply/{id}/confirm` → `/apply/{id}/log`.** Given a job

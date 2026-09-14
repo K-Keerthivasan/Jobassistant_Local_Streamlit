@@ -207,7 +207,62 @@ def save_answer(question: str, answer: str, *, tags: list[str] | None = None,
     rec["updated_at"] = datetime.now().isoformat(timespec="seconds")
     with db.connect() as conn:
         db._upsert_answer_row(conn, rec)
+    if existing is None:
+        _mirror_to_bank_file(rec, source_company)
     return rec
+
+
+# --------------------------------------------------------------------------- #
+# data/answer-bank.json: the human-editable copy. Read on startup (insert if
+# missing), appended to whenever a NEW answer is banked in-app, so the file and
+# the table never drift apart and the app never invents an answer.
+# --------------------------------------------------------------------------- #
+def _bank_file():
+    from ..config import ROOT
+    return ROOT / "data" / "answer-bank.json"
+
+
+def seed_from_bank_file() -> int:
+    """Insert every answer from data/answer-bank.json that the table lacks."""
+    import json as _json
+    p = _bank_file()
+    if not p.exists():
+        return 0
+    data = _json.loads(p.read_text(encoding="utf-8")) or {}
+    added = 0
+    for a in data.get("answers", []):
+        q, ans = (a.get("question") or "").strip(), (a.get("answer") or "").strip()
+        if not q or not ans:
+            continue
+        if get_answer(_answer_id(q)) is not None:
+            continue
+        rec = {"id": _answer_id(q), "norm": _norm(q), "question": q, "answer": ans,
+               "tags": list(a.get("tags") or []) or _seed_tags_for(q), "verified": bool(a.get("verified", True)),
+               "times_used": 0, "source_company": "", "lane": a.get("lane") or "",
+               "bank_id": a.get("id", ""), "date_added": datetime.now().date().isoformat()}
+        with db.connect() as conn:
+            db._upsert_answer_row(conn, rec)
+        added += 1
+    return added
+
+
+def _mirror_to_bank_file(rec: dict, source_company: str = "") -> None:
+    """Append a newly banked answer to data/answer-bank.json (best effort, never raises)."""
+    import json as _json
+    try:
+        p = _bank_file()
+        data = _json.loads(p.read_text(encoding="utf-8")) if p.exists() else {"version": "3.5", "answers": []}
+        if any(_norm(a.get("question", "")) == rec["norm"] for a in data.get("answers", [])):
+            return
+        data.setdefault("answers", []).append({
+            "id": f"inapp-{rec['id']}", "question": rec["question"], "answer": rec["answer"],
+            "tags": list(rec.get("tags") or []), "lane": None, "verified": bool(rec.get("verified")),
+            "source": "in-app", "source_company": source_company,
+            "added": datetime.now().date().isoformat(),
+        })
+        p.write_text(_json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8", newline="\n")
+    except Exception as e:
+        print(f"[answers] WARNING could not mirror answer to answer-bank.json: {e}", flush=True)
 
 
 def record_use(answer_id: str) -> dict | None:

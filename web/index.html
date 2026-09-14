@@ -502,6 +502,7 @@
     .jl-ck { width: 100%; }
   }
 </style>
+<link rel="stylesheet" href="/upgrade.css">
 </head>
 <body>
 <div class="app">
@@ -2510,7 +2511,10 @@ function jobFromApi(j) {
     status: j.status, gen: hasGenerated, folder, email: (j.contact_email || '').trim(),
     applied: !!j.applied, repeat: !!j.repeat, priority: !!j.priority, repeatable: !!j.repeatable, irrelevant: !!j.irrelevant, lane: j.lane || '', apply_url: j.apply_url || '', description: j.description || '', company_email: (j.company_email || '').trim(), generated_at: (j.generated_at || '').replace('T', ' ').slice(0, 16),
     sent_at: (j.sent_at || '').replace('T', ' ').slice(0, 16), sent_to: (j.sent_to || '').trim(), followups: Array.isArray(j.followups) ? j.followups : [], hr_emailed_at: (j.hr_emailed_at || '').replace('T', ' ').slice(0, 16), sent_log: Array.isArray(j.sent_log) ? j.sent_log : [],
-    priority_level: j.priority_level || 'low', priority_override: j.priority_override || '', priority_score: typeof j.priority_score === 'number' ? j.priority_score : 0 };
+    priority_level: j.priority_level || 'low', priority_override: j.priority_override || '', priority_score: typeof j.priority_score === 'number' ? j.priority_score : 0,
+    // v3.5: lane, matrix grade, seniority guard, pathway tags (batch import)
+    lane_slug: j.lane_slug || '', grade: j.grade || {}, seniority: j.seniority || {}, stream: j.stream || '',
+    pathway: j.pathway_type ? `${j.pathway_type}: ${j.pathway_detail}` : '', remote_type: j.remote_type || '', hire_type: j.hire_type || '', noc: j.noc || '' };
 }
 
 // Source-of-truth date for a queue job: the real posted date when it parses to
@@ -2644,8 +2648,15 @@ function jlFiltered() {
 function jobInfoTitle(j) {
   const fups = (j.followups || []);
   const lastFup = fups.length ? (fups[fups.length - 1] || '').replace('T', ' ').slice(0, 16) : '';
+  const g = j.grade || {};
   return [
     j.gen ? `Last generated: ${j.generated_at || '—'}` : 'Not generated yet',
+    g.tier ? `Tier ${g.tier}: ${g.tier_reason || ''}` : '',
+    g.tier ? `Gaps: ${(g.gap_flags || []).join(' | ') || 'none'}` : '',
+    g.fit_sentence ? `Fit: ${g.fit_sentence}` : '',
+    (j.seniority && j.seniority.warning) ? `Seniority warning: ${j.seniority.reason}` : '',
+    j.pathway ? `Pathway: ${j.pathway}` : '',
+    j.noc ? `NOC: ${j.noc}${j.stream ? ' · ' + j.stream : ''}` : '',
     j.found ? `Found: ${j.found}` : '',
     j.source ? `Source: ${j.source}` : '',
     j.applied ? 'Applied: yes' : '',
@@ -2675,7 +2686,7 @@ function renderJobs() {
     return `<tr${j.irrelevant ? ' style="opacity:.5"' : ''}>
       <td class="jl-ck">${canSelect ? `<input type="checkbox" class="jl-rowck" data-k="${esc(j.id)}" ${jl.sel.has(j.id)?'checked':''}>` : ''}</td>
       <td>${j.id ? prioBadge(j, i) : ''}</td>
-      <td><span class="t" data-act="detail" data-i="${i}" style="cursor:pointer" title="View details">${esc(j.title)}</span>${j.id?`<span class="jl-emailbtn ${j.email?'on':''}" data-act="email" data-i="${i}" title="${j.email?'Email: '+esc(j.email)+' — click to edit':'Add an HR email (for the n8n email path)'}" style="cursor:pointer">${j.email?'📧':'✉️'}</span><span data-act="repeatable" data-i="${i}" title="${j.repeatable?'Repeatable role — saved. Click to remove':'Mark as a repeatable role (reapply often)'}" style="cursor:pointer;margin-left:4px;opacity:${j.repeatable?1:.3}">🔁</span><span data-act="irrelevant" data-i="${i}" title="${j.irrelevant?'Not relevant — hidden from active lists. Click to restore':'Flag as not relevant (hide it)'}" style="cursor:pointer;margin-left:4px;opacity:${j.irrelevant?1:.3}">🚫</span><span class="jl-info" title="${esc(jobInfoTitle(j))}" style="cursor:help;margin-left:5px;opacity:.55">ℹ️</span>`:''}</td>
+      <td><span class="t" data-act="detail" data-i="${i}" style="cursor:pointer" title="View details">${esc(j.title)}</span>${typeof tierBadge === 'function' ? tierBadge(j) : ''}${j.id?`<span class="jl-emailbtn ${j.email?'on':''}" data-act="email" data-i="${i}" title="${j.email?'Email: '+esc(j.email)+' — click to edit':'Add an HR email (for the n8n email path)'}" style="cursor:pointer">${j.email?'📧':'✉️'}</span><span data-act="repeatable" data-i="${i}" title="${j.repeatable?'Repeatable role — saved. Click to remove':'Mark as a repeatable role (reapply often)'}" style="cursor:pointer;margin-left:4px;opacity:${j.repeatable?1:.3}">🔁</span><span data-act="irrelevant" data-i="${i}" title="${j.irrelevant?'Not relevant — hidden from active lists. Click to restore':'Flag as not relevant (hide it)'}" style="cursor:pointer;margin-left:4px;opacity:${j.irrelevant?1:.3}">🚫</span><span class="jl-info" title="${esc(jobInfoTitle(j))}" style="cursor:help;margin-left:5px;opacity:.55">ℹ️</span>`:''}</td>
       <td class="muted">${esc(j.company)}${j.repeat?` <span class="jl-rep" title="Repeat company — saved details reused">🔁</span>`:''}</td>
       <td class="muted">${esc(j.location)}</td>
       <td><span class="jl-src">${esc(j.source || '—')}</span></td>
@@ -3843,5 +3854,6 @@ $('n8n-verify').onclick = (e) => verifyN8n(e.currentTarget);
 showView(lsGet('view') || 'generate');   // stay on the last tab after refresh
 setInterval(loadHealth, 15000);
 </script>
+<script src="/upgrade.js"></script>
 </body>
 </html>

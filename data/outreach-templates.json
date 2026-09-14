@@ -60,7 +60,7 @@
       "purpose": "Shorter. Asks for a conversation rather than a role.",
       "attach_resume": false,
       "allowed_for_pattern_guess": true,
-      "subject": "Quick question about {{lane_title}} at {{company}}",
+      "subject": "{{lane_title}} question, {{company}}",
       "body": "Hi {{hr_first_name|there}},\n\nI am a {{lane_title}} candidate in {{city}}, {{province}}. {{fit_sentence}}\n\nI am not asking for a role in this note. I would value fifteen minutes to hear how {{company}} hires for this kind of work and what a strong application looks like to you.\n\nThanks,\n{{name}}\n{{signature_links}}",
       "sequence": [
         { "step": 1, "delay_days": 0, "template_id": "referral-informational" }

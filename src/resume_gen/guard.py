@@ -224,13 +224,24 @@ def _grounded(atom: str, skill_text: str) -> bool:
 # --------------------------------------------------------------------------- #
 def enforce(resume: Resume, profile: dict, *, strict: bool = False,
             persona: dict | None = None, target_location: str = "",
-            extra_skills: list[str] | None = None) -> tuple[Resume, dict]:
+            extra_skills: list[str] | None = None,
+            lane_ctx: dict | None = None,
+            links: list | None = None) -> tuple[Resume, dict]:
     """`extra_skills`: skills the USER has personally confirmed they have (via the
     skill-gap Q&A). They aren't in the master profile but the user attested to them,
-    so they're treated as grounded for this run instead of being stripped."""
+    so they're treated as grounded for this run instead of being stripped.
+
+    `lane_ctx` (lanes/guard.lane_context): the lane matrix for this job. Its `held`
+    terms count as grounded (the matrix is Keerthi's own attestation), and its
+    `building` / `not_yet` skills are stripped from the Skills section and flagged
+    in bullets no matter what the profile inventory says. `links`: the lane's
+    portfolio link set, replacing the profile's default links."""
     report: dict = {"identity_fixed": [], "skills_dropped": [],
                     "fabricated_numbers": [], "education_replaced": False}
     _extra = {s.strip().lower() for s in (extra_skills or []) if s.strip()}
+    if lane_ctx:
+        _extra |= {t.lower() for t in (lane_ctx.get("held_terms") or [])}
+        _extra |= {t.lower() for p in (lane_ctx.get("partial") or []) for t in p.get("terms", [])}
 
     # --- IDENTITY -----------------------------------------------------------
     true_name = profile.get("full_name", resume.fullName)
@@ -239,11 +250,14 @@ def enforce(resume: Resume, profile: dict, *, strict: bool = False,
         resume.fullName = true_name
 
     c = profile.get("contact", {})
+    link_src = links if links is not None else c.get("links", [])
     resume.contact = Contact(
         email=c.get("email", ""),
         phone=c.get("phone", ""),
         location=_display_location(profile, target_location),
-        links=[Link(label=l.get("label", ""), url=l.get("url", "")) for l in c.get("links", [])],
+        links=[Link(label=(l.get("label", "") if isinstance(l, dict) else getattr(l, "label", "")),
+                    url=(l.get("url", "") if isinstance(l, dict) else getattr(l, "url", "")))
+               for l in link_src],
     )
 
     # --- HEADLINE + SUMMARY (strip invented "N years of experience" + metrics) --
@@ -440,6 +454,12 @@ def enforce(resume: Resume, profile: dict, *, strict: bool = False,
             for i, p in enumerate(prof_exp)
         ]
 
+    # --- LANE STATUS GUARD (matrix): building / not_yet never render ----------
+    if lane_ctx and lane_ctx.get("lane"):
+        from .lanes.guard import apply_to_resume
+        resume, lane_report = apply_to_resume(resume, lane_ctx, strict=strict)
+        report["lane_guard"] = lane_report
+
     return resume, report
 
 
@@ -509,12 +529,14 @@ def _fix_name_in_text(text: str, profile: dict) -> str:
     return t
 
 
-def _profile_contact_line(profile: dict, target_location: str = "") -> str:
-    """The canonical one-line contact string, built from the profile only."""
+def _profile_contact_line(profile: dict, target_location: str = "", links: list | None = None) -> str:
+    """The canonical one-line contact string, built from the profile only (links may
+    be the lane's portfolio set)."""
     c = profile.get("contact", {})
     parts = [profile.get("full_name", ""), _display_location(profile, target_location),
              c.get("email", ""), c.get("phone", "")]
-    parts += [l.get("url", "") for l in c.get("links", [])]
+    src = links if links is not None else c.get("links", [])
+    parts += [(l.get("url", "") if isinstance(l, dict) else getattr(l, "url", "")) for l in src]
     return " | ".join(p for p in parts if p)
 
 
@@ -532,7 +554,8 @@ def _clean_letter_prose(text: str, profile: dict, allowed: set[str]) -> tuple[st
 
 
 def enforce_cover_letter(cl: CoverLetter, profile: dict,
-                         target_location: str = "") -> tuple[CoverLetter, dict]:
+                         target_location: str = "", lane_ctx: dict | None = None,
+                         links: list | None = None) -> tuple[CoverLetter, dict]:
     report: dict = {"name_fixed": False, "signoff_fixed": False,
                     "contact_fixed": False, "claims_stripped": 0}
     name = profile.get("full_name", cl.fullName)
@@ -543,7 +566,7 @@ def enforce_cover_letter(cl: CoverLetter, profile: dict,
 
     # Contact line: ALWAYS rebuilt from the profile — the model invents whole
     # identities (wrong name/email/phone), which _fix_name_in_text can't catch.
-    true_contact = _profile_contact_line(profile, target_location)
+    true_contact = _profile_contact_line(profile, target_location, links=links)
     if true_contact and cl.contactLine.strip() != true_contact:
         report["contact_fixed"] = True
     cl.contactLine = true_contact or cl.contactLine
@@ -572,7 +595,38 @@ def enforce_cover_letter(cl: CoverLetter, profile: dict,
         report["name_fixed"] = True
     cl.signature = name
 
+    # Lane guard: a forbidden skill presented as experience in the letter is
+    # removed sentence by sentence and reported. Gaps may be NAMED (that is the
+    # point of paragraph three); the scan only fires on claim-shaped sentences.
+    if lane_ctx and lane_ctx.get("lane"):
+        from .lanes.guard import scan_text
+        flagged = []
+        new_body = []
+        for para in cl.body:
+            kept = []
+            for sent in re.split(r"(?<=[.!?])\s+", para):
+                hits = scan_text(sent, lane_ctx)
+                if hits and _claim_shaped(sent):
+                    flagged.append({"sentence": sent, "hits": hits})
+                    continue
+                kept.append(sent)
+            new_body.append(" ".join(kept).strip())
+        cl.body = [p for p in new_body if p]
+        report["lane_guard"] = {"sentences_removed": flagged}
+
     return cl, report
+
+
+_CLAIM = re.compile(r"\b(i have|i've|i am|i'm|my experience|experienced|proficient|skilled|expert|"
+                    r"i (?:built|ran|used|worked|delivered|shipped|led|managed|wrote|created|maintain)|"
+                    r"hands-on|strong)\b", re.I)
+_GAP_TALK = re.compile(r"\b(not yet|have not|haven't|no (?:formal|direct|production)|gap|learning|"
+                       r"still building|new to|would need|ramp)\b", re.I)
+
+
+def _claim_shaped(sentence: str) -> bool:
+    """True when a sentence asserts experience rather than naming a gap."""
+    return bool(_CLAIM.search(sentence)) and not _GAP_TALK.search(sentence)
 
 
 # A signature/contact line (email, URL, bare domain, or phone-like) — deterministic,

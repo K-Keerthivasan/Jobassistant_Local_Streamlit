@@ -34,10 +34,24 @@ WEB_DIR = Path(__file__).resolve().parents[1] / "web"
 @app.on_event("startup")
 def _init_db() -> None:
     """Initialize the SQLite store and run the one-time JSON->DB migration
-    (idempotent: only backfills tables that are still empty)."""
+    (idempotent: only backfills tables that are still empty). Then load and
+    validate the lane data: a malformed lane file fails the boot loudly."""
+    from resume_gen import lanes as lane_data
     from resume_gen.intake import db
 
     db._ensure_init()
+    summary = lane_data.assert_valid()          # raises LaneDataError -> uvicorn refuses to start
+    print(f"[lanes] instruction set v{summary['version']}: {summary['lanes']} lanes, {summary['skills']} skills", flush=True)
+    drift = [r for r in lane_data.status_report()["drift"] if r["status"] != "ok"]
+    for r in drift:
+        print(f"[lanes] WARNING lane {r['lane']} {r['slug']}: {r['detail']}", flush=True)
+    from resume_gen.intake.answers import seed_from_bank_file
+    try:
+        added = seed_from_bank_file()
+        if added:
+            print(f"[answers] seeded {added} answer(s) from data/answer-bank.json", flush=True)
+    except Exception as e:  # visible, non-fatal
+        print(f"[answers] WARNING could not seed answer bank: {e}", flush=True)
 
 
 def _artifact(d: Path, generic: str, pattern: str) -> Path | None:
@@ -123,6 +137,7 @@ class GenerateOptions(BaseModel):
     model: str | None = None
     persona: str | None = None  # persona id, "auto"/None = auto-detect
     skills_focus: list[str] | str | None = None  # résumé skills to emphasise this run
+    lane: str | None = None      # lane slug; picks the base resume, links and the matrix guard
 
 
 class GenerateRequest(TargetRole, GenerateOptions):
@@ -178,9 +193,15 @@ def generate(req: GenerateRequest):
     """Generate resume + cover letter + email for one role. Returns content,
     QA report, and file paths."""
     target = TargetRole(**req.model_dump(include=set(TargetRole.model_fields)))
+    lane, grade = req.lane, None
+    if req.key_id:
+        from resume_gen.intake.store import get_job as _gj
+        _q = _gj(req.key_id)
+        if _q is not None:
+            lane, grade = lane or _q.lane_slug or None, (_q.grade or None)
     try:
         result = run(target, make_pdf=req.pdf, strict=req.strict, persona=req.persona,
-                     model=req.model)
+                     model=req.model, lane=lane, grade=grade)
         if req.key_id:
             from resume_gen.intake.store import update_status
             try:
@@ -754,8 +775,10 @@ def generate_queued_job(key_id: str, req: GenerateOptions | None = None):
     strict = False if req is None else req.strict
     persona = None if req is None else req.persona
     model = None if req is None else req.model
+    lane = (req.lane if req and req.lane else None) or q.lane_slug or None
     try:
-        result = run(target, make_pdf=pdf, strict=strict, persona=persona, model=model)
+        result = run(target, make_pdf=pdf, strict=strict, persona=persona, model=model,
+                     lane=lane, grade=q.grade or None)
         update_status(key_id, "generated", result["folder"])
         return result
     except Exception as e:
@@ -2054,3 +2077,11 @@ def get_file(path: str):
     if not p.exists():
         raise HTTPException(status_code=404, detail="Not found.")
     return FileResponse(str(p), filename=p.name)
+
+
+# --------------------------------------------------------------------------- #
+# v3.5 upgrade: lanes, batch import, grading, outreach, ledger, dashboard.
+# --------------------------------------------------------------------------- #
+from api.upgrade_routes import register as _register_upgrade_routes  # noqa: E402
+
+_register_upgrade_routes(app)

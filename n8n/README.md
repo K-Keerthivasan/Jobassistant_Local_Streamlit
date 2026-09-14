@@ -1,5 +1,12 @@
 # n8n workflows
 
+> **HR outreach (v3.5)** has its own two workflows, `workflows/outreach-dispatch.workflow.json`
+> and `workflows/outreach-reply-watch.workflow.json`, and its own contract: the app POSTs
+> approved messages with an `X-Outreach-Secret` header and n8n calls back
+> `POST /api/outreach/callback`. Setup and the end-to-end test are in
+> [`../docs/n8n-outreach-testing.md`](../docs/n8n-outreach-testing.md). The two older
+> workflows below still serve the email-apply and bulk-HR paths.
+
 The old workflows were removed (the app changed a lot). This is the blueprint for the
 **two new workflows** — build them in n8n to match these contracts.
 

@@ -77,16 +77,19 @@ def generate_answer(question: str, target: TargetRole | None = None, *, draft: s
     return humanize_answer(text)
 
 
-def _context(profile: dict | None, target: TargetRole, persona: dict | None = None) -> str:
+def _context(profile: dict | None, target: TargetRole, persona: dict | None = None,
+             lane_ctx: dict | None = None, *, for_cover_letter: bool = False) -> str:
     profile = profile or load_profile()
-    return build_user_message(
-        profile_to_prompt_block(profile), target, persona_directive(persona)
-    )
+    extra = persona_directive(persona)
+    if lane_ctx and lane_ctx.get("lane"):
+        from .lanes.guard import directive
+        extra += directive(lane_ctx, for_cover_letter=for_cover_letter)
+    return build_user_message(profile_to_prompt_block(profile), target, extra)
 
 
 def generate_resume(target: TargetRole, profile: dict | None = None, persona: dict | None = None,
-                    *, skills_focus: list[str] | None = None, **kw) -> Resume:
-    user = _context(profile, target, persona)
+                    *, skills_focus: list[str] | None = None, lane_ctx: dict | None = None, **kw) -> Resume:
+    user = _context(profile, target, persona, lane_ctx)
     if skills_focus:
         # Per-run emphasis (e.g. from a repeatable role). Re-orders/surfaces these
         # areas; it must NOT invent — the truth-guard strips anything ungrounded.
@@ -101,8 +104,9 @@ def generate_resume(target: TargetRole, profile: dict | None = None, persona: di
     return chat_structured(RESUME_SYSTEM, user, Resume, **kw)
 
 
-def generate_cover_letter(target: TargetRole, profile: dict | None = None, persona: dict | None = None, **kw) -> CoverLetter:
-    user = _context(profile, target, persona)
+def generate_cover_letter(target: TargetRole, profile: dict | None = None, persona: dict | None = None,
+                          *, lane_ctx: dict | None = None, **kw) -> CoverLetter:
+    user = _context(profile, target, persona, lane_ctx, for_cover_letter=True)
     # A touch more warmth than the resume, but NOT so hot it fabricates (0.7 was
     # inventing fake names, team sizes, and metrics).
     kw.setdefault("temperature", 0.35)
@@ -116,10 +120,11 @@ def generate_application_draft(
     persona: dict | None = None,
     *,
     skills_focus: list[str] | None = None,
+    lane_ctx: dict | None = None,
     **kw,
 ) -> ApplicationDraft:
     """Generate resume + cover letter together, avoiding a duplicate full context."""
-    user = _context(profile, target, persona)
+    user = _context(profile, target, persona, lane_ctx, for_cover_letter=True)
     if skills_focus:
         focus = ", ".join(s for s in skills_focus if s)
         user += (
@@ -328,7 +333,8 @@ def generate_hr_followup(company: str, role_titles: list[str] | None = None, *,
 
 def generate_all(target: TargetRole, profile: dict | None = None, persona: dict | None = None,
                  *, resume_model: str | None = None, letters_model: str | None = None,
-                 skills_focus: list[str] | None = None, contact_name: str = "", **kw):
+                 skills_focus: list[str] | None = None, contact_name: str = "",
+                 lane_ctx: dict | None = None, **kw):
     """Generate all three artifacts, reusing one loaded profile + persona.
 
     `resume_model` drives the résumé; `letters_model` drives the cover letter +
@@ -346,16 +352,16 @@ def generate_all(target: TargetRole, profile: dict | None = None, persona: dict 
     ):
         draft = generate_application_draft(
             target, profile, persona, model=resume_model,
-            skills_focus=skills_focus, **kw,
+            skills_focus=skills_focus, lane_ctx=lane_ctx, **kw,
         )
         resume, cover = draft.resume, draft.cover_letter
     else:
         resume = generate_resume(
             target, profile, persona, model=resume_model,
-            skills_focus=skills_focus, **kw,
+            skills_focus=skills_focus, lane_ctx=lane_ctx, **kw,
         )
         cover = generate_cover_letter(
-            target, profile, persona, model=letters_model, **kw,
+            target, profile, persona, model=letters_model, lane_ctx=lane_ctx, **kw,
         )
     return {
         "resume": resume,

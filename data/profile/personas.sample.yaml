@@ -95,3 +95,105 @@ personas:
     summary_seed: >
       A factual seed describing your AI / agentic-AI engineering background, drawn only
       from real facts in master_profile.yaml.
+
+  # ---------------------------------------------------------------------------
+  # Lane-mapped personas added with the v3.5 matrices (data/lanes.index.json
+  # names the persona each lane uses as its base resume).
+  # ---------------------------------------------------------------------------
+  - id: qa_testing
+    label: "QA & Software Testing"
+    headline: "QA Analyst"
+    keywords: ["qa", "quality assurance", "software tester", "test analyst", "qa analyst", "qa engineer", "sdet", "test automation", "manual testing"]
+    links: ["LinkedIn", "Portfolio", "GitHub"]
+    lead_with: "K2 Digital Media (testing own builds, API and JSON work), then Certify Technologies (requirements, validation criteria, release sign-off with product and QA)"
+    foreground_skills: "Manual testing of own builds, regression checks, API testing with Postman and JSON, bug reporting, JavaScript, TypeScript, Python, Git"
+    summary_seed: >
+      Developer moving into QA who can read and write the code QA roles automate
+      against, handles APIs and JSON fluently, and has tested his own builds across
+      client sites and personal projects. At Certify Technologies worked with product
+      and QA on requirements, workflow mapping, validation criteria and release
+      sign-off, and supported releases through log analysis. Has not yet worked inside
+      a team QA process with a formal test plan, a defect workflow or a test management
+      tool, and says so plainly.
+
+  - id: data_analytics
+    label: "Data & Analytics"
+    headline: "Data Analyst"
+    keywords: ["data analyst", "business intelligence", "bi analyst", "bi developer", "reporting analyst", "analytics analyst", "insights analyst", "power bi", "sql analyst", "business systems analyst", "data quality analyst"]
+    links: ["LinkedIn", "Portfolio", "GitHub"]
+    lead_with: "K2 Digital Media (API data pipelines, client performance reporting), then Materia Bioworks (data collection, cleaning, scikit-learn), then Certify Technologies (data integration, validation)"
+    foreground_skills: "SQL, Python (pandas, NumPy, matplotlib), Power BI and DAX, Excel and Power Query, statistics, KPI and trend reporting, data cleaning, data visualization, APIs and JSON, PostgreSQL and MySQL"
+    summary_seed: >
+      Data analyst with an end-to-end toolkit: SQL for querying and shaping data,
+      Python with pandas and NumPy for cleaning and analysis, Power BI with DAX for
+      modelling and dashboards, and Excel with Power Query for the work that never
+      leaves a spreadsheet. Comfortable across the full path from pulling data out of
+      an API through cleaning, analysis and visualization to a recommendation a
+      business owner can act on. Background running a digital agency where reporting
+      campaign performance to non-technical clients was a weekly requirement, and
+      building automation pipelines that move and transform data between systems on a
+      schedule.
+
+  - id: social_content
+    label: "Social Media & Content"
+    headline: "Social Media and Content Coordinator"
+    keywords: ["social media", "social media coordinator", "social media specialist", "content creator", "content coordinator", "community manager", "content specialist", "reels", "tiktok", "instagram"]
+    links: ["LinkedIn", "K2 Digital Media"]
+    lead_with: "K2 Digital Media (multi-brand client channels, content calendars, Reels, client reporting)"
+    foreground_skills: "Content calendars, short-form video (Reels, Shorts), caption and hook writing, brand voice across multiple clients, social analytics and reporting, scheduling and publishing tools (Postiz, Meta Business Suite), Canva and Photoshop"
+    summary_seed: >
+      Runs social channels rather than just posting to them. Plans and publishes
+      multi-brand client content on a schedule through K2 Digital Media, cuts
+      short-form video for Reels and Shorts, writes captions and hooks in each brand's
+      voice, and reports performance to clients with a recommendation attached. Built
+      K2_Press, a multi-brand publishing system on Postiz, and grew his own channels.
+      Has run small business and personal brands, not a corporate channel with
+      approvals and legal review, and says so.
+
+  - id: design
+    label: "Design Adjacent"
+    headline: "Marketing and Web Designer"
+    keywords: ["graphic designer", "junior designer", "visual designer", "marketing designer", "digital designer", "brand designer", "figma", "web designer"]
+    links: ["LinkedIn", "K2 Digital Media", "Portfolio"]
+    lead_with: "K2 Digital Media (on-brand social and marketing assets, client websites)"
+    foreground_skills: "Brand application across client accounts, social and marketing asset design, web and UI layout for client sites, Figma, Illustrator, Photoshop, Canva"
+    summary_seed: >
+      Developer and marketer who designs: produces on-brand social and marketing
+      assets at pace and designs the client websites he then builds. Works inside
+      existing brand systems for several clients at once through K2 Digital Media.
+      Uses Figma, Illustrator and Photoshop in service of web and content delivery
+      rather than as a full-time design environment, and does not yet have a presented
+      design portfolio.
+
+  - id: game_dev
+    label: "Game Developer"
+    headline: "Game Programmer"
+    keywords: ["game developer", "game programmer", "gameplay programmer", "unity developer", "unreal developer", "unreal engine", "game engine", "level designer", "technical designer", "simulation developer", "real-time 3d", "xr developer"]
+    links: ["LinkedIn", "GitHub", "Portfolio"]
+    lead_with: "Custom Game Engine (C++ and OpenGL), then Haply Robotics (Unity, C# to C++ interop, CHAI 3D haptics), then Death Bridge (Unreal Engine 5)"
+    foreground_skills: "C++, C#, Unity, Unreal Engine 5, OpenGL, shaders (HLSL, GLSL), 3D math, gameplay programming, physics and animation systems, collision detection, Git"
+    summary_seed: >
+      Game programmer with a Fanshawe College Game Development: Advanced Programming
+      credential who built a game engine from scratch in C++ and OpenGL with shaders, a
+      rendering pipeline, animation, physics basics and collision detection. At Haply
+      Robotics wrote C# to C++ interop for real-time bidirectional haptics between
+      Unity and CHAI 3D, and is building Death Bridge in Unreal Engine 5. Reasons about
+      systems and performance rather than following tutorials. Has not yet shipped a
+      finished, playable title that someone else has played, and says so.
+
+  - id: vfx
+    label: "VFX Artist"
+    headline: "Junior VFX Artist"
+    keywords: ["vfx", "visual effects", "compositor", "compositing", "roto", "rotoscoping", "paint artist", "cleanup artist", "nuke", "virtual production", "motion graphics artist", "vfx generalist"]
+    links: ["LinkedIn", "Film and VFX", "GitHub"]
+    lead_with: "Fanshawe College VFX programme project work (Nuke compositing, roto, cleanup, tracking), then K2 Digital Media (After Effects, motion graphics, editing), then Unreal Engine 5 work (Death Bridge, JKR channel)"
+    foreground_skills: "Nuke compositing, rotoscoping, cleanup and paint, 2D motion tracking, CG integration, After Effects, Unreal Engine 5 for virtual production, Blender, colour matching, Python scripting"
+    summary_seed: >
+      Junior VFX artist with a recent Fanshawe College credential in Visual Effects
+      and Editing for Contemporary Media and a live reel at film.kkvasan.ca. Project
+      work covers the tasks junior VFX roles hire for: lock-off compositing in Nuke,
+      rotoscoping and object removal on a commercial edit, motion tracking and object
+      replacement on a trailer sequence, and CG integration across After Effects, Nuke,
+      Blender and Unreal. Unreal Engine 5 and Python point at virtual production and
+      pipeline work. Maya, shot tracking software and studio pipeline experience are
+      still to come.

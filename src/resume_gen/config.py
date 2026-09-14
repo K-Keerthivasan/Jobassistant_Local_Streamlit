@@ -114,5 +114,15 @@ class Settings:
         os.getenv("N8N_JOBS_WEBHOOK_URL", os.getenv("N8N_WEBHOOK_URL", "")),
     )
 
+    # HR outreach (the app queues, personalises and approves; n8n sends).
+    # Outbound: POST approved messages to this n8n webhook with the shared secret in
+    # the X-Outreach-Secret header. Inbound: n8n calls POST /api/outreach/callback
+    # with the same header. Empty secret = callback refused (never open by default).
+    outreach_webhook_url: str = os.getenv("OUTREACH_WEBHOOK_URL", "")
+    outreach_shared_secret: str = os.getenv("OUTREACH_SHARED_SECRET", "")
+    outreach_daily_cap: int = int(os.getenv("OUTREACH_DAILY_CAP", "20"))
+    outreach_cooldown_days: int = int(os.getenv("OUTREACH_COOLDOWN_DAYS", "21"))
+    outreach_company_window_days: int = int(os.getenv("OUTREACH_COMPANY_WINDOW_DAYS", "7"))
+
 
 settings = Settings()

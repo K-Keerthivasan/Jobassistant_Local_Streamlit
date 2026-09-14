@@ -154,14 +154,18 @@ def hermes_select(target) -> dict | None:
         return None
 
 
-def select_persona(target, override_id: str | None = None) -> dict | None:
-    """Manual override wins; otherwise let Hermes pick the best-fit persona
-    semantically, falling back to keyword matching if Hermes isn't available
-    or doesn't pick one. 'auto'/'' = let the system choose."""
+def select_persona(target, override_id: str | None = None, lane=None) -> dict | None:
+    """Manual override wins; then the job's lane (its base-resume mapping in
+    lanes.index.json); then Hermes' semantic pick; then keyword matching.
+    'auto'/'' = let the system choose."""
     if override_id and override_id != "auto":
         forced = get_persona(override_id)
         if forced is not None:
             return forced
+    if lane is not None and getattr(lane, "persona", ""):
+        mapped = get_persona(lane.persona)
+        if mapped is not None:
+            return mapped
     return hermes_select(target) or auto_select(target)
 
 

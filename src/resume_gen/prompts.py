@@ -65,12 +65,17 @@ then put X first. Study the reordering - neither example invents a number:
   RIGHT: "Kept dashboards reporting trustworthy figures by building REST API
           pipelines that validated data through ingestion and transformation."
 
-COVER LETTER:
-- Custom to this company and role, confident and natural, under 180 words.
-- Use 2-3 short paragraphs. Open with a specific idea about the work, not
-  "I'm applying for" or "I am excited to".
-- Connect 2-3 concrete, profile-backed experiences to the posting, then close
-  briefly. Do not repeat the resume or add claims.
+COVER LETTER (four paragraphs, no filler opener):
+1. Open on the strongest credential or piece of evidence for THIS role, anchored
+   in the first sentence. Never "I am writing to", never "I am excited to".
+2. Two or three concrete, profile-backed things done that map to the posting's
+   named requirements, in the posting's own terms where truthful.
+3. Name the gaps directly. If the LANE MATRIX block lists hard-required gaps,
+   state each plainly and what is adjacent to it, without dressing it up. If it
+   lists none, one honest sentence on what would be new in the role.
+4. Logistics: location, work authorization as an open work permit, start
+   availability, and that the resume is attached. Nothing about sponsorship.
+Under 260 words. Canadian spelling. No em or en dashes.
 
 Return only the single structured object required by the supplied schema."""
 
@@ -208,18 +213,24 @@ RULES — follow exactly:
    ("led a team of 12"), user/event/volume counts ("10M+ events/day"), percentages, or
    tools not in the profile (e.g. Kafka, AWS, Kubernetes). Use the candidate's REAL name
    and contact details from CANDIDATE_PROFILE — never invent a name, email, or phone.
-2. BOLD OPENING. Do NOT open with "I'm applying for", "I am writing to", or by naming the
-   role and where you saw it. Open with a BOLD IDEA: a sharp, specific claim or insight
-   about the work, the problem this role solves, or exactly what the candidate brings,
-   that immediately ties to what TARGET_ROLE needs. Make the first line earn attention.
-3. CONNECT. Tie the candidate's REAL experience directly to the role's actual needs, using
-   the posting's real terminology where it's truthful. Name 2-3 concrete things they've
-   genuinely built or done that map to those needs. One light line on their range is fine,
-   but stay focused on this role.
-4. CONCISE + CONFIDENT. UNDER 180 WORDS total across the body paragraphs — this is a HARD
-   cap, count and stay under it. 2-3 tight paragraphs. Modern, direct, self-assured. Short
-   punchy sentences. End briefly (resume attached, happy to talk) without groveling.
-5. VARY IT. No fixed formula, no stock opening lines. Each letter is freshly written.
+   If a LANE MATRIX block is present it is authoritative on skills: a skill it marks
+   NEVER PRESENT AS EXPERIENCE must not appear as something the candidate has done, and
+   a PARTIAL skill may only be mentioned with its limit in the same sentence.
+2. FOUR PARAGRAPHS, IN THIS ORDER, NO FILLER OPENER.
+   Paragraph 1: anchor the strongest credential or evidence for THIS role in the
+   first sentence. Never "I'm applying for", never "I am writing to", never where
+   you saw the posting.
+   Paragraph 2: two or three concrete, profile-backed things genuinely built or done
+   that map to the posting's named requirements, in the posting's own terms where
+   truthful.
+   Paragraph 3: name the gaps directly. When the LANE MATRIX block lists hard-required
+   gaps, state each one plainly and what adjacent, real experience sits next to it.
+   Never hide a gap and never dress adjacent experience up as the thing itself.
+   Paragraph 4: logistics. Location, open work permit (say "open work permit", never
+   sponsorship), availability, resume attached, one line offering a conversation.
+3. LENGTH. Under 260 words across the four paragraphs. Short sentences.
+4. CANADIAN SPELLING. "to" for date ranges, pipes for separators, no em or en dashes.
+5. VARY IT. No stock lines. Each letter is freshly written for this employer.
 6. WRITE LIKE A REAL PERSON, NOT AN AI. Use contractions (I'm, I've, I'd). Vary sentence
    length. NEVER use em dashes (—) or en dashes (–): use commas, periods, or "to" for
    ranges. Avoid AI-tell phrases and corporate filler: "I am excited to", "I am applying
@@ -233,7 +244,7 @@ SCHEMA:
   "fullName": "string — the candidate's name",
   "contactLine": "string — single line: name | location | email | phone | key links",
   "greeting": "string — friendly, e.g. 'Hi there,' or 'Hey <Company> team,'",
-  "body": [ "string — para 1: a BOLD opening idea (no 'I'm applying for')", "string — para 2: real experience connected to their needs", "string — para 3 (optional): brief confident close. TOTAL under 180 words." ],
+  "body": [ "string — para 1: strongest credential or evidence, anchored in the first sentence", "string — para 2: two or three concrete profile-backed matches to the named requirements", "string — para 3: the gaps, named directly", "string — para 4: logistics and close. TOTAL under 260 words." ],
   "signOff": "string — a closing phrase only, e.g. 'Best,' or 'Cheers,' or 'Thanks,'",
   "signature": "string — the candidate's name (NOT the closing phrase)"
 }"""

@@ -60,6 +60,39 @@ education, skills, and links from the profile, flags (or strips) fabricated
 metrics, and backfills a relevant skills section. Personas change *framing*, never
 facts.
 
+## Lanes, grading and outreach (v3.5)
+
+The sourcing engine (Claude, instruction set v3.5) emits three CSVs per stream run.
+Resume Studio imports them, grades every role against the twelve lane skill matrices,
+generates materials that only claim what the matrices allow, and runs HR outreach
+through an approval gate with n8n doing the sending.
+
+| What | Where |
+|---|---|
+| Lane matrices (the authority on what can be claimed) | `data/lanes/source/*.md` (edit), `data/lanes/*.json` (generated), `data/lanes.index.json` |
+| NOC table, profile facts, screening answers, outreach templates | `data/noc.json`, `data/profile.json`, `data/answer-bank.json`, `data/outreach-templates.json` |
+| Import a day's twelve CSVs | Intake tab, **Import day batch**, or `POST /import/batch` |
+| Tier, gap flags, evidence-traced fit sentence | badge on every job row; `GET /jobs`; regrade with `POST /jobs/regrade` |
+| HR outreach review screen | **Outreach** tab; n8n workflows in `n8n/workflows/outreach-*.json`; test guide in `docs/n8n-outreach-testing.md` |
+| Application ledger and dashboard | **Ledger** tab; `GET /ledger`, `GET /dashboard` |
+
+**Updating the matrices** (no code change):
+
+```powershell
+# edit data/lanes/source/lane-05-data-analytics.md, then
+npm run sync:lanes        # markdown -> JSON, refuses to write on a parse error
+npm run validate:data     # gates everything under data/; fails loudly on a bad file
+npm run drift:lanes       # did someone hand-edit one side?
+```
+
+Full walkthrough: [`docs/upgrade/update-path.md`](docs/upgrade/update-path.md). Data
+versions: [`data/CHANGELOG.md`](data/CHANGELOG.md). Adding a lane 13 is a markdown
+file, an index entry and a persona mapping; `tests/test_lanes_data.py` proves it.
+
+The rule the whole upgrade enforces in code: **a skill the matrix marks `building` or
+`not yet` never appears as experience** in a resume, cover letter, fit sentence,
+screening answer or outreach email. `tests/test_lane_guard.py` is the proof.
+
 ## Docs
 
 - [`docs/chatgpt-codex-automation.md`](docs/chatgpt-codex-automation.md) — ChatGPT/Codex browser automation with a final yes/no gate
@@ -76,3 +109,6 @@ facts.
 - [`docs/data-and-privacy.md`](docs/data-and-privacy.md) — what's stored, what's gitignored, back up / reset
 - [`docs/api.md`](docs/api.md) — HTTP API reference (for n8n and other devices)
 - [`docs/CHANGELOG.md`](docs/CHANGELOG.md) — updates & patches
+- [`docs/upgrade/phase-0-recon.md`](docs/upgrade/phase-0-recon.md) — what the v3.5 upgrade found and decided
+- [`docs/upgrade/update-path.md`](docs/upgrade/update-path.md) — how the lane matrices stay current
+- [`docs/n8n-outreach-testing.md`](docs/n8n-outreach-testing.md) — set up and test HR outreach through n8n

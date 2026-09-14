@@ -129,3 +129,40 @@ tool — they are not sent to n8n.
 Served by `Resume_Scraper/Scraper.py`, used by the userscript and the embedded
 dashboard: `GET /api/jobs`, `POST /api/jobs`, `POST /api/jobs/update`,
 `POST /api/jobs/delete`, `GET/POST /api/blacklist[/add|/remove]`, `GET /health`.
+
+## Lanes, import, grading (v3.5)
+
+| Endpoint | Purpose |
+|---|---|
+| `GET /lanes` | Every lane with counts of held and partial skills, plus the instruction-set version |
+| `GET /lanes/status` | Version, per-lane drift between markdown and JSON, version disagreements |
+| `POST /lanes/sync?check=` | Run the markdown to JSON sync (refuses on a parse error) and reload |
+| `GET /lanes/{slug}` | One lane's full matrix |
+| `POST /import/batch` | `{files:[{name, csv}]}`: a whole day's jobs_import, hr_companies and fit_report files. Returns the import report |
+| `GET /import/batches`, `GET /import/batches/{id}` | Past batches and their reports |
+| `POST /jobs/regrade`, `POST /jobs/{key}/grade` | Re-run tier, gap flags, fit sentence and seniority guard |
+| `POST /jobs/{key}/lane` | `{lane}`: set or correct a job's lane, then regrade |
+
+Job rows from `GET /jobs` now carry `lane_slug`, `stream`, `run_date`, `noc`, `teer`,
+`pathway_type`, `pathway_detail`, `remote_type`, `hire_type`, `tag_violations`, `fit`,
+`grade` (`tier`, `tier_reason`, `gap_flags`, `fit_sentence`, `evidence_skill_ids`) and
+`seniority` (`warning`, `reason`). `POST /generate` and `POST /jobs/{key}/generate`
+accept `lane`; a queued job's lane and grade are used automatically.
+
+## Outreach (v3.5)
+
+| Endpoint | Purpose |
+|---|---|
+| `GET /outreach/state`, `POST /outreach/state/{kill_switch|daily_cap|cooldown_days}` | Kill switch and caps |
+| `GET /outreach/contacts`, `POST /outreach/contacts`, `GET /outreach/contacts/missing` | Contacts (hand entries are `verified`), companies with no contact |
+| `POST /outreach/draft` | `{contact_id, template_id, job_key | lane, applied_on}`: render a sequence; every row lands `queued` |
+| `GET /outreach/messages?status=`, `GET /outreach/messages/{id}` | The review queue grouped by company; one message with its events |
+| `POST /outreach/messages/{id}/edit` | Edit subject or body before approval (same rules as a render) |
+| `POST /outreach/approve` | `{ids}`: **the only thing that makes a message eligible to send** |
+| `POST /outreach/cancel`, `POST /outreach/preview`, `POST /outreach/dispatch?test=` | Cancel; dry-run the guardrails; hand approved rows to n8n |
+| `POST /api/outreach/callback` | n8n to app, `X-Outreach-Secret` required, idempotent on `message_id` + `event` |
+| `GET /outreach/events`, `GET/POST/DELETE /outreach/suppression` | Audit log; permanent suppression list |
+
+## Ledger (v3.5)
+
+`GET /ledger` (rows), `POST /ledger/{key}` (`date_sent`, `status`, `notes`), `GET /dashboard`.

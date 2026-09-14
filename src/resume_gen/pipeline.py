@@ -57,15 +57,12 @@ def _initials(name: str, maxlen: int = 3) -> str:
 
 
 def _document_base(target: TargetRole, candidate_name: str = "") -> str:
-    """Short, readable résumé/cover filename base: ``<Company>_<Title>_<Initials>``.
-
-    e.g. company 'Coveo, Inc.' + title 'Senior Technical Marketing Engineer' +
-    name 'Keerthivasan'  ->  'Coveo_Technical_Marketing_Engineer_K'  (capped),
-    far shorter and cleaner than the old fixed 18+28 char slices."""
-    company = _fn_part(target.company, 12)
-    title = _fn_part(target.title, 20, from_end=True)
-    who = _initials(candidate_name)
-    return "_".join(p for p in (company, title, who) if p) or "Application"
+    """Document naming standard: ``kk_[Company]_[Role]`` (résumé) and
+    ``kk_[Company]_[Role]_CL`` (cover letter). Company and role are compacted on
+    whole-word boundaries so the name stays readable."""
+    company = _fn_part(target.company, 18)
+    title = _fn_part(target.title, 26, from_end=True)
+    return "_".join(p for p in ("kk", company, title) if p) or "kk_Application"
 
 
 def _resolve_engines(model: str | None) -> tuple[str | None, str | None]:
@@ -99,19 +96,43 @@ def run(
     persona: str | None = None,
     model: str | None = None,
     skills_focus: list[str] | None = None,
+    lane: str | None = None,
+    grade: dict | None = None,
 ) -> dict:
+    """`lane`: the job's lane slug (from the batch import). It picks the base
+    resume (persona), the portfolio links, and the matrix that filters every
+    skill claim. When absent it is resolved from the title, then from the persona.
+    `grade`: the job's matrix grade (tier, gap flags, fit sentence); computed here
+    when the caller has none."""
     profile = profile or load_profile()
     from .llm import fallbacks, reset_fallbacks, reset_run_metrics, run_metrics
+    from . import lanes as lane_data
+    from .lanes.guard import lane_context
     reset_fallbacks()                       # track any Hermes→Ollama fallbacks this run
     reset_run_metrics()                     # calls/tokens/time for this generation only
-    chosen = select_persona(target, persona)
+
+    lane_obj = lane_data.get_lane(lane) if lane else None
+    if lane_obj is None and lane:
+        lane_obj = lane_data.resolve_lane(lane)
+    if lane_obj is None:
+        lane_obj = lane_data.resolve_lane(target.title)
+    chosen = select_persona(target, persona, lane=lane_obj)
+    if lane_obj is None and chosen:
+        lane_obj = lane_data.lane_for_persona(chosen.get("id", ""))
+    if lane_obj is not None and not grade:
+        from .grading import grade as grade_fn
+        grade = grade_fn(target.title, target.description, lane_obj)
+    lane_ctx = lane_context(lane_obj, grade)
+    lane_links = lane_data.portfolio_links_for(lane_obj) if lane_obj is not None else None
+
     resume_model, letters_model = _resolve_engines(model)
     # Personalise the email greeting with the saved company HR name, when we have one.
     from .intake.companies import find_company
     contact_name = ((find_company(target.company) or {}).get("hr_name") or "").strip()
     bundle = generate_all(target, profile, chosen,
                           resume_model=resume_model, letters_model=letters_model,
-                          skills_focus=skills_focus, contact_name=contact_name)
+                          skills_focus=skills_focus, contact_name=contact_name,
+                          lane_ctx=lane_ctx)
     resume, cover, email = bundle["resume"], bundle["cover_letter"], bundle["email"]
 
     # Hermes-led QA: the main truthfulness judgment, run BEFORE the deterministic
@@ -123,15 +144,20 @@ def run(
 
     # Truth-guard (final backstop): hard-enforce identity/education/skills, strip metrics.
     resume, qa = enforce(resume, profile, strict=strict, persona=chosen,
-                         target_location=target.location)
+                         target_location=target.location, lane_ctx=lane_ctx,
+                         links=lane_links)
     qa["hermes_qa"] = hermes_qa_report
     # Cleanup pass (after validation): drop em/en dashes and slashes from résumé prose.
     from .humanize import humanize_resume
     resume = humanize_resume(resume)
     # Same discipline for the cover letter + email: rebuild contact line, strip
     # invented years/metrics, fix name/sign-off. Surface what was scrubbed in QA.
-    cover, cover_qa = enforce_cover_letter(cover, profile, target_location=target.location)
+    cover, cover_qa = enforce_cover_letter(cover, profile, target_location=target.location,
+                                           lane_ctx=lane_ctx, links=lane_links)
     email, email_qa = enforce_email(email, profile)
+    if lane_ctx.get("lane"):
+        from .lanes.guard import scan_text
+        email_qa["lane_guard"] = {"hits": scan_text(email.body, lane_ctx)}
     qa["cover_letter"] = cover_qa
     qa["email"] = email_qa
 
@@ -165,11 +191,17 @@ def run(
     target_data["document_base_name"] = doc_base
     target_data["resume_density"] = resume_density   # re-applied at download render
     target_data["document_files"] = {
-        "resume_docx": f"{doc_base}_Resume.docx",
-        "resume_pdf": f"{doc_base}_Resume.pdf",
-        "cover_letter_docx": f"{doc_base}_Cover.docx",
-        "cover_letter_pdf": f"{doc_base}_Cover.pdf",
+        "resume_docx": f"{doc_base}.docx",
+        "resume_pdf": f"{doc_base}.pdf",
+        "cover_letter_docx": f"{doc_base}_CL.docx",
+        "cover_letter_pdf": f"{doc_base}_CL.pdf",
     }
+    target_data["lane"] = lane_obj.slug if lane_obj else ""
+    target_data["lane_title"] = lane_obj.title if lane_obj else ""
+    target_data["matrix_version"] = lane_obj.version if lane_obj else ""
+    target_data["grade"] = {k: (grade or {}).get(k) for k in
+                            ("tier", "tier_reason", "gap_flags", "fit_sentence", "evidence_skill_ids")} if grade else {}
+    target_data["links"] = [{"label": l.label, "url": l.url} for l in (lane_links or [])]
 
     from .llm import _default_model
     _eff = _default_model()                  # what None/auto actually resolved to
@@ -184,6 +216,8 @@ def run(
         "email_subject": email.subject,
         "persona": (chosen or {}).get("id", ""),
         "persona_label": (chosen or {}).get("label", ""),
+        "lane": lane_obj.slug if lane_obj else "",
+        "tier": (grade or {}).get("tier", ""),
         "engines": {
             "resume": resume_model or _eff,
             "letters": letters_model or _eff,

@@ -17,7 +17,7 @@ from docx.shared import Pt, RGBColor
 from ..config import settings
 from ..models import CoverLetter, Resume
 
-ACCENT = RGBColor(0x1F, 0x4E, 0x79)  # deep blue, like the samples
+ACCENT = RGBColor(0x1F, 0x38, 0x64)  # navy #1F3864 (document standard)
 DARK = RGBColor(0x22, 0x22, 0x22)
 MUTED = RGBColor(0x55, 0x5B, 0x66)
 # Arial is deliberately boring: it is available on essentially every Windows ATS
@@ -32,6 +32,10 @@ SKILL_GROUP_LABELS = {
     "frontend_ui": "Frontend",
     "ai_automation": "AI & Automation",
     "game_dev": "Game Development",
+    "data_analytics": "Data & Analytics",
+    "qa_testing": "QA & Testing",
+    "it_support": "IT Support",
+    "vfx": "VFX & Compositing",
     "marketing": "Marketing",
     "sales_service": "Sales & Service",
     "creative_media": "Creative & Media",
@@ -134,7 +138,7 @@ def _bottom_border(paragraph) -> None:
     bottom.set(qn("w:val"), "single")
     bottom.set(qn("w:sz"), "6")
     bottom.set(qn("w:space"), "2")
-    bottom.set(qn("w:color"), "1F4E79")
+    bottom.set(qn("w:color"), "1F3864")
     pbdr.append(bottom)
     pPr.append(pbdr)
 
@@ -322,7 +326,8 @@ def render_resume(resume: Resume, out_path: Path, profile: dict | None = None,
             _run(head, e.role, bold=True, size=t["body"])
             if e.company:
                 _run(head, f"  |  {e.company}", size=t["body"])
-            dates = f"{_norm_date(e.start)} – {_norm_date(e.end)}".strip(" –")
+            # "to" for ranges: no em or en dashes anywhere in the document.
+            dates = " to ".join(d for d in (_norm_date(e.start), _norm_date(e.end)) if d)
             _run(head, f"\t{dates}", size=t["small_size"], color=ACCENT)
             if e.location:
                 loc = doc.add_paragraph()

@@ -1,0 +1,151 @@
+{
+  "name": "HR outreach dispatch (Resume Studio -> Gmail -> callback)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "outreach-dispatch",
+        "responseMode": "responseNode",
+        "options": { "rawBody": false }
+      },
+      "id": "wh-1", "name": "Receive outreach batch", "type": "n8n-nodes-base.webhook", "typeVersion": 2,
+      "position": [0, 0], "webhookId": "outreach-dispatch"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            { "id": "c1", "leftValue": "={{ $json.headers['x-outreach-secret'] }}", "rightValue": "={{ $env.OUTREACH_SHARED_SECRET }}", "operator": { "type": "string", "operation": "equals" } }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "if-1", "name": "Secret matches?", "type": "n8n-nodes-base.if", "typeVersion": 2, "position": [220, 0]
+    },
+    {
+      "parameters": { "respondWith": "json", "responseBody": "={{ { accepted: false, error: 'bad secret' } }}", "options": { "responseCode": 401 } },
+      "id": "rs-401", "name": "Reject", "type": "n8n-nodes-base.respondToWebhook", "typeVersion": 1.1, "position": [440, 160]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { accepted: true, batch_id: $('Receive outreach batch').item.json.body.batch_id, count: $('Receive outreach batch').item.json.body.messages.length } }}"
+      },
+      "id": "rs-200", "name": "Acknowledge batch", "type": "n8n-nodes-base.respondToWebhook", "typeVersion": 1.1, "position": [440, -120]
+    },
+    {
+      "parameters": {
+        "jsCode": "// One item per message. Attachments arrive inline as base64; turn each into a binary property so Gmail can attach it.\nconst body = $('Receive outreach batch').first().json.body;\nconst out = [];\nfor (const m of body.messages) {\n  const item = { json: { ...m, batch_id: body.batch_id, test: !!body.test }, binary: {} };\n  let i = 0;\n  for (const a of (m.attachments || [])) {\n    if (!a.content_base64) continue;\n    item.binary['attachment' + i] = await this.helpers.prepareBinaryData(Buffer.from(a.content_base64, 'base64'), a.filename, 'application/pdf');\n    i++;\n  }\n  item.json.attachment_props = Object.keys(item.binary).join(',');\n  out.push(item);\n}\nreturn out;"
+      },
+      "id": "code-1", "name": "Split messages + attachments", "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [660, -120]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [ { "id": "t1", "leftValue": "={{ $json.test }}", "rightValue": true, "operator": { "type": "boolean", "operation": "true" } } ],
+          "combinator": "and"
+        }
+      },
+      "id": "if-test", "name": "Test mode?", "type": "n8n-nodes-base.if", "typeVersion": 2, "position": [880, -120]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.to.email }}",
+        "subject": "={{ $json.subject }}",
+        "emailType": "text",
+        "message": "={{ $json.body_text }}",
+        "options": {
+          "appendAttribution": false,
+          "attachmentsUi": { "attachmentsBinary": [ { "property": "={{ $json.attachment_props }}" } ] },
+          "threadId": "={{ $json.thread_id || undefined }}"
+        }
+      },
+      "id": "gmail-1", "name": "Send via Gmail", "type": "n8n-nodes-base.gmail", "typeVersion": 2.1, "position": [1100, -40],
+      "credentials": { "gmailOAuth2": { "id": "REPLACE_WITH_YOUR_GMAIL_CREDENTIAL_ID", "name": "Gmail account" } },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.RESUME_STUDIO_URL || 'http://host.docker.internal:8088' }}/api/outreach/callback",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [ { "name": "X-Outreach-Secret", "value": "={{ $env.OUTREACH_SHARED_SECRET }}" } ] },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { message_id: $('Split messages + attachments').item.json.message_id, event: 'sent', at: $now.toISO(), provider_message_id: $json.id || '', thread_id: $json.threadId || '', detail: {} } }}",
+        "options": {}
+      },
+      "id": "cb-sent", "name": "Callback: sent", "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2, "position": [1340, -120]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.RESUME_STUDIO_URL || 'http://host.docker.internal:8088' }}/api/outreach/callback",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [ { "name": "X-Outreach-Secret", "value": "={{ $env.OUTREACH_SHARED_SECRET }}" } ] },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { message_id: $('Split messages + attachments').item.json.message_id, event: 'failed', at: $now.toISO(), detail: { error: String($json.error && $json.error.message || $json.error || 'gmail send failed') } } }}",
+        "options": {}
+      },
+      "id": "cb-failed", "name": "Callback: failed", "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2, "position": [1340, 60]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.RESUME_STUDIO_URL || 'http://host.docker.internal:8088' }}/api/outreach/callback",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [ { "name": "X-Outreach-Secret", "value": "={{ $env.OUTREACH_SHARED_SECRET }}" } ] },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { message_id: $json.message_id, event: 'sent', at: $now.toISO(), provider_message_id: 'test-' + $json.message_id.slice(0,8), thread_id: 'test-thread', detail: { test: true } } }}",
+        "options": {}
+      },
+      "id": "cb-test", "name": "Test: pretend sent", "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2, "position": [1100, -240]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": { "__rl": true, "mode": "id", "value": "REPLACE_WITH_HR_OUTREACH_SHEET_ID" },
+        "sheetName": { "__rl": true, "mode": "name", "value": "Outreach" },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "date": "={{ $now.toISODate() }}",
+            "batch_id": "={{ $('Split messages + attachments').item.json.batch_id }}",
+            "message_id": "={{ $('Split messages + attachments').item.json.message_id }}",
+            "company": "={{ $('Split messages + attachments').item.json.company }}",
+            "to": "={{ $('Split messages + attachments').item.json.to.email }}",
+            "subject": "={{ $('Split messages + attachments').item.json.subject }}",
+            "template": "={{ $('Split messages + attachments').item.json.meta.template_id }}",
+            "step": "={{ $('Split messages + attachments').item.json.sequence_step }}",
+            "lane": "={{ $('Split messages + attachments').item.json.meta.lane }}",
+            "pathway": "={{ $('Split messages + attachments').item.json.meta.pathway }}",
+            "status": "sent",
+            "gmail_id": "={{ $json.id || '' }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "sheet-1", "name": "Log to Outreach sheet", "type": "n8n-nodes-base.googleSheets", "typeVersion": 4.5, "position": [1560, -120],
+      "credentials": { "googleSheetsOAuth2Api": { "id": "REPLACE_WITH_YOUR_SHEETS_CREDENTIAL_ID", "name": "Google Sheets account" } }
+    }
+  ],
+  "connections": {
+    "Receive outreach batch": { "main": [ [ { "node": "Secret matches?", "type": "main", "index": 0 } ] ] },
+    "Secret matches?": { "main": [ [ { "node": "Acknowledge batch", "type": "main", "index": 0 } ], [ { "node": "Reject", "type": "main", "index": 0 } ] ] },
+    "Acknowledge batch": { "main": [ [ { "node": "Split messages + attachments", "type": "main", "index": 0 } ] ] },
+    "Split messages + attachments": { "main": [ [ { "node": "Test mode?", "type": "main", "index": 0 } ] ] },
+    "Test mode?": { "main": [ [ { "node": "Test: pretend sent", "type": "main", "index": 0 } ], [ { "node": "Send via Gmail", "type": "main", "index": 0 } ] ] },
+    "Send via Gmail": { "main": [ [ { "node": "Callback: sent", "type": "main", "index": 0 } ], [ { "node": "Callback: failed", "type": "main", "index": 0 } ] ] },
+    "Callback: sent": { "main": [ [ { "node": "Log to Outreach sheet", "type": "main", "index": 0 } ] ] }
+  },
+  "settings": { "executionOrder": "v1" },
+  "staticData": null,
+  "meta": { "templateCredsSetupCompleted": false },
+  "pinData": {},
+  "versionId": "1",
+  "tags": [ { "name": "resume-studio" } ]
+}
