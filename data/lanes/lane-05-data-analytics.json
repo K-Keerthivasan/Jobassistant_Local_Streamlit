@@ -1,0 +1,424 @@
+{
+  "lane": 5,
+  "slug": "data-analytics",
+  "title": "Data and analytics",
+  "track": "technical",
+  "set": "priority",
+  "noc": [
+    {
+      "code": "21223",
+      "title": "Database analysts and data administrators",
+      "teer": 1,
+      "applies_when": "Database design, data architecture, warehouse and data management work. The strongest code in the lane."
+    },
+    {
+      "code": "21211",
+      "title": "Data scientists",
+      "teer": 1,
+      "applies_when": "Statistical modelling, machine learning, predictive analysis. Only where the posting genuinely asks for modelling rather than reporting."
+    },
+    {
+      "code": "21221",
+      "title": "Business systems specialists",
+      "teer": 1,
+      "applies_when": "Requirements, process and systems analysis. Many business systems analyst and analytics analyst postings land here."
+    },
+    {
+      "code": "21222",
+      "title": "Information systems specialists",
+      "teer": 1,
+      "applies_when": "Systems-side analysis and implementation."
+    },
+    {
+      "code": "12113",
+      "title": "Statistical officers and related research support",
+      "teer": 2,
+      "applies_when": "The honest code for a junior reporting or data support seat doing no design or architecture."
+    }
+  ],
+  "keywords": {
+    "core": [
+      "data analyst",
+      "junior data analyst",
+      "business intelligence analyst",
+      "BI analyst",
+      "BI developer",
+      "reporting analyst",
+      "analytics analyst",
+      "insights analyst",
+      "data operations analyst",
+      "business systems analyst",
+      "data quality analyst"
+    ],
+    "tool_anchored": [
+      "Power BI developer",
+      "Power BI analyst",
+      "SQL analyst",
+      "Tableau analyst",
+      "data visualization analyst"
+    ],
+    "adjacent": [
+      "operations analyst",
+      "performance analyst",
+      "MIS analyst",
+      "decision support analyst",
+      "revenue analyst",
+      "marketing analytics analyst. Often real 21223 or 21221 seats wearing a department's name"
+    ]
+  },
+  "skills": [
+    {
+      "id": "sql",
+      "name": "SQL",
+      "tier": "must",
+      "asked_for": "SELECT, JOIN, GROUP BY, CTEs, subqueries, window functions, CASE, date functions, aggregations",
+      "status": "held",
+      "evidence": "Self-assessed, confirmed 2026-09-14.",
+      "limit": "",
+      "aliases": [
+        "sql",
+        "t-sql",
+        "structured query language",
+        "sql queries",
+        "mysql queries",
+        "postgresql queries",
+        "ctes",
+        "window functions",
+        "complex queries"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "excel",
+      "name": "Excel",
+      "tier": "must",
+      "asked_for": "Pivot tables, XLOOKUP, INDEX/MATCH, SUMIFS, charts, data cleaning, Power Query",
+      "status": "held",
+      "evidence": "Self-assessed, confirmed 2026-09-14.",
+      "limit": "",
+      "aliases": [
+        "excel",
+        "microsoft excel",
+        "advanced excel",
+        "pivot tables",
+        "xlookup",
+        "vlookup",
+        "power query",
+        "spreadsheets",
+        "ms excel"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "power-bi",
+      "name": "Power BI",
+      "tier": "must",
+      "asked_for": "Data model, DAX, dashboards, filters, drill-through, KPI cards, Power Query",
+      "status": "held",
+      "evidence": "Self-assessed, confirmed 2026-09-14.",
+      "limit": "",
+      "aliases": [
+        "power bi",
+        "powerbi",
+        "dax",
+        "bi dashboards",
+        "microsoft power bi",
+        "power bi desktop"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "python",
+      "name": "Python",
+      "tier": "must",
+      "asked_for": "pandas, NumPy, matplotlib, data cleaning and analysis",
+      "status": "held",
+      "evidence": "Self-assessed, confirmed 2026-09-14. Backed by production Python across the n8n and LLM pipelines.",
+      "limit": "",
+      "aliases": [
+        "python",
+        "pandas",
+        "numpy",
+        "matplotlib",
+        "jupyter",
+        "seaborn",
+        "python for data analysis"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "statistics",
+      "name": "Statistics",
+      "tier": "must",
+      "asked_for": "Mean and median, distributions, variance, correlation, confidence intervals, hypothesis tests",
+      "status": "held",
+      "evidence": "Self-assessed, confirmed 2026-09-14.",
+      "limit": "",
+      "aliases": [
+        "statistics",
+        "statistical analysis",
+        "hypothesis testing",
+        "regression analysis",
+        "descriptive statistics",
+        "statistical methods",
+        "quantitative analysis"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "business-analytics",
+      "name": "Business analytics",
+      "tier": "must",
+      "asked_for": "KPIs, trends, variance analysis, root-cause analysis",
+      "status": "held",
+      "evidence": "Self-assessed, confirmed 2026-09-14. Backed by campaign KPI and trend reporting for K2 Digital Media clients.",
+      "limit": "",
+      "aliases": [
+        "kpis",
+        "kpi reporting",
+        "business analytics",
+        "trend analysis",
+        "variance analysis",
+        "root cause analysis",
+        "business intelligence",
+        "bi reporting",
+        "performance metrics"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "data-cleaning",
+      "name": "Data cleaning",
+      "tier": "must",
+      "asked_for": "Nulls, duplicates, incorrect data types, outliers, inconsistent categories",
+      "status": "held",
+      "evidence": "Self-assessed, confirmed 2026-09-14. Backed by transformation and normalisation work across the n8n pipelines.",
+      "limit": "",
+      "aliases": [
+        "data cleaning",
+        "data cleansing",
+        "data quality",
+        "data wrangling",
+        "data preparation",
+        "data validation",
+        "data integrity"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "data-visualization",
+      "name": "Data visualization",
+      "tier": "must",
+      "asked_for": "Choosing the correct chart and explaining the finding clearly",
+      "status": "held",
+      "evidence": "Self-assessed, confirmed 2026-09-14.",
+      "limit": "",
+      "aliases": [
+        "data visualization",
+        "data visualisation",
+        "dashboards",
+        "charts",
+        "visual reporting",
+        "looker studio",
+        "google data studio",
+        "reporting dashboards"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "data-storytelling",
+      "name": "Data storytelling",
+      "tier": "must",
+      "asked_for": "Turning numbers into a business recommendation",
+      "status": "held",
+      "evidence": "Self-assessed, confirmed 2026-09-14. Backed by client reporting at K2.",
+      "limit": "",
+      "aliases": [
+        "data storytelling",
+        "presenting insights",
+        "stakeholder communication",
+        "insights",
+        "recommendations",
+        "communicate findings",
+        "presentation skills"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "git-and-github",
+      "name": "Git and GitHub",
+      "tier": "important",
+      "asked_for": "Projects, version control, README documentation",
+      "status": "held",
+      "evidence": "github.com/K-Keerthivasan, multiple maintained repos with documented READMEs.",
+      "limit": "",
+      "aliases": [
+        "git",
+        "github",
+        "version control"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "apis",
+      "name": "APIs",
+      "tier": "important",
+      "asked_for": "Pulling JSON and API data and transforming it",
+      "status": "held",
+      "evidence": "n8n automation work and K2_Press, both API-driven with JSON transformation throughout.",
+      "limit": "",
+      "aliases": [
+        "apis",
+        "rest api",
+        "json",
+        "api data",
+        "api integration"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "databases",
+      "name": "Databases",
+      "tier": "important",
+      "asked_for": "PostgreSQL and MySQL basics",
+      "status": "held",
+      "evidence": "Self-assessed, confirmed 2026-09-14. Backed by Supabase, which is Postgres.",
+      "limit": "",
+      "aliases": [
+        "postgresql",
+        "mysql",
+        "postgres",
+        "relational databases",
+        "database",
+        "databases",
+        "supabase",
+        "sql server",
+        "data warehouse basics"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "tableau",
+      "name": "Tableau",
+      "tier": "optional",
+      "asked_for": "Useful alternative to Power BI, worth it only once Power BI is strong",
+      "status": "not_yet",
+      "evidence": "",
+      "limit": "",
+      "aliases": [
+        "tableau",
+        "tableau desktop"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "r",
+      "name": "R",
+      "tier": "optional",
+      "asked_for": "Unnecessary while Python is the tool",
+      "status": "not_yet",
+      "evidence": "",
+      "limit": "",
+      "aliases": [
+        "r programming",
+        "r language",
+        "rstudio",
+        "r"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "cloud",
+      "name": "Cloud",
+      "tier": "later",
+      "asked_for": "BigQuery, Snowflake, AWS basics",
+      "status": "not_yet",
+      "evidence": "",
+      "limit": "",
+      "aliases": [
+        "bigquery",
+        "snowflake",
+        "redshift",
+        "aws",
+        "azure",
+        "gcp",
+        "databricks",
+        "cloud data warehouse",
+        "data warehouse",
+        "azure synapse"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "dbt",
+      "name": "dbt",
+      "tier": "later",
+      "asked_for": "Analytics transformations and models",
+      "status": "not_yet",
+      "evidence": "",
+      "limit": "",
+      "aliases": [
+        "dbt",
+        "data build tool",
+        "analytics engineering"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    }
+  ],
+  "positioning": "Lead with the combination, because the combination is the unusual part: he can pull data through an API, clean and transform it in Python, query it in SQL, model it in Power BI, and then explain what it means to a client who does not care about any of that. Most junior analyst candidates have the middle three and not the ends. The pipeline work and the client reporting are what make the story coherent rather than a list of tools.\n\nOne thing to be ready for. These statuses are self-assessed rather than employer-verified, which is entirely normal for someone entering a lane, and it ships Tier A rows without any problem. What it does not do is survive a live SQL exercise on its own, and junior analyst screens are practical far more often than they are conversational. A public repo with a cleaned dataset, a documented SQL query set and a Power BI or matplotlib output turns the self-assessment into something an employer can check, and it is the single highest-leverage thing available in this lane. Note in the fit report whenever a posting asks for a portfolio or sets a take-home.",
+  "interview_watch": "Expect a live or take-home SQL exercise. Window functions and CTEs are the two things most often tested beyond basics. Expect \"tell me about a time the data said something the business did not want to hear\", which rewards a real example from client reporting. Expect a case question: here is a metric that dropped, how would you find out why. Answer it as a structured decomposition, not a guess list.",
+  "pr_note": "21223, 21211, 21221 and 21222 are all TEER 1, among the strongest codes in the whole search. 12113 is TEER 2 and clears the floor. No RCIP community list covers any lane 5 NOC, so never tag a lane 5 role RCIP. AIP covers the lane entirely from a designated Atlantic employer, and Ontario's Workforce Priority stream takes any of them with a qualifying offer.",
+  "not_required": "Machine learning beyond a basic conceptual understanding. Normal junior analyst roles do not ask for it, and a posting that hard-requires ML modelling is a 21211 data scientist seat that should be dropped rather than stretched into.",
+  "notes": [
+    {
+      "heading": "Intro",
+      "text": "NOC 21223, 21211, 21221, 21222, 12113. Priority lane. Read 00-index.md for the Status conventions and tier rules.\n\nStatus updated 2026-09-14. Keerthi reviewed the full matrix and confirmed he can do every Must-tier and Important-tier item. Statuses below are held on his own confirmation. Optional and Later items stay not yet by his own ordering."
+    },
+    {
+      "heading": "What this changes for sourcing",
+      "text": "With the Must tier held, most junior analyst postings now grade Tier A rather than Tier C. The standard hard-required trio of SQL, Excel and Power BI is covered, so the lane should start producing volume rather than dropping nearly everything. Expect lane 5 to become one of the largest contributors to a Stream A run."
+    }
+  ],
+  "links": [
+    "linkedin",
+    "dev",
+    "code"
+  ],
+  "persona": "data_analytics",
+  "version": "3.5",
+  "source_updated": "2026-09-14",
+  "source_file": "lanes/source/lane-05-data-analytics.md",
+  "source_sha256": "3c53f28947ae10a5643fd2e026db6cf68a7f6ae8690fb76353e09d37da947ea4"
+}

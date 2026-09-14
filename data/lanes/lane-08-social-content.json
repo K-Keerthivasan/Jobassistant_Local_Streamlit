@@ -1,0 +1,402 @@
+{
+  "lane": 8,
+  "slug": "social-content",
+  "title": "Social media and content",
+  "track": "creative",
+  "set": "priority",
+  "noc": [
+    {
+      "code": "11202",
+      "title": "Professional occupations in advertising, marketing and public relations",
+      "teer": 1,
+      "applies_when": ""
+    }
+  ],
+  "keywords": {
+    "core": [
+      "social media coordinator",
+      "social media specialist",
+      "social media manager",
+      "content creator",
+      "content coordinator",
+      "community manager",
+      "content specialist",
+      "social media marketing specialist",
+      "digital content creator"
+    ],
+    "tool_anchored": [
+      "hootsuite",
+      "sprout social",
+      "later",
+      "buffer",
+      "postiz"
+    ],
+    "adjacent": [
+      "digital content coordinator",
+      "brand content creator",
+      "marketing content producer",
+      "communications coordinator"
+    ]
+  },
+  "skills": [
+    {
+      "id": "platform-fluency",
+      "name": "Platform fluency",
+      "tier": "must",
+      "asked_for": "Instagram, TikTok, LinkedIn, Facebook, YouTube. Format and algorithm differences",
+      "status": "held",
+      "evidence": "K2 Digital Media client channels and the ClubJunk YouTube channel.",
+      "limit": "",
+      "aliases": [
+        "instagram",
+        "tiktok",
+        "linkedin",
+        "facebook",
+        "youtube",
+        "twitter",
+        "x",
+        "threads",
+        "pinterest",
+        "snapchat",
+        "social media platforms",
+        "social media",
+        "social channels"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "content-planning-and-calendars",
+      "name": "Content planning and calendars",
+      "tier": "must",
+      "asked_for": "Planning a month, not reacting to a week",
+      "status": "held",
+      "evidence": "K2 client content scheduling, and K2_Press exists specifically to publish multi-brand social on a schedule.",
+      "limit": "",
+      "aliases": [
+        "content calendar",
+        "editorial calendar",
+        "content planning",
+        "content scheduling",
+        "monthly calendar",
+        "social calendar"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "short-form-video",
+      "name": "Short-form video",
+      "tier": "must",
+      "asked_for": "Reels, Shorts, TikTok. Concept through publish",
+      "status": "held",
+      "evidence": "Instagram Reels are his lead portfolio piece for ad-creative work.",
+      "limit": "",
+      "aliases": [
+        "reels",
+        "shorts",
+        "tiktok videos",
+        "short-form video",
+        "short form video",
+        "vertical video",
+        "video content",
+        "capcut",
+        "video creation"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "copywriting-for-social",
+      "name": "Copywriting for social",
+      "tier": "must",
+      "asked_for": "Hooks, captions, calls to action, voice per brand",
+      "status": "held",
+      "evidence": "K2 client content across brands.",
+      "limit": "",
+      "aliases": [
+        "captions",
+        "copywriting",
+        "social copy",
+        "hooks",
+        "calls to action",
+        "writing",
+        "caption writing"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "community-management",
+      "name": "Community management",
+      "tier": "must",
+      "asked_for": "Responding, moderating, escalating",
+      "status": "partial",
+      "evidence": "Channel management for clients and his own channels. Not at volume or under a brand-safety policy.",
+      "limit": "Not at volume or under a brand-safety policy.",
+      "aliases": [
+        "community management",
+        "engagement",
+        "responding to comments",
+        "moderation",
+        "community engagement",
+        "dms",
+        "community building"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "social-analytics",
+      "name": "Social analytics",
+      "tier": "must",
+      "asked_for": "Native insights, what moved and why, reporting it",
+      "status": "held",
+      "evidence": "Client performance reporting at K2.",
+      "limit": "",
+      "aliases": [
+        "social media analytics",
+        "insights",
+        "meta business suite",
+        "engagement metrics",
+        "analytics",
+        "reporting",
+        "social listening",
+        "performance metrics"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "scheduling-and-publishing-tools",
+      "name": "Scheduling and publishing tools",
+      "tier": "must",
+      "asked_for": "Later, Buffer, Hootsuite, Sprout, Postiz",
+      "status": "held",
+      "evidence": "K2_Press is his own multi-brand publishing system built on Postiz. That is unusually strong evidence for this line.",
+      "limit": "",
+      "aliases": [
+        "hootsuite",
+        "buffer",
+        "later",
+        "sprout social",
+        "sprout",
+        "postiz",
+        "meta business suite",
+        "planoly",
+        "loomly",
+        "scheduling tools",
+        "publishing tools"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "paid-social",
+      "name": "Paid social",
+      "tier": "important",
+      "asked_for": "Boosting and campaign management on social specifically",
+      "status": "partial",
+      "evidence": "Overlaps lane 7 paid media. State the real scale.",
+      "limit": "Overlaps lane 7 paid media. State the real scale.",
+      "aliases": [
+        "paid social",
+        "boosted posts",
+        "meta ads",
+        "facebook ads",
+        "social advertising",
+        "tiktok ads",
+        "linkedin ads",
+        "social ads"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "influencer-and-creator-coordination",
+      "name": "Influencer and creator coordination",
+      "tier": "important",
+      "asked_for": "Briefing, managing, measuring",
+      "status": "not_yet",
+      "evidence": "",
+      "limit": "",
+      "aliases": [
+        "influencer marketing",
+        "influencers",
+        "creators",
+        "influencer outreach",
+        "creator partnerships",
+        "ambassadors",
+        "influencer campaigns"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "brand-voice-consistency",
+      "name": "Brand voice consistency",
+      "tier": "important",
+      "asked_for": "Holding a voice that is not your own across a channel",
+      "status": "held",
+      "evidence": "Multi-brand client work at K2 requires exactly this.",
+      "limit": "",
+      "aliases": [
+        "brand voice",
+        "tone of voice",
+        "brand guidelines",
+        "brand consistency",
+        "brand standards"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "content-strategy",
+      "name": "Content strategy",
+      "tier": "important",
+      "asked_for": "Pillars, audience definition, why this channel at all",
+      "status": "partial",
+      "evidence": "Applied for clients and for the JKR and ClubJunk channels. Not documented as formal strategy work.",
+      "limit": "Not documented as formal strategy work.",
+      "aliases": [
+        "content strategy",
+        "social strategy",
+        "social media strategy",
+        "content pillars",
+        "audience growth",
+        "channel strategy"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "graphic-basics",
+      "name": "Graphic basics",
+      "tier": "important",
+      "asked_for": "Canva or Adobe enough to produce a post",
+      "status": "held",
+      "evidence": "Agency delivery includes it.",
+      "limit": "",
+      "aliases": [
+        "canva",
+        "photoshop",
+        "graphic design",
+        "adobe express",
+        "visual content",
+        "illustrator",
+        "design skills"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "social-listening-tools",
+      "name": "Social listening tools",
+      "tier": "optional",
+      "asked_for": "Brandwatch, Sprout listening",
+      "status": "not_yet",
+      "evidence": "",
+      "limit": "",
+      "aliases": [
+        "brandwatch",
+        "sprinklr",
+        "meltwater",
+        "talkwalker",
+        "listening tools"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "community-platforms",
+      "name": "Community platforms",
+      "tier": "optional",
+      "asked_for": "Discord, Reddit, forum management",
+      "status": "partial",
+      "evidence": "Discord, Reddit, forum management",
+      "limit": "Discord, Reddit, forum management",
+      "aliases": [
+        "discord",
+        "reddit",
+        "forums",
+        "slack community",
+        "facebook groups"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": true
+    },
+    {
+      "id": "ugc-and-creator-programmes",
+      "name": "UGC and creator programmes",
+      "tier": "optional",
+      "asked_for": "Larger employers",
+      "status": "not_yet",
+      "evidence": "",
+      "limit": "",
+      "aliases": [
+        "ugc",
+        "user generated content",
+        "user-generated content",
+        "creator program",
+        "ambassador program"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "channel-p-and-l-ownership",
+      "name": "Channel P&L ownership",
+      "tier": "later",
+      "asked_for": "Senior territory",
+      "status": "not_yet",
+      "evidence": "",
+      "limit": "",
+      "aliases": [
+        "p&l",
+        "channel ownership",
+        "revenue ownership"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    }
+  ],
+  "positioning": "His strongest asset here is that he has built and run channels rather than only posted to them. K2_Press is a publishing system he wrote; ClubJunk and JKR are channels he grew himself. That combination of operator and builder is rare at this level and it is the thing to lead with.\n\nThe gap worth naming is corporate context: he has run his own brands and small business clients, not a company channel inside a marketing department with approvals, brand guidelines and legal review. Most in-scope postings grade Tier A. Be careful about the NOC trap here more than anywhere else in Track 2, since a clerical social posting looks identical to a real one until you read the body.",
+  "interview_watch": "Expect to be asked for your accounts. Have the links ready and be honest about follower numbers rather than letting them be discovered. Expect \"what would you post for us in your first month\", which rewards having actually looked at their channels beforehand.",
+  "pr_note": "Same code as lane 7, so the same position: TEER 1, strong for CEC, never RCIP-eligible, covered by AIP from a designated Atlantic employer, and covered by Ontario's Workforce Priority stream with a qualifying offer.",
+  "not_required": "Team management, agency account direction. Senior, fails the seniority gate.",
+  "notes": [
+    {
+      "heading": "Intro",
+      "text": "NOC 11202, TEER 1. Track 2. Read 00-index.md for the Status conventions and tier rules."
+    },
+    {
+      "heading": "The NOC trap, read before grading",
+      "text": "Same trap as lane 7 and it fires harder here, because social coordinator postings skew junior and administrative. Look for content ownership, channel strategy, performance responsibility and budget or spend input. A posting that is scheduling someone else's content and answering comments is clerical, maps to TEER 4, and is skipped."
+    }
+  ],
+  "links": [
+    "linkedin",
+    "agency"
+  ],
+  "persona": "social_content",
+  "version": "3.5",
+  "source_updated": "2026-09-14",
+  "source_file": "lanes/source/lane-08-social-content.md",
+  "source_sha256": "d67c67121ca2e4f760c7972eb8641633b50c9ad71bf69a1d30899c7c3c6ab8fa"
+}

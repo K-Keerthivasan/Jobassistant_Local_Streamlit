@@ -1,0 +1,455 @@
+{
+  "lane": 9,
+  "slug": "video-multimedia",
+  "title": "Video and multimedia production",
+  "track": "creative",
+  "set": "priority",
+  "noc": [
+    {
+      "code": "52119",
+      "title": "Other technical and coordinating occupations in motion pictures, broadcasting and performing arts",
+      "teer": 2,
+      "applies_when": "The general catch-all for production and editing seats."
+    },
+    {
+      "code": "52110",
+      "title": "Film and video camera operators",
+      "teer": 2,
+      "applies_when": "Where the posting is substantially shooting rather than editing."
+    }
+  ],
+  "keywords": {
+    "core": [
+      "video editor",
+      "videographer",
+      "multimedia producer",
+      "video producer",
+      "multimedia specialist",
+      "motion graphics designer",
+      "content producer",
+      "post production assistant",
+      "junior video editor"
+    ],
+    "tool_anchored": [
+      "premiere pro editor",
+      "davinci resolve editor",
+      "after effects artist",
+      "motion designer"
+    ],
+    "adjacent": [
+      "digital media specialist",
+      "media producer",
+      "production assistant",
+      "creative producer",
+      "multimedia designer"
+    ]
+  },
+  "skills": [
+    {
+      "id": "video-editing",
+      "name": "Video editing",
+      "tier": "must",
+      "asked_for": "Premiere Pro or DaVinci Resolve or Final Cut. Premiere is named most often",
+      "status": "held",
+      "evidence": "Video editing is a core K2 Digital Media service line, plus the ClubJunk channel.",
+      "limit": "",
+      "aliases": [
+        "premiere pro",
+        "adobe premiere",
+        "davinci resolve",
+        "final cut pro",
+        "final cut",
+        "video editing",
+        "editing",
+        "non-linear editing",
+        "avid",
+        "avid media composer",
+        "video post-production"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "short-form-editing",
+      "name": "Short-form editing",
+      "tier": "must",
+      "asked_for": "Vertical, fast-cut, hook-first, platform-native",
+      "status": "held",
+      "evidence": "Instagram Reels are the lead portfolio piece.",
+      "limit": "",
+      "aliases": [
+        "reels",
+        "shorts",
+        "tiktok",
+        "short-form",
+        "short form",
+        "vertical video",
+        "social video",
+        "social media video"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "audio",
+      "name": "Audio",
+      "tier": "must",
+      "asked_for": "Cleaning dialogue, levels, music and sync",
+      "status": "held",
+      "evidence": "Channel and client work requires it end to end.",
+      "limit": "",
+      "aliases": [
+        "audio editing",
+        "audio mixing",
+        "sound design",
+        "audition",
+        "adobe audition",
+        "sound mixing",
+        "dialogue cleanup",
+        "audio post"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "colour-correction",
+      "name": "Colour correction",
+      "tier": "must",
+      "asked_for": "Matching and grading to a look",
+      "status": "partial",
+      "evidence": "Practical grading on client and channel work. Not colourist-level.",
+      "limit": "Not colourist-level.",
+      "aliases": [
+        "colour correction",
+        "color correction",
+        "colour grading",
+        "color grading",
+        "grading",
+        "lumetri"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "storytelling-and-pacing",
+      "name": "Storytelling and pacing",
+      "tier": "must",
+      "asked_for": "Structure, why a cut lands, holding attention",
+      "status": "held",
+      "evidence": "Channel work is judged on exactly this and the retention numbers are the proof.",
+      "limit": "",
+      "aliases": [
+        "storytelling",
+        "pacing",
+        "narrative",
+        "story structure",
+        "visual storytelling",
+        "editing for story"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "asset-and-project-management",
+      "name": "Asset and project management",
+      "tier": "must",
+      "asked_for": "Media organisation, versions, delivery specs",
+      "status": "held",
+      "evidence": "Multi-client delivery at K2.",
+      "limit": "",
+      "aliases": [
+        "media management",
+        "asset management",
+        "project organization",
+        "file management",
+        "dam",
+        "frame.io",
+        "media organization"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "export-and-delivery",
+      "name": "Export and delivery",
+      "tier": "must",
+      "asked_for": "Codecs, platform specs, compression trade-offs",
+      "status": "held",
+      "evidence": "Routine across every channel he publishes to.",
+      "limit": "",
+      "aliases": [
+        "export",
+        "delivery specs",
+        "codecs",
+        "encoding",
+        "media encoder",
+        "compression",
+        "h.264",
+        "prores",
+        "deliverables"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "motion-graphics",
+      "name": "Motion graphics",
+      "tier": "important",
+      "asked_for": "After Effects, titles, lower thirds, simple animation",
+      "status": "held",
+      "evidence": "After Effects for titles, lower thirds and transitions across client and channel work, plus the Fanshawe VFX programme.",
+      "limit": "",
+      "aliases": [
+        "after effects",
+        "motion graphics",
+        "animation",
+        "lower thirds",
+        "titles",
+        "kinetic typography",
+        "mograph",
+        "animated graphics"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "compositing-and-vfx",
+      "name": "Compositing and VFX",
+      "tier": "important",
+      "asked_for": "Nuke, roto, cleanup, tracking, CG integration",
+      "status": "held",
+      "evidence": "Corrected in v3.5: this was wrongly listed as not yet. Nuke is a working tool and the Fanshawe VFX programme covered it. See lane-12-vfx.md for the full treatment.",
+      "limit": "",
+      "aliases": [
+        "vfx",
+        "visual effects",
+        "compositing",
+        "nuke",
+        "rotoscoping",
+        "tracking",
+        "green screen",
+        "keying",
+        "chroma key"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "camera-operation",
+      "name": "Camera operation",
+      "tier": "important",
+      "asked_for": "Shooting, framing, lighting, sound capture on location",
+      "status": "partial",
+      "evidence": "Self-shot channel and client content. Not a professional multi-camera or crewed set.",
+      "limit": "Not a professional multi-camera or crewed set.",
+      "aliases": [
+        "camera operation",
+        "videography",
+        "filming",
+        "shooting",
+        "cinematography",
+        "lighting",
+        "dslr",
+        "mirrorless",
+        "sony",
+        "camera operator"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "scripting-and-storyboarding",
+      "name": "Scripting and storyboarding",
+      "tier": "important",
+      "asked_for": "Planning before shooting",
+      "status": "held",
+      "evidence": "The JKR and ClubJunk scripted-video workflow is exactly this.",
+      "limit": "",
+      "aliases": [
+        "scripting",
+        "storyboarding",
+        "storyboards",
+        "pre-production",
+        "scriptwriting",
+        "shot lists",
+        "concept development"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "unreal-engine-and-3d",
+      "name": "Unreal Engine and 3D",
+      "tier": "important",
+      "asked_for": "Virtual production, real-time graphics, VFX",
+      "status": "partial",
+      "evidence": "Active Unreal Engine work on his own projects. Rare and differentiating where a posting touches it.",
+      "limit": "Active Unreal Engine work on his own projects. Rare and differentiating where a posting touches it.",
+      "aliases": [
+        "unreal engine",
+        "unreal",
+        "ue5",
+        "3d",
+        "blender",
+        "cinema 4d",
+        "c4d",
+        "virtual production",
+        "real-time",
+        "3d animation"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "adobe-ecosystem",
+      "name": "Adobe ecosystem",
+      "tier": "important",
+      "asked_for": "Photoshop, Illustrator alongside Premiere",
+      "status": "partial",
+      "evidence": "Agency delivery level.",
+      "limit": "Agency delivery level.",
+      "aliases": [
+        "photoshop",
+        "illustrator",
+        "adobe creative suite",
+        "adobe creative cloud",
+        "creative cloud",
+        "indesign",
+        "adobe"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "live-streaming-and-switching",
+      "name": "Live streaming and switching",
+      "tier": "optional",
+      "asked_for": "OBS, vMix, event production",
+      "status": "partial",
+      "evidence": "OBS, vMix, event production",
+      "limit": "OBS, vMix, event production",
+      "aliases": [
+        "obs",
+        "vmix",
+        "live streaming",
+        "livestream",
+        "switching",
+        "live production",
+        "event production",
+        "streamyard",
+        "live events"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": true
+    },
+    {
+      "id": "podcast-production",
+      "name": "Podcast production",
+      "tier": "optional",
+      "asked_for": "Multitrack audio, remote recording",
+      "status": "not_yet",
+      "evidence": "",
+      "limit": "",
+      "aliases": [
+        "podcast",
+        "podcast production",
+        "audio production",
+        "multitrack"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "drone",
+      "name": "Drone",
+      "tier": "optional",
+      "asked_for": "Certification required commercially in Canada",
+      "status": "not_yet",
+      "evidence": "",
+      "limit": "",
+      "aliases": [
+        "drone",
+        "drone operation",
+        "uav",
+        "rpas",
+        "drone pilot",
+        "aerial"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "broadcast-workflows",
+      "name": "Broadcast workflows",
+      "tier": "later",
+      "asked_for": "Traffic, station delivery, broadcast specs",
+      "status": "not_yet",
+      "evidence": "",
+      "limit": "",
+      "aliases": [
+        "broadcast",
+        "broadcast standards",
+        "television",
+        "news production",
+        "broadcast production"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "advanced-vfx-and-compositing",
+      "name": "Advanced VFX and compositing",
+      "tier": "later",
+      "asked_for": "High-end studio pipelines, Houdini FX",
+      "status": "not_yet",
+      "evidence": "",
+      "limit": "",
+      "aliases": [
+        "houdini",
+        "fx simulation",
+        "advanced compositing",
+        "cg"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    }
+  ],
+  "positioning": "Strong lane on portfolio, weaker on credentials, which is the usual shape for production work and it is fine because this lane hires on reel. The reel is the application. Lead with Reels for ad-creative and social roles, and with the scripted channel work for anything narrative or content-led. The Unreal Engine work is genuinely unusual for a junior video candidate and worth surfacing wherever a posting touches real-time, virtual production or game content.\n\nThe gap worth naming is crewed production: he has been a one-person operation, so he has not worked as part of a set or a post team with a producer, a schedule and someone else's brief. Most in-scope postings grade Tier A.\n\nOne standing caution carried from lane 7. Do not let this lane's strength pull marketing applications toward camera work. A video-first framing on a digital marketing posting costs him the 11202 mapping and reads as the wrong hire.",
+  "interview_watch": "Expect a reel review and expect to be asked what you would change about a piece in it. Pick the honest answer rather than defending the work. Expect a turnaround question: how fast can you cut a Reel from raw footage. Have a real number.",
+  "pr_note": "Both codes are TEER 2 and clear the floor. No RCIP list covers either, so never tag a lane 9 role RCIP. AIP covers them from a designated Atlantic employer. Ontario's Workforce Priority stream takes them with a qualifying offer.",
+  "not_required": "Feature-film credits, union membership, a film degree. A posting requiring any of them is a credential-gate drop.",
+  "notes": [
+    {
+      "heading": "Intro",
+      "text": "NOC 52119 or 52110, TEER 2. Track 2. Read 00-index.md for the Status conventions and tier rules."
+    }
+  ],
+  "links": [
+    "linkedin",
+    "vfx_film",
+    "agency"
+  ],
+  "persona": "content_video",
+  "version": "3.5",
+  "source_updated": "2026-09-14",
+  "source_file": "lanes/source/lane-09-video-multimedia.md",
+  "source_sha256": "bb461cb3b99842455d9d8b4febf958c25ca55bea08fff5c9d344f56b97ee53f1"
+}

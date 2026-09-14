@@ -1,0 +1,495 @@
+{
+  "lane": 12,
+  "slug": "vfx",
+  "title": "VFX artist, junior",
+  "track": "creative",
+  "set": "priority",
+  "noc": [
+    {
+      "code": "52111",
+      "title": "Graphic arts technicians",
+      "teer": 2,
+      "applies_when": "What Job Bank maps \"VFX Artist\" to. The default for a compositing, roto, cleanup or general VFX seat."
+    },
+    {
+      "code": "52119",
+      "title": "Other technical and coordinating occupations in motion pictures, broadcasting and performing arts",
+      "teer": 2,
+      "applies_when": "Lists \"special effects technician\" as an illustrative example. Fits on-set and practical-adjacent VFX work."
+    },
+    {
+      "code": "52120",
+      "title": "Graphic designers and illustrators",
+      "teer": 2,
+      "applies_when": "Art-led and motion-design-led seats."
+    }
+  ],
+  "keywords": {
+    "core": [
+      "junior VFX artist",
+      "junior compositor",
+      "compositor",
+      "roto artist",
+      "paint artist",
+      "cleanup artist",
+      "VFX assistant",
+      "junior motion graphics artist",
+      "match move artist",
+      "VFX generalist"
+    ],
+    "tool_anchored": [],
+    "adjacent": [
+      "virtual production artist",
+      "real-time artist",
+      "Unreal artist",
+      "technical artist",
+      "motion designer",
+      "post-production artist. Virtual production and real-time are where his Unreal work makes him unusually competitive and the postings are less contested than roto seats"
+    ]
+  },
+  "skills": [
+    {
+      "id": "compositing",
+      "name": "Compositing",
+      "tier": "must",
+      "asked_for": "Node-based compositing, the core discipline of the lane",
+      "status": "held",
+      "evidence": "Nuke, plus the Fanshawe VFX programme. Lock-off compositing short film as a dedicated project.",
+      "limit": "",
+      "aliases": [
+        "compositing",
+        "compositor",
+        "comp",
+        "node-based compositing",
+        "digital compositing",
+        "keying",
+        "green screen",
+        "composite"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "nuke",
+      "name": "Nuke",
+      "tier": "must",
+      "asked_for": "The industry standard. Named in the large majority of postings",
+      "status": "held",
+      "evidence": "Listed as a working tool; Fanshawe programme trained on it. Note: the lane 9 matrix understated this as \"not yet\" and has been corrected.",
+      "limit": "",
+      "aliases": [
+        "nuke",
+        "nukex",
+        "nuke studio",
+        "foundry nuke"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "rotoscoping",
+      "name": "Rotoscoping",
+      "tier": "must",
+      "asked_for": "Frame-accurate roto, the work junior VFX artists actually do all day",
+      "status": "held",
+      "evidence": "Named project work: commercial edit using roto and object removal.",
+      "limit": "",
+      "aliases": [
+        "rotoscoping",
+        "roto",
+        "roto artist",
+        "rotoscope",
+        "silhouette",
+        "roto/paint"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "cleanup-and-paint",
+      "name": "Cleanup and paint",
+      "tier": "must",
+      "asked_for": "Removal, patching, rig removal",
+      "status": "held",
+      "evidence": "Object removal and cleanup across student project work.",
+      "limit": "",
+      "aliases": [
+        "paint",
+        "cleanup",
+        "clean-up",
+        "rig removal",
+        "wire removal",
+        "object removal",
+        "prep",
+        "paint and prep",
+        "plate cleanup",
+        "paint artist"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "motion-tracking",
+      "name": "Motion tracking",
+      "tier": "must",
+      "asked_for": "2D tracking and match-moving",
+      "status": "held",
+      "evidence": "Trailer sequence with motion tracking and object replacement.",
+      "limit": "",
+      "aliases": [
+        "motion tracking",
+        "2d tracking",
+        "tracking",
+        "camera tracking",
+        "match moving",
+        "planar tracking",
+        "object tracking"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "cg-integration",
+      "name": "CG integration",
+      "tier": "must",
+      "asked_for": "Putting rendered elements into a plate so they sit",
+      "status": "held",
+      "evidence": "Listed capability across After Effects, Nuke, Blender and Unreal.",
+      "limit": "",
+      "aliases": [
+        "cg integration",
+        "integrating cg",
+        "3d integration",
+        "cg elements",
+        "render passes",
+        "multipass compositing",
+        "cg"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "after-effects",
+      "name": "After Effects",
+      "tier": "must",
+      "asked_for": "The second tool, and the primary one for motion graphics seats",
+      "status": "held",
+      "evidence": "Titles, lower thirds, transitions, plus VFX work.",
+      "limit": "",
+      "aliases": [
+        "after effects",
+        "adobe after effects",
+        "ae",
+        "motion graphics"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "colour-and-matching",
+      "name": "Colour and matching",
+      "tier": "must",
+      "asked_for": "Matching grade, grain and light between plate and element",
+      "status": "partial",
+      "evidence": "Grading experience through editing work. Plate matching specifically is programme-level rather than production-proven.",
+      "limit": "Plate matching specifically is programme-level rather than production-proven.",
+      "aliases": [
+        "colour matching",
+        "color matching",
+        "grading",
+        "colour grading",
+        "color grading",
+        "grain matching",
+        "look matching",
+        "color"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "shot-organisation-and-delivery",
+      "name": "Shot organisation and delivery",
+      "tier": "must",
+      "asked_for": "Versions, naming, delivery specs, working to a shot list",
+      "status": "partial",
+      "evidence": "Personal and client delivery discipline. Not a studio shot-tracking pipeline.",
+      "limit": "Not a studio shot-tracking pipeline.",
+      "aliases": [
+        "shot delivery",
+        "versioning",
+        "naming conventions",
+        "delivery specs",
+        "shot list",
+        "pipeline conventions",
+        "deadlines"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "blender-or-maya",
+      "name": "Blender or Maya",
+      "tier": "important",
+      "asked_for": "3D for modelling, lighting and rendering elements",
+      "status": "partial",
+      "evidence": "Blender listed as a working tool. Maya is the studio standard and is not evidenced.",
+      "limit": "Maya is the studio standard and is not evidenced.",
+      "aliases": [
+        "blender",
+        "maya",
+        "3ds max",
+        "cinema 4d",
+        "3d modelling",
+        "3d modeling",
+        "lighting",
+        "rendering",
+        "arnold",
+        "redshift",
+        "3d"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "unreal-engine-for-vfx",
+      "name": "Unreal Engine for VFX",
+      "tier": "important",
+      "asked_for": "Virtual production, real-time rendering, LED volume work",
+      "status": "held",
+      "evidence": "Active UE5 work across Death Bridge and the JKR channel. This is the differentiator in this lane, because real-time and virtual production is where VFX hiring is growing and few junior compositors have it.",
+      "limit": "",
+      "aliases": [
+        "unreal engine",
+        "unreal",
+        "ue5",
+        "virtual production",
+        "real-time",
+        "led volume",
+        "in-camera vfx",
+        "icvfx",
+        "real-time rendering"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "python-scripting",
+      "name": "Python scripting",
+      "tier": "important",
+      "asked_for": "Nuke automation, pipeline tooling",
+      "status": "held",
+      "evidence": "Strong Python generally, which transfers directly and is rare among junior VFX artists. Nuke-specific scripting is the small remaining step.",
+      "limit": "",
+      "aliases": [
+        "python",
+        "python scripting",
+        "pipeline scripting",
+        "nuke scripting",
+        "tools development",
+        "scripting",
+        "pipeline tools"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "shot-tracking-software",
+      "name": "Shot tracking software",
+      "tier": "important",
+      "asked_for": "ShotGrid, ftrack",
+      "status": "not_yet",
+      "evidence": "",
+      "limit": "",
+      "aliases": [
+        "shotgrid",
+        "shotgun",
+        "ftrack",
+        "kitsu",
+        "shot tracking",
+        "production tracking",
+        "flow production tracking"
+      ],
+      "updated": "2026-09-14",
+      "note": "Studio-standard. Named in postings, learned on the job.",
+      "evidence_from_note": false
+    },
+    {
+      "id": "on-set-vfx-supervision-basics",
+      "name": "On-set VFX supervision basics",
+      "tier": "important",
+      "asked_for": "Data wrangling, reference, HDRI capture",
+      "status": "partial",
+      "evidence": "Camera and on-set experience through his own shoots. Not on a VFX-supervised set.",
+      "limit": "Not on a VFX-supervised set.",
+      "aliases": [
+        "on-set",
+        "on set",
+        "data wrangling",
+        "hdri",
+        "set data",
+        "reference capture",
+        "vfx supervision",
+        "set supervision"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "houdini",
+      "name": "Houdini",
+      "tier": "important",
+      "asked_for": "FX simulation. Narrows the market when absent",
+      "status": "not_yet",
+      "evidence": "",
+      "limit": "",
+      "aliases": [
+        "houdini",
+        "fx",
+        "simulation",
+        "pyro",
+        "fluids",
+        "particles",
+        "sidefx",
+        "fx artist"
+      ],
+      "updated": "2026-09-14",
+      "note": "Only required for FX-specific seats, not for comp.",
+      "evidence_from_note": false
+    },
+    {
+      "id": "matchmove-and-3d-tracking",
+      "name": "Matchmove and 3D tracking",
+      "tier": "optional",
+      "asked_for": "3DEqualizer, SynthEyes",
+      "status": "not_yet",
+      "evidence": "",
+      "limit": "",
+      "aliases": [
+        "3dequalizer",
+        "syntheyes",
+        "matchmove",
+        "3d tracking",
+        "camera solve",
+        "pftrack"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "fusion",
+      "name": "Fusion",
+      "tier": "optional",
+      "asked_for": "DaVinci's compositor, occasionally named",
+      "status": "partial",
+      "evidence": "DaVinci's compositor, occasionally named",
+      "limit": "DaVinci's compositor, occasionally named",
+      "aliases": [
+        "fusion",
+        "davinci fusion",
+        "blackmagic fusion"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": true
+    },
+    {
+      "id": "mocha",
+      "name": "Mocha",
+      "tier": "optional",
+      "asked_for": "Planar tracking, common alongside Nuke",
+      "status": "not_yet",
+      "evidence": "",
+      "limit": "",
+      "aliases": [
+        "mocha",
+        "mocha pro",
+        "boris fx"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "lighting-and-look-development",
+      "name": "Lighting and look development",
+      "tier": "later",
+      "asked_for": "A specialisation of its own",
+      "status": "not_yet",
+      "evidence": "",
+      "limit": "",
+      "aliases": [
+        "lookdev",
+        "look development",
+        "lighting artist",
+        "shading",
+        "texturing",
+        "substance",
+        "lighting td"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "fx-simulation-at-production-scale",
+      "name": "FX simulation at production scale",
+      "tier": "later",
+      "asked_for": "Houdini territory",
+      "status": "not_yet",
+      "evidence": "",
+      "limit": "",
+      "aliases": [
+        "fx td",
+        "effects td",
+        "destruction",
+        "simulation",
+        "effects simulation"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    }
+  ],
+  "positioning": "Better supported than it looks. He has a recent named VFX credential, a live portfolio site, Nuke, and specific named project work across the exact tasks junior VFX roles hire for: roto, cleanup, object removal, motion tracking, object replacement, lock-off compositing. That is a real junior VFX profile, not an aspiration.\n\nTwo things make him unusual rather than typical. Unreal Engine plus VFX points straight at virtual production, which is the growth end of the industry. Python plus VFX points at pipeline and technical-artist work, which studios struggle to hire and which pays better than roto. Both are worth leading with over the standard \"I can composite\" framing, because the standard framing puts him in a queue behind everyone else with the same diploma.\n\nThe honest gaps are Maya, shot tracking software and studio pipeline experience, all of which are learned on the job and none of which should stop an application. Most in-scope postings grade Tier A or Tier B.\n\nThe reel is the application. In this lane more than any other, the portfolio decides the outcome and the resume barely matters. Breakdowns matter more than finished shots: show the plate, the roto, the elements and the comp, because that is what a VFX supervisor is actually reading for.",
+  "interview_watch": "Expect a reel and breakdown review, and expect to be asked exactly what you did on each shot, because reels routinely overstate. Answer precisely and claim only your own work. Expect a question about handling notes and versions, which is really a question about whether you will be difficult in a review. Expect to be asked about turnaround and volume, since junior comp work is measured in shots per week. For virtual production and technical-artist seats, lead with Unreal and Python and let the compositing be the supporting evidence.",
+  "pr_note": "All three candidate codes are TEER 2 and clear the floor, so this lane is PR-worthy but sits a tier below lane 11. No RCIP community list covers any of them, so never tag a lane 12 role RCIP. AIP covers the lane from a designated Atlantic employer with no occupation list, and Ontario's Workforce Priority stream takes any NOC with a qualifying offer, which matters because the Ontario VFX market is where the jobs are.",
+  "not_required": "Feature credits, union membership, or a degree beyond the Fanshawe programme. A posting requiring shipped feature credits has failed the seniority gate.",
+  "notes": [
+    {
+      "heading": "Intro",
+      "text": "New in v3.5. NOC 52111, 52119 or 52120, all TEER 2. Read 00-index.md for the Status conventions and tier rules."
+    },
+    {
+      "heading": "Credentials",
+      "text": "- Visual Effects and Editing for Contemporary Media, Fanshawe College, London ON (2024 to 2025). A named VFX credential, recently completed. This is a real differentiator: most junior VFX applicants are self-taught and this lane still respects programme training. - Portfolio site: film.kkvasan.ca, already built and live, with categories and video embeds."
+    },
+    {
+      "heading": "Sourcing notes",
+      "text": "Geography reality: Canadian VFX concentrates in Vancouver and Toronto, with Montreal third and usually French-gated. Toronto is the realistic target from London for hybrid or onsite, Vancouver for remote or relocation. Remote junior VFX is rare because studios run security-controlled pipelines, so expect onsite or hybrid requirements and treat a fully-remote junior comp posting with some suspicion.\n\nStudio names worth watching directly in an employer-first pass: the major Vancouver and Toronto facilities post on their own careers pages more reliably than they appear on aggregators."
+    }
+  ],
+  "links": [
+    "linkedin",
+    "vfx_film",
+    "code"
+  ],
+  "persona": "vfx",
+  "version": "3.5",
+  "source_updated": "2026-09-14",
+  "source_file": "lanes/source/lane-12-vfx.md",
+  "source_sha256": "f4ad3319e4ea7a03386c6bb95aac9d3419f05064f3a51ad2762ef96853697e33"
+}

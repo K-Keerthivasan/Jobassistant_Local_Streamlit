@@ -1,0 +1,428 @@
+{
+  "lane": 7,
+  "slug": "digital-marketing",
+  "title": "Digital marketing",
+  "track": "creative",
+  "set": "priority",
+  "noc": [
+    {
+      "code": "11202",
+      "title": "Professional occupations in advertising, marketing and public relations",
+      "teer": 1,
+      "applies_when": ""
+    }
+  ],
+  "keywords": {
+    "core": [
+      "digital marketing specialist",
+      "digital marketing coordinator",
+      "marketing specialist",
+      "paid media specialist",
+      "ppc specialist",
+      "seo specialist",
+      "performance marketing specialist",
+      "marketing analyst",
+      "email marketing specialist",
+      "digital marketing associate"
+    ],
+    "tool_anchored": [
+      "google ads specialist",
+      "meta ads specialist",
+      "ga4 analyst",
+      "hubspot marketing specialist",
+      "sem specialist"
+    ],
+    "adjacent": [
+      "growth marketing coordinator",
+      "ecommerce marketing coordinator",
+      "content marketing specialist",
+      "marketing coordinator"
+    ]
+  },
+  "skills": [
+    {
+      "id": "paid-media",
+      "name": "Paid media",
+      "tier": "must",
+      "asked_for": "Google Ads, Meta Ads, campaign structure, budget and bid management",
+      "status": "partial",
+      "evidence": "Running active digital marketing experiments and client campaign work through K2 Digital Media. Spend scale and platform certifications are the open question, so state the scale honestly per posting.",
+      "limit": "Running active digital marketing experiments and client campaign work through K2 Digital Media. Spend scale and platform certifications are the open question, so state the scale honestly per posting.",
+      "aliases": [
+        "google ads",
+        "meta ads",
+        "facebook ads",
+        "ppc",
+        "sem",
+        "paid search",
+        "paid social",
+        "adwords",
+        "linkedin ads",
+        "tiktok ads",
+        "paid media",
+        "paid advertising",
+        "bing ads",
+        "microsoft ads",
+        "paid campaigns",
+        "digital advertising"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "campaign-management",
+      "name": "Campaign management",
+      "tier": "must",
+      "asked_for": "Planning, launching, monitoring, reporting on a campaign end to end",
+      "status": "held",
+      "evidence": "K2 Digital Media client campaigns.",
+      "limit": "",
+      "aliases": [
+        "campaign management",
+        "campaigns",
+        "campaign planning",
+        "campaign execution",
+        "marketing campaigns",
+        "campaign performance"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "analytics",
+      "name": "Analytics",
+      "tier": "must",
+      "asked_for": "Google Analytics 4, attribution, reading a funnel, reporting outcomes",
+      "status": "partial",
+      "evidence": "Campaign KPI and trend reporting for clients. GA4 specifically should be confirmed per posting.",
+      "limit": "Campaign KPI and trend reporting for clients. GA4 specifically should be confirmed per posting.",
+      "aliases": [
+        "google analytics",
+        "ga4",
+        "analytics",
+        "web analytics",
+        "google tag manager",
+        "gtm",
+        "funnel analysis",
+        "attribution",
+        "conversion tracking",
+        "marketing analytics"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "seo",
+      "name": "SEO",
+      "tier": "must",
+      "asked_for": "On-page, keyword research, technical basics, content optimisation",
+      "status": "held",
+      "evidence": "A core K2 Digital Media service line.",
+      "limit": "",
+      "aliases": [
+        "seo",
+        "search engine optimization",
+        "search engine optimisation",
+        "keyword research",
+        "on-page seo",
+        "technical seo",
+        "semrush",
+        "ahrefs",
+        "google search console",
+        "organic search"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "email-marketing",
+      "name": "Email marketing",
+      "tier": "must",
+      "asked_for": "Platform use, segmentation, sequences, deliverability basics",
+      "status": "partial",
+      "evidence": "Outreach automation experience transfers on the mechanics. Not a marketing email platform at scale.",
+      "limit": "Not a marketing email platform at scale.",
+      "aliases": [
+        "email marketing",
+        "mailchimp",
+        "klaviyo",
+        "email campaigns",
+        "newsletters",
+        "drip campaigns",
+        "constant contact",
+        "email automation"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "content-and-copy",
+      "name": "Content and copy",
+      "tier": "must",
+      "asked_for": "Writing for channel and audience",
+      "status": "held",
+      "evidence": "K2 client content across web and social.",
+      "limit": "",
+      "aliases": [
+        "copywriting",
+        "content creation",
+        "content writing",
+        "blog writing",
+        "copy",
+        "content",
+        "content development"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "reporting-to-a-client-or-stakeholder",
+      "name": "Reporting to a client or stakeholder",
+      "tier": "must",
+      "asked_for": "Turning performance into a recommendation",
+      "status": "held",
+      "evidence": "Standard K2 client reporting.",
+      "limit": "",
+      "aliases": [
+        "reporting",
+        "performance reporting",
+        "client reporting",
+        "marketing reports",
+        "kpi reporting",
+        "monthly reports"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "marketing-automation-platforms",
+      "name": "Marketing automation platforms",
+      "tier": "important",
+      "asked_for": "HubSpot, Mailchimp, Klaviyo",
+      "status": "partial",
+      "evidence": "Automation depth is real; the specific platform varies, check the named tool.",
+      "limit": "Automation depth is real; the specific platform varies, check the named tool.",
+      "aliases": [
+        "hubspot",
+        "marketo",
+        "pardot",
+        "activecampaign",
+        "marketing automation",
+        "salesforce marketing cloud",
+        "automation platforms"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "landing-page-and-cro",
+      "name": "Landing page and CRO",
+      "tier": "important",
+      "asked_for": "Building and testing pages that convert",
+      "status": "held",
+      "evidence": "Web development plus marketing in the same shop is an unusual and genuine combination.",
+      "limit": "",
+      "aliases": [
+        "landing pages",
+        "cro",
+        "conversion rate optimization",
+        "conversion rate optimisation",
+        "unbounce",
+        "wordpress",
+        "website optimization",
+        "conversion optimization"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "a-b-testing",
+      "name": "A/B testing",
+      "tier": "important",
+      "asked_for": "Designing a test, reading the result honestly",
+      "status": "partial",
+      "evidence": "Creative iteration on client campaigns. Not formal statistical testing.",
+      "limit": "Not formal statistical testing.",
+      "aliases": [
+        "a/b testing",
+        "ab testing",
+        "split testing",
+        "experimentation",
+        "multivariate testing",
+        "testing and optimization"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "google-ads-or-meta-blueprint-certification",
+      "name": "Google Ads or Meta Blueprint certification",
+      "tier": "important",
+      "asked_for": "Named as an asset constantly, occasionally required",
+      "status": "not_yet",
+      "evidence": "",
+      "limit": "",
+      "aliases": [
+        "google ads certification",
+        "google ads certified",
+        "meta blueprint",
+        "meta certified",
+        "google certified",
+        "certification"
+      ],
+      "updated": "2026-09-14",
+      "note": "The single cheapest credibility gain in this lane.",
+      "evidence_from_note": false
+    },
+    {
+      "id": "budget-management",
+      "name": "Budget management",
+      "tier": "important",
+      "asked_for": "Owning a spend number",
+      "status": "partial",
+      "evidence": "Client budgets at agency scale. Name the real number rather than implying enterprise scale.",
+      "limit": "Name the real number rather than implying enterprise scale.",
+      "aliases": [
+        "budget management",
+        "media budget",
+        "ad spend",
+        "budget allocation",
+        "spend management",
+        "managing budgets"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "programmatic-and-display",
+      "name": "Programmatic and display",
+      "tier": "optional",
+      "asked_for": "Larger employers only",
+      "status": "not_yet",
+      "evidence": "",
+      "limit": "",
+      "aliases": [
+        "programmatic",
+        "display advertising",
+        "dv360",
+        "the trade desk",
+        "display ads",
+        "programmatic advertising"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "marketing-analytics-tooling",
+      "name": "Marketing analytics tooling",
+      "tier": "optional",
+      "asked_for": "Looker Studio, Power BI for marketing reporting",
+      "status": "not_yet",
+      "evidence": "",
+      "limit": "",
+      "aliases": [
+        "looker studio",
+        "data studio",
+        "power bi",
+        "tableau",
+        "supermetrics",
+        "bi tools"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "crm-marketing",
+      "name": "CRM marketing",
+      "tier": "optional",
+      "asked_for": "Lifecycle and lead scoring",
+      "status": "not_yet",
+      "evidence": "",
+      "limit": "",
+      "aliases": [
+        "lifecycle marketing",
+        "lead scoring",
+        "crm marketing",
+        "lead nurturing",
+        "lead generation",
+        "demand generation"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "attribution-modelling",
+      "name": "Attribution modelling",
+      "tier": "later",
+      "asked_for": "Multi-touch, incrementality",
+      "status": "not_yet",
+      "evidence": "",
+      "limit": "",
+      "aliases": [
+        "attribution modelling",
+        "attribution modeling",
+        "multi-touch attribution",
+        "incrementality",
+        "marketing attribution"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "marketing-mix-modelling",
+      "name": "Marketing mix modelling",
+      "tier": "later",
+      "asked_for": "Enterprise territory",
+      "status": "not_yet",
+      "evidence": "",
+      "limit": "",
+      "aliases": [
+        "marketing mix modelling",
+        "mmm",
+        "media mix modeling",
+        "marketing mix modeling"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    }
+  ],
+  "positioning": "He runs a digital marketing agency. That is the headline and it should lead, because very few junior applicants have owned client outcomes. Lead with paid media, campaign management and analytics. Do not lead with camera work, which is the standing instruction for this lane and it matters: a video-first framing reads as a production hire, not a marketing hire, and costs him the 11202 mapping.\n\nThe honest gap is scale and certification. Agency client budgets are not enterprise budgets, so state the real numbers and let them be what they are rather than implying more. Most in-scope postings grade Tier A or Tier B. Google Ads certification is the highest-value small move in this lane, and GA4 specifically is worth confirming since it is named in nearly every posting.",
+  "interview_watch": "Expect \"walk me through a campaign you ran and what the numbers did\". Have one with real figures, including one that underperformed and what you changed. Expect a question on how you would spend a fixed budget across channels. Owning an agency invites the same question as lane 6 about whether he will leave to run it, so have the answer ready.",
+  "pr_note": "11202 is TEER 1, which outranks most of Track 1 on paper. No RCIP community list covers it, anywhere, so never tag a lane 7 role RCIP. AIP does cover it with no occupation list, which makes an Atlantic digital marketing role at a designated employer one of the strongest combinations available. Ontario's Workforce Priority stream also takes it with a qualifying offer.",
+  "not_required": "Brand strategy ownership and team management. Both are senior and fail the seniority gate anyway.",
+  "notes": [
+    {
+      "heading": "Intro",
+      "text": "NOC 11202, TEER 1. Track 2, and the strongest CEC-feeding code in the whole search. Read 00-index.md for the Status conventions and tier rules."
+    },
+    {
+      "heading": "The NOC trap, read before grading",
+      "text": "A \"Marketing Coordinator\" that is really scheduling, data entry and inbox management maps to a TEER 4 clerical code, not 11202. Read the body for campaign ownership, budget or spend responsibility, analytics, and strategy input. If none are present, skip it. A marketing title carrying a hard sales quota is 64100 and not PR-eligible. Skip."
+    }
+  ],
+  "links": [
+    "linkedin",
+    "agency"
+  ],
+  "persona": "digital_marketing",
+  "version": "3.5",
+  "source_updated": "2026-09-14",
+  "source_file": "lanes/source/lane-07-digital-marketing.md",
+  "source_sha256": "e9dc06fbacd28214f2999f0885b37b9de91664f229aae65a7436558f95e6a7c1"
+}

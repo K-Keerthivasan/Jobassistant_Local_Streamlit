@@ -1,0 +1,70 @@
+{
+  "version": "3.5",
+  "source_updated": "2026-09-14",
+  "rules": {
+    "subject_max_chars": 60,
+    "body_max_words": 150,
+    "format": "plain text",
+    "one_ask": true,
+    "never_mention": ["sponsorship", "work permit", "visa", "immigration status"],
+    "immigration_pathway_allowed_in": ["cold-approach-pathway"],
+    "spelling": "Canadian",
+    "dashes": "none",
+    "signature": "Real signature with the portfolio links from profile.json."
+  },
+  "variables": {
+    "job": "company, title, location, lane, lane_title, pathway_tag, pathway_type, pathway_detail, noc, apply_url, posted, tier, gap_flags, fit_sentence, years_line",
+    "profile": "name, known_as, city, province, portfolio.*, credentials",
+    "contact": "hr_name, hr_first_name, hr_email, company",
+    "misc": "applied_on, today"
+  },
+  "templates": [
+    {
+      "id": "application-followup",
+      "name": "Direct application follow-up",
+      "purpose": "Sent after an application is submitted. Names the role, the date, one traceable reason he fits, resume attached.",
+      "attach_resume": true,
+      "allowed_for_pattern_guess": true,
+      "subject": "{{title}} application, {{known_as}} {{last_name}}",
+      "body": "Hi {{hr_first_name|there}},\n\nI applied for the {{title}} role at {{company}} on {{applied_on}} and wanted to put a name to the application.\n\n{{fit_sentence}}\n\nMy resume is attached. If it is useful to talk, I am easy to reach at this address.\n\nThanks,\n{{name}}\n{{city}}, {{province}}\n{{signature_links}}",
+      "sequence": [
+        { "step": 1, "delay_days": 0, "template_id": "application-followup" },
+        { "step": 2, "delay_days": 7, "template_id": "application-nudge" }
+      ]
+    },
+    {
+      "id": "application-nudge",
+      "name": "Second touch after a follow-up",
+      "purpose": "One short nudge a week after the follow-up. Never sent to a pattern_guess address.",
+      "attach_resume": false,
+      "allowed_for_pattern_guess": false,
+      "subject": "Re: {{title}} application, {{known_as}} {{last_name}}",
+      "body": "Hi {{hr_first_name|there}},\n\nA short note to say I am still interested in the {{title}} role at {{company}}. If it has moved on, a one-line reply so I can close it out would be appreciated.\n\nThanks,\n{{name}}\n{{signature_links}}",
+      "sequence": []
+    },
+    {
+      "id": "cold-approach-pathway",
+      "name": "Cold approach, no posting",
+      "purpose": "For designated AIP and RCIP employers where no live posting matches but the pathway does. Leads with the value to the employer. This is the only template allowed to mention an immigration pathway, and only as an employer benefit.",
+      "attach_resume": true,
+      "allowed_for_pattern_guess": true,
+      "subject": "{{lane_title}} candidate for {{company}}",
+      "body": "Hi {{hr_first_name|there}},\n\n{{company}} is listed as a designated employer under the {{pathway_detail}} programme, which means a hire like me can be made without the sponsorship cost or delay that usually comes with it. I am writing because that fits what I do.\n\n{{fit_sentence}}\n\nI am based in {{city}}, {{province}} and would relocate for the right role. My resume is attached. If you have or expect an opening in {{lane_title}}, I would welcome a short conversation.\n\nThanks,\n{{name}}\n{{signature_links}}",
+      "sequence": [
+        { "step": 1, "delay_days": 0, "template_id": "cold-approach-pathway" }
+      ]
+    },
+    {
+      "id": "referral-informational",
+      "name": "Referral or informational",
+      "purpose": "Shorter. Asks for a conversation rather than a role.",
+      "attach_resume": false,
+      "allowed_for_pattern_guess": true,
+      "subject": "Quick question about {{lane_title}} at {{company}}",
+      "body": "Hi {{hr_first_name|there}},\n\nI am a {{lane_title}} candidate in {{city}}, {{province}}. {{fit_sentence}}\n\nI am not asking for a role in this note. I would value fifteen minutes to hear how {{company}} hires for this kind of work and what a strong application looks like to you.\n\nThanks,\n{{name}}\n{{signature_links}}",
+      "sequence": [
+        { "step": 1, "delay_days": 0, "template_id": "referral-informational" }
+      ]
+    }
+  ]
+}

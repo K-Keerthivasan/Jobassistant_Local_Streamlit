@@ -1,0 +1,415 @@
+{
+  "lane": 1,
+  "slug": "qa-testing",
+  "title": "QA and software testing",
+  "track": "technical",
+  "set": "priority",
+  "noc": [
+    {
+      "code": "22222",
+      "title": "Information systems testing technicians",
+      "teer": 2,
+      "applies_when": "Manual and automated software testing, test case design, defect management. The lane's home code."
+    },
+    {
+      "code": "21232",
+      "title": "Software developers and programmers",
+      "teer": 1,
+      "applies_when": "SDET and test-automation-engineer seats where the body is mostly writing code. Stronger code, read the duties before claiming it."
+    },
+    {
+      "code": "21222",
+      "title": "Information systems specialists",
+      "teer": 1,
+      "applies_when": "QA seats folded into a broader systems-analysis role."
+    }
+  ],
+  "keywords": {
+    "core": [
+      "qa analyst",
+      "quality assurance analyst",
+      "software tester",
+      "qa tester",
+      "test analyst",
+      "junior qa",
+      "qa engineer",
+      "quality assurance specialist",
+      "test engineer",
+      "qa specialist"
+    ],
+    "tool_anchored": [
+      "playwright tester",
+      "selenium tester",
+      "automation tester",
+      "sdet",
+      "test automation engineer"
+    ],
+    "adjacent": [
+      "uat analyst",
+      "quality analyst",
+      "release coordinator",
+      "application tester"
+    ]
+  },
+  "skills": [
+    {
+      "id": "test-case-design",
+      "name": "Test case design",
+      "tier": "must",
+      "asked_for": "Writing cases from requirements, positive and negative paths, boundary and equivalence",
+      "status": "not_yet",
+      "evidence": "",
+      "limit": "",
+      "aliases": [
+        "test cases",
+        "test plans",
+        "test planning",
+        "test scenarios",
+        "test design",
+        "test documentation"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "manual-testing-execution",
+      "name": "Manual testing execution",
+      "tier": "must",
+      "asked_for": "Functional, regression, smoke, UAT support, cross-browser and cross-device",
+      "status": "partial",
+      "evidence": "Manual testing of his own builds across K2 client sites and personal projects. Not against a formal test plan or in a team QA process.",
+      "limit": "Not against a formal test plan or in a team QA process.",
+      "aliases": [
+        "manual testing",
+        "functional testing",
+        "regression testing",
+        "smoke testing",
+        "UAT",
+        "user acceptance testing",
+        "exploratory testing",
+        "cross-browser testing",
+        "end-to-end testing"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "defect-management",
+      "name": "Defect management",
+      "tier": "must",
+      "asked_for": "Reproduction steps, severity and priority, lifecycle through to retest and closure",
+      "status": "partial",
+      "evidence": "Issue tracking in his own GitHub repos. Not in Jira or an enterprise defect workflow.",
+      "limit": "Not in Jira or an enterprise defect workflow.",
+      "aliases": [
+        "defect tracking",
+        "bug tracking",
+        "defect lifecycle",
+        "bug triage",
+        "defect triage",
+        "defect reporting"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "bug-reporting-quality",
+      "name": "Bug reporting quality",
+      "tier": "must",
+      "asked_for": "A report a developer can act on without a follow-up conversation",
+      "status": "partial",
+      "evidence": "Same as above, self-directed rather than reviewed.",
+      "limit": "Same as above, self-directed rather than reviewed.",
+      "aliases": [
+        "bug reports",
+        "defect reports",
+        "reproduction steps",
+        "steps to reproduce"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "sdlc-and-agile",
+      "name": "SDLC and Agile",
+      "tier": "must",
+      "asked_for": "Sprints, ceremonies, where QA sits in the cycle, definition of done",
+      "status": "not_yet",
+      "evidence": "",
+      "limit": "",
+      "aliases": [
+        "agile",
+        "scrum",
+        "sdlc",
+        "software development life cycle",
+        "sprints",
+        "kanban",
+        "agile methodology"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "test-management-tooling",
+      "name": "Test management tooling",
+      "tier": "must",
+      "asked_for": "Jira, Azure DevOps, TestRail, Zephyr or similar",
+      "status": "not_yet",
+      "evidence": "",
+      "limit": "",
+      "aliases": [
+        "jira",
+        "azure devops",
+        "testrail",
+        "zephyr",
+        "xray",
+        "qtest",
+        "ado",
+        "hp alm"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "api-testing",
+      "name": "API testing",
+      "tier": "must",
+      "asked_for": "Postman or equivalent, request and response validation, status codes, payload assertions",
+      "status": "partial",
+      "evidence": "Heavy API and JSON work across the n8n pipelines and K2_Press. Covers request and response handling, not a structured API test suite.",
+      "limit": "Covers request and response handling, not a structured API test suite.",
+      "aliases": [
+        "postman",
+        "rest api testing",
+        "api tests",
+        "soapui",
+        "swagger",
+        "api validation",
+        "rest assured"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "sql-for-test-data",
+      "name": "SQL for test data",
+      "tier": "must",
+      "asked_for": "Querying to set up and verify test state",
+      "status": "not_yet",
+      "evidence": "",
+      "limit": "",
+      "aliases": [
+        "sql",
+        "sql queries",
+        "database queries",
+        "test data"
+      ],
+      "updated": "2026-09-14",
+      "note": "See lane 5, same gap, same fix.",
+      "evidence_from_note": false
+    },
+    {
+      "id": "test-automation",
+      "name": "Test automation",
+      "tier": "important",
+      "asked_for": "Selenium, Playwright, Cypress. Playwright and Cypress dominate new postings",
+      "status": "not_yet",
+      "evidence": "",
+      "limit": "",
+      "aliases": [
+        "selenium",
+        "playwright",
+        "cypress",
+        "automated testing",
+        "test automation framework",
+        "webdriver",
+        "appium",
+        "robot framework",
+        "automation scripts"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "programming-for-automation",
+      "name": "Programming for automation",
+      "tier": "important",
+      "asked_for": "JavaScript or TypeScript or Python well enough to write and maintain tests",
+      "status": "held",
+      "evidence": "React, Next.js, TypeScript and Node.js work across K2 builds; Python across the automation pipelines. The language is there, the testing framework is not.",
+      "limit": "",
+      "aliases": [
+        "javascript",
+        "typescript",
+        "python",
+        "java",
+        "c#"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "git-and-ci",
+      "name": "Git and CI",
+      "tier": "important",
+      "asked_for": "Branching, pull requests, tests running in a pipeline",
+      "status": "held",
+      "evidence": "github.com/K-Keerthivasan, multiple maintained repos.",
+      "limit": "",
+      "aliases": [
+        "git",
+        "github",
+        "gitlab",
+        "ci/cd",
+        "continuous integration",
+        "jenkins",
+        "github actions",
+        "bitbucket"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "mobile-and-responsive-testing",
+      "name": "Mobile and responsive testing",
+      "tier": "important",
+      "asked_for": "Device matrices, viewport behaviour",
+      "status": "partial",
+      "evidence": "Responsive verification on client sites. Not on a device lab or emulator matrix.",
+      "limit": "Not on a device lab or emulator matrix.",
+      "aliases": [
+        "mobile testing",
+        "responsive testing",
+        "ios testing",
+        "android testing",
+        "browserstack",
+        "device testing"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "performance-testing",
+      "name": "Performance testing",
+      "tier": "optional",
+      "asked_for": "JMeter, k6. Rarely required at junior level",
+      "status": "not_yet",
+      "evidence": "",
+      "limit": "",
+      "aliases": [
+        "jmeter",
+        "k6",
+        "load testing",
+        "performance testing",
+        "loadrunner",
+        "gatling",
+        "stress testing"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "accessibility-testing",
+      "name": "Accessibility testing",
+      "tier": "optional",
+      "asked_for": "WCAG, axe. Increasingly asked for in public-sector postings",
+      "status": "not_yet",
+      "evidence": "",
+      "limit": "",
+      "aliases": [
+        "wcag",
+        "accessibility testing",
+        "axe",
+        "aoda",
+        "accessibility"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "istqb-foundation",
+      "name": "ISTQB Foundation",
+      "tier": "optional",
+      "asked_for": "Not required, but it is the one certification that reliably moves a junior QA resume",
+      "status": "not_yet",
+      "evidence": "",
+      "limit": "",
+      "aliases": [
+        "istqb",
+        "ctfl",
+        "istqb certified"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "ci-cd-pipeline-ownership",
+      "name": "CI/CD pipeline ownership",
+      "tier": "later",
+      "asked_for": "Jenkins, GitHub Actions as the test owner rather than a user",
+      "status": "not_yet",
+      "evidence": "",
+      "limit": "",
+      "aliases": [
+        "jenkins pipelines",
+        "azure pipelines",
+        "pipeline ownership"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "contract-and-integration-testing",
+      "name": "Contract and integration testing",
+      "tier": "later",
+      "asked_for": "Pact, service virtualisation",
+      "status": "not_yet",
+      "evidence": "",
+      "limit": "",
+      "aliases": [
+        "pact",
+        "contract testing",
+        "integration testing",
+        "service virtualization"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    }
+  ],
+  "positioning": "The truth today: he can read and write the code QA roles automate against, he handles APIs and JSON fluently, and he has tested his own work. What he has not done is QA inside a team, against a test plan, in a defect workflow, with a test management tool. That is the whole gap and it is a process gap, not an intelligence gap, which is worth saying plainly in a cover letter rather than hiding.\n\nOn current statuses most QA postings grade Tier B or Tier C. The fastest move to Tier A is Playwright or Cypress plus one public repo with a real test suite, and ISTQB Foundation if a run shows it appearing as a hard requirement more than occasionally. Lane 1 and lane 5 share the SQL gap, so closing SQL once moves both lanes.",
+  "interview_watch": "QA screens are practical. Expect to be handed a feature and asked what you would test, and expect a follow-up on how you would prioritise when there is not time to test everything. Have an answer for both. Also expect \"what is the difference between severity and priority\", which is the single most common QA screening question.",
+  "pr_note": "22222 lost its BC PNP route when BC removed the priority technology list on 23 April 2026. AIP from a designated Atlantic employer is now the one designated pathway for this code, and an Ontario job offer qualifies under the Workforce Priority stream. Weight Atlantic and Ontario QA roles accordingly.",
+  "not_required": "Security testing, penetration testing, and formal test strategy ownership. Those are senior seats and a posting that hard-requires them has failed the seniority gate anyway.",
+  "notes": [
+    {
+      "heading": "Intro",
+      "text": "NOC 22222, TEER 2. Priority lane, and lane 1 by Keerthi's direction. Read 00-index.md for the Status conventions and tier rules."
+    }
+  ],
+  "links": [
+    "linkedin",
+    "dev",
+    "code"
+  ],
+  "persona": "qa_testing",
+  "version": "3.5",
+  "source_updated": "2026-09-14",
+  "source_file": "lanes/source/lane-01-qa-testing.md",
+  "source_sha256": "ff21001c10cdea905dcf72941eb33a5a543dc3a79bb953a629131ca7d9902572"
+}

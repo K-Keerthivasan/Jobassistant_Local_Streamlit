@@ -1,0 +1,480 @@
+{
+  "lane": 3,
+  "slug": "ai-automation",
+  "title": "AI and automation",
+  "track": "technical",
+  "set": "priority",
+  "noc": [
+    {
+      "code": "21232",
+      "title": "Software developers and programmers",
+      "teer": 1,
+      "applies_when": "The default for AI engineer, GenAI developer and Python automation seats where the work is building software."
+    },
+    {
+      "code": "21211",
+      "title": "Data scientists",
+      "teer": 1,
+      "applies_when": "Only where the posting genuinely asks for modelling and experimentation. Do not stretch into it from prompt and pipeline work."
+    },
+    {
+      "code": "21223",
+      "title": "Database analysts and data administrators",
+      "teer": 1,
+      "applies_when": "RAG and vector-store work that is substantially data architecture."
+    }
+  ],
+  "keywords": {
+    "core": [
+      "ai engineer",
+      "ai developer",
+      "automation engineer",
+      "llm engineer",
+      "genai developer",
+      "ai automation specialist",
+      "agentic ai",
+      "prompt engineer",
+      "ai solutions developer",
+      "ai integration developer"
+    ],
+    "tool_anchored": [
+      "n8n developer",
+      "langchain developer",
+      "openai developer",
+      "python automation developer",
+      "make.com specialist"
+    ],
+    "adjacent": [
+      "integration developer",
+      "workflow automation specialist",
+      "rpa developer",
+      "ml engineer",
+      "automation specialist"
+    ]
+  },
+  "skills": [
+    {
+      "id": "python",
+      "name": "Python",
+      "tier": "must",
+      "asked_for": "The working language of the lane",
+      "status": "held",
+      "evidence": "Automation pipelines, scrapers, and the local AI tooling.",
+      "limit": "",
+      "aliases": [
+        "python",
+        "python 3",
+        "python scripting",
+        "python development"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "llm-application-development",
+      "name": "LLM application development",
+      "tier": "must",
+      "asked_for": "Prompting, context design, output structuring, evaluation",
+      "status": "held",
+      "evidence": "The local Node.js plus Hermes on Ollama pipeline, and the resume generation and outreach automation built on it.",
+      "limit": "",
+      "aliases": [
+        "llm",
+        "llms",
+        "large language models",
+        "generative ai",
+        "genai",
+        "openai",
+        "gpt",
+        "claude",
+        "gemini",
+        "llm applications",
+        "ai applications",
+        "chatbots",
+        "copilots",
+        "ai assistants"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "workflow-automation-platforms",
+      "name": "Workflow automation platforms",
+      "tier": "must",
+      "asked_for": "n8n, Zapier, Make. n8n is the one most often named in Canadian postings",
+      "status": "held",
+      "evidence": "n8n-automation-master repo, the K2 Automation Hub, and the job application pipeline. This is the deepest thing on the list.",
+      "limit": "",
+      "aliases": [
+        "n8n",
+        "zapier",
+        "make",
+        "make.com",
+        "integromat",
+        "power automate",
+        "workflow automation",
+        "automation platforms",
+        "low-code automation"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "api-integration",
+      "name": "API integration",
+      "tier": "must",
+      "asked_for": "REST, JSON, auth, rate limits, error handling and retries",
+      "status": "held",
+      "evidence": "Every pipeline he runs is API-driven end to end. K2_Press publishes multi-brand social through Postiz over API.",
+      "limit": "",
+      "aliases": [
+        "rest api",
+        "apis",
+        "api integration",
+        "json",
+        "webhooks",
+        "oauth",
+        "http apis",
+        "integrations",
+        "third-party apis"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "node-js-and-javascript",
+      "name": "Node.js and JavaScript",
+      "tier": "must",
+      "asked_for": "The other working language of the lane",
+      "status": "held",
+      "evidence": "K2 client builds, K2_Press, the local generation app.",
+      "limit": "",
+      "aliases": [
+        "node.js",
+        "nodejs",
+        "javascript",
+        "typescript",
+        "node"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "prompt-engineering",
+      "name": "Prompt engineering",
+      "tier": "must",
+      "asked_for": "Structured prompting, system design, reliability under variation",
+      "status": "held",
+      "evidence": "Production use across the resume generation and outreach pipelines, not a demo.",
+      "limit": "",
+      "aliases": [
+        "prompt engineering",
+        "prompting",
+        "prompt design",
+        "system prompts",
+        "prompt optimization"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "self-hosting-and-local-models",
+      "name": "Self-hosting and local models",
+      "tier": "must",
+      "asked_for": "Running models locally, resource and throughput trade-offs",
+      "status": "held",
+      "evidence": "Hermes on Ollama, running as part of the working pipeline rather than an experiment.",
+      "limit": "",
+      "aliases": [
+        "ollama",
+        "local llm",
+        "self-hosted",
+        "open source models",
+        "llama",
+        "on-prem models",
+        "vllm",
+        "local models"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "git-and-version-control",
+      "name": "Git and version control",
+      "tier": "must",
+      "asked_for": "Projects, branching, documentation",
+      "status": "held",
+      "evidence": "Four maintained public repos.",
+      "limit": "",
+      "aliases": [
+        "git",
+        "github",
+        "gitlab",
+        "version control"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "rag-pipelines",
+      "name": "RAG pipelines",
+      "tier": "important",
+      "asked_for": "Chunking, embeddings, vector stores, retrieval quality",
+      "status": "partial",
+      "evidence": "Retrieval and context assembly inside his own pipelines. Not a tuned production RAG system with measured retrieval quality.",
+      "limit": "Not a tuned production RAG system with measured retrieval quality.",
+      "aliases": [
+        "rag",
+        "retrieval augmented generation",
+        "retrieval-augmented generation",
+        "embeddings",
+        "vector search",
+        "semantic search",
+        "chunking",
+        "knowledge retrieval"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "agent-orchestration-and-mcp",
+      "name": "Agent orchestration and MCP",
+      "tier": "important",
+      "asked_for": "Multi-step agents, tool use, MCP servers",
+      "status": "partial",
+      "evidence": "Working knowledge through the Claude and n8n toolchain. Worth marking held once a public repo shows it.",
+      "limit": "Working knowledge through the Claude and n8n toolchain. Worth marking held once a public repo shows it.",
+      "aliases": [
+        "ai agents",
+        "agents",
+        "agentic",
+        "mcp",
+        "model context protocol",
+        "tool calling",
+        "function calling",
+        "multi-agent",
+        "orchestration",
+        "agent frameworks"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "ai-assisted-development-tooling",
+      "name": "AI-assisted development tooling",
+      "tier": "important",
+      "asked_for": "Copilot, Cursor, Claude Code named explicitly in postings",
+      "status": "held",
+      "evidence": "Daily working toolchain.",
+      "limit": "",
+      "aliases": [
+        "copilot",
+        "github copilot",
+        "cursor",
+        "claude code",
+        "ai coding tools",
+        "ai-assisted development"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "cloud-basics",
+      "name": "Cloud basics",
+      "tier": "important",
+      "asked_for": "AWS, Azure or GCP enough to deploy and run what he builds",
+      "status": "partial",
+      "evidence": "Deployment experience through Firebase and Supabase. Not a major cloud provider at platform level.",
+      "limit": "Not a major cloud provider at platform level.",
+      "aliases": [
+        "aws",
+        "azure",
+        "gcp",
+        "google cloud",
+        "cloud",
+        "cloud services"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "docker",
+      "name": "Docker",
+      "tier": "important",
+      "asked_for": "Containerising a service",
+      "status": "partial",
+      "evidence": "Self-hosting setup involves it; depth not evidenced.",
+      "limit": "Self-hosting setup involves it; depth not evidenced.",
+      "aliases": [
+        "docker",
+        "containers",
+        "containerization",
+        "docker compose",
+        "containerisation"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "evaluation-and-testing-of-llm-output",
+      "name": "Evaluation and testing of LLM output",
+      "tier": "important",
+      "asked_for": "Measuring quality rather than eyeballing it",
+      "status": "not_yet",
+      "evidence": "",
+      "limit": "",
+      "aliases": [
+        "llm evaluation",
+        "evals",
+        "evaluation",
+        "ragas",
+        "model evaluation",
+        "quality metrics",
+        "benchmarking",
+        "evaluation frameworks",
+        "llm testing"
+      ],
+      "updated": "2026-09-14",
+      "note": "This is the gap that separates hobby pipelines from production ones, and postings are starting to name it.",
+      "evidence_from_note": false
+    },
+    {
+      "id": "ml-fundamentals",
+      "name": "ML fundamentals",
+      "tier": "optional",
+      "asked_for": "Enough to talk about training, fine-tuning and when not to",
+      "status": "partial",
+      "evidence": "Enough to talk about training, fine-tuning and when not to",
+      "limit": "Enough to talk about training, fine-tuning and when not to",
+      "aliases": [
+        "machine learning",
+        "ml",
+        "scikit-learn",
+        "sklearn",
+        "supervised learning",
+        "ml models"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": true
+    },
+    {
+      "id": "vector-databases-by-name",
+      "name": "Vector databases by name",
+      "tier": "optional",
+      "asked_for": "Pinecone, Weaviate, pgvector",
+      "status": "not_yet",
+      "evidence": "",
+      "limit": "",
+      "aliases": [
+        "pinecone",
+        "weaviate",
+        "pgvector",
+        "chroma",
+        "chromadb",
+        "qdrant",
+        "milvus",
+        "vector database",
+        "faiss",
+        "vector store"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "langchain-or-llamaindex",
+      "name": "LangChain or LlamaIndex",
+      "tier": "optional",
+      "asked_for": "Named in a minority of postings; the concepts transfer from what he already builds",
+      "status": "partial",
+      "evidence": "Named in a minority of postings; the concepts transfer from what he already builds",
+      "limit": "Named in a minority of postings; the concepts transfer from what he already builds",
+      "aliases": [
+        "langchain",
+        "llamaindex",
+        "llama index",
+        "langgraph",
+        "semantic kernel",
+        "haystack"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": true
+    },
+    {
+      "id": "model-fine-tuning",
+      "name": "Model fine-tuning",
+      "tier": "later",
+      "asked_for": "Beyond prompting, into training",
+      "status": "not_yet",
+      "evidence": "",
+      "limit": "",
+      "aliases": [
+        "fine-tuning",
+        "fine tuning",
+        "lora",
+        "training models",
+        "peft",
+        "model training"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "mlops",
+      "name": "MLOps",
+      "tier": "later",
+      "asked_for": "Deployment, monitoring and versioning of models",
+      "status": "not_yet",
+      "evidence": "",
+      "limit": "",
+      "aliases": [
+        "mlops",
+        "model deployment",
+        "mlflow",
+        "model monitoring",
+        "sagemaker",
+        "vertex ai",
+        "ml pipelines"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    }
+  ],
+  "positioning": "This is the lane where he is genuinely ahead of the field for his experience level. Most junior candidates have used an LLM. He has built and operated pipelines that do real work on a schedule, self-hosted a model, and shipped automation that other people's work depends on. That is a portfolio argument, not a resume-bullet argument, so lead with the repos and the systems, not with adjectives.\n\nMost postings in this lane grade Tier A or Tier B. The honest gap is evaluation: he can build the pipeline, and he cannot yet show he measured whether it was any good. Closing that with a documented eval on one existing pipeline would be a small amount of work for a large credibility gain, and it is also the thing that makes QA lane 1 and this lane reinforce each other.",
+  "interview_watch": "Expect to be asked what broke and how you found it. Pipeline work interviews well when the answer is specific about a failure: a rate limit, a malformed payload, a prompt that drifted. Have two of those ready. Expect also \"how do you know the output is correct\", which is the evaluation gap, so answer it honestly and say what you would put in place.",
+  "pr_note": "All three codes are TEER 1, which feeds Express Entry's Canadian Experience Class cleanly. 21232 is on the North Bay RCIP list. AIP covers the lane entirely, and Ontario's Workforce Priority stream takes any of them with a qualifying offer. The entry bar for this lane stays deliberately generous because the differentiator is real.",
+  "not_required": "Research-level machine learning, publications, a graduate degree in ML. A posting requiring those is a data scientist seat, not this lane.",
+  "notes": [
+    {
+      "heading": "Intro",
+      "text": "NOC 21232, 21211, 21223. Priority lane, and the lane carrying his single strongest differentiator. Read 00-index.md for the Status conventions and tier rules."
+    }
+  ],
+  "links": [
+    "linkedin",
+    "dev",
+    "code"
+  ],
+  "persona": "ai_engineer",
+  "version": "3.5",
+  "source_updated": "2026-09-14",
+  "source_file": "lanes/source/lane-03-ai-automation.md",
+  "source_sha256": "6f168a9ade66c86f2ceb8c5c6266078c3d5813ce134cd89b682a77b25da260ac"
+}

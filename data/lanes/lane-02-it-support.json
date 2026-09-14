@@ -1,0 +1,486 @@
+{
+  "lane": 2,
+  "slug": "it-support",
+  "title": "IT support, help desk, technical support",
+  "track": "technical",
+  "set": "priority",
+  "noc": [
+    {
+      "code": "22221",
+      "title": "User support technicians",
+      "teer": 2,
+      "applies_when": "Help desk, service desk, desktop and deskside support, end-user support. The default code for this lane."
+    },
+    {
+      "code": "22220",
+      "title": "Computer network and web technicians",
+      "teer": 2,
+      "applies_when": "Where the body carries real network, server or infrastructure duties rather than end-user tickets. Better RCIP coverage."
+    },
+    {
+      "code": "21222",
+      "title": "Information systems specialists",
+      "teer": 1,
+      "applies_when": "Application support and systems support seats with analysis content. Stronger code where the duties genuinely support it."
+    }
+  ],
+  "keywords": {
+    "core": [
+      "it support",
+      "help desk",
+      "service desk analyst",
+      "desktop support",
+      "technical support",
+      "it technician",
+      "it support specialist",
+      "end user support",
+      "deskside support",
+      "tier 1 support",
+      "tier 2 support",
+      "it support analyst",
+      "help desk analyst",
+      "technical support specialist"
+    ],
+    "tool_anchored": [
+      "servicenow analyst",
+      "active directory administrator",
+      "microsoft 365 support",
+      "intune administrator"
+    ],
+    "adjacent": [
+      "application support analyst",
+      "systems support",
+      "junior systems administrator",
+      "computer technician",
+      "field technician",
+      "it coordinator"
+    ]
+  },
+  "skills": [
+    {
+      "id": "ticket-handling-and-slas",
+      "name": "Ticket handling and SLAs",
+      "tier": "must",
+      "asked_for": "Queue management, prioritisation, escalation, resolution within target",
+      "status": "held",
+      "evidence": "Certify Technologies, daily. 95 percent first-contact resolution is the anchor stat for this lane.",
+      "limit": "",
+      "aliases": [
+        "ticketing",
+        "tickets",
+        "sla",
+        "slas",
+        "service level",
+        "incident management",
+        "queue management",
+        "escalation",
+        "first call resolution",
+        "first contact resolution",
+        "ticketing system"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "windows-desktop-support",
+      "name": "Windows desktop support",
+      "tier": "must",
+      "asked_for": "Troubleshooting, configuration, profiles, updates",
+      "status": "held",
+      "evidence": "Certify Technologies.",
+      "limit": "",
+      "aliases": [
+        "windows 10",
+        "windows 11",
+        "windows desktop",
+        "desktop support",
+        "windows troubleshooting",
+        "workstation support",
+        "windows os"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "windows-imaging-and-deployment",
+      "name": "Windows imaging and deployment",
+      "tier": "must",
+      "asked_for": "Build, image, deploy, refresh",
+      "status": "held",
+      "evidence": "Certify Technologies, ran daily.",
+      "limit": "",
+      "aliases": [
+        "imaging",
+        "deployment",
+        "mdt",
+        "wds",
+        "autopilot",
+        "provisioning",
+        "device setup",
+        "re-imaging"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "active-directory",
+      "name": "Active Directory",
+      "tier": "must",
+      "asked_for": "Account lifecycle, groups, permissions, password and lockout handling",
+      "status": "held",
+      "evidence": "Certify Technologies, account lifecycle ownership.",
+      "limit": "",
+      "aliases": [
+        "active directory",
+        "ad",
+        "azure ad",
+        "entra id",
+        "group policy",
+        "gpo",
+        "user accounts",
+        "password resets",
+        "account management"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "microsoft-365-administration",
+      "name": "Microsoft 365 administration",
+      "tier": "must",
+      "asked_for": "Exchange Online, Teams, SharePoint and OneDrive at admin level, licensing",
+      "status": "held",
+      "evidence": "Certify Technologies.",
+      "limit": "",
+      "aliases": [
+        "microsoft 365",
+        "office 365",
+        "m365",
+        "o365",
+        "exchange online",
+        "teams",
+        "sharepoint",
+        "onedrive",
+        "microsoft office",
+        "ms office"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "hardware-support",
+      "name": "Hardware support",
+      "tier": "must",
+      "asked_for": "Laptops, desktops, peripherals, printers, diagnostics and replacement",
+      "status": "held",
+      "evidence": "Certify Technologies.",
+      "limit": "",
+      "aliases": [
+        "hardware troubleshooting",
+        "laptops",
+        "desktops",
+        "printers",
+        "peripherals",
+        "hardware repair",
+        "break/fix",
+        "hardware"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "customer-communication-under-pressure",
+      "name": "Customer communication under pressure",
+      "tier": "must",
+      "asked_for": "Non-technical users, frustrated users, clear written updates",
+      "status": "held",
+      "evidence": "Certify Technologies plus a year of contact centre work at Bill Gosling Outsourcing.",
+      "limit": "",
+      "aliases": [
+        "customer service",
+        "communication skills",
+        "end user support",
+        "user support",
+        "interpersonal skills",
+        "customer facing"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "remote-support-tooling",
+      "name": "Remote support tooling",
+      "tier": "must",
+      "asked_for": "Remote desktop and remote assistance tools",
+      "status": "held",
+      "evidence": "Certify Technologies.",
+      "limit": "",
+      "aliases": [
+        "remote desktop",
+        "rdp",
+        "teamviewer",
+        "anydesk",
+        "remote assistance",
+        "bomgar",
+        "quick assist",
+        "remote support",
+        "remote troubleshooting"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "documentation-and-knowledge-base",
+      "name": "Documentation and knowledge base",
+      "tier": "must",
+      "asked_for": "Writing the article so the next person does not re-solve it",
+      "status": "partial",
+      "evidence": "Repo documentation is strong; formal KB authoring in a service desk tool is not evidenced.",
+      "limit": "Repo documentation is strong; formal KB authoring in a service desk tool is not evidenced.",
+      "aliases": [
+        "documentation",
+        "knowledge base",
+        "kb articles",
+        "sops",
+        "technical documentation",
+        "knowledge articles"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "networking-fundamentals",
+      "name": "Networking fundamentals",
+      "tier": "important",
+      "asked_for": "TCP/IP, DNS, DHCP, VPN, basic switching, troubleshooting connectivity",
+      "status": "partial",
+      "evidence": "Practical troubleshooting and self-hosting setup. Not formal network administration. This is the gap between 22221 and 22220.",
+      "limit": "Not formal network administration. This is the gap between 22221 and 22220.",
+      "aliases": [
+        "tcp/ip",
+        "dns",
+        "dhcp",
+        "vpn",
+        "networking",
+        "lan",
+        "wan",
+        "wifi",
+        "network troubleshooting",
+        "switches",
+        "routers",
+        "network fundamentals"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "itsm-platforms",
+      "name": "ITSM platforms",
+      "tier": "important",
+      "asked_for": "ServiceNow, Jira Service Management, Freshservice, Zendesk",
+      "status": "partial",
+      "evidence": "Ticket workflow experience at Certify; the specific enterprise platform varies by posting, so check the named tool each time.",
+      "limit": "Ticket workflow experience at Certify; the specific enterprise platform varies by posting, so check the named tool each time.",
+      "aliases": [
+        "servicenow",
+        "jira service management",
+        "freshservice",
+        "zendesk",
+        "freshdesk",
+        "itsm",
+        "connectwise",
+        "autotask",
+        "halo",
+        "sysaid"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "scripting-for-support",
+      "name": "Scripting for support",
+      "tier": "important",
+      "asked_for": "PowerShell especially, plus Python",
+      "status": "partial",
+      "evidence": "Strong Python and automation scripting. PowerShell specifically is not evidenced and it is the one most often named.",
+      "limit": "PowerShell specifically is not evidenced and it is the one most often named.",
+      "aliases": [
+        "powershell",
+        "scripting",
+        "bash",
+        "python scripting",
+        "batch scripts",
+        "automation scripts"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "endpoint-management",
+      "name": "Endpoint management",
+      "tier": "important",
+      "asked_for": "Intune, SCCM, Jamf",
+      "status": "not_yet",
+      "evidence": "",
+      "limit": "",
+      "aliases": [
+        "intune",
+        "sccm",
+        "mecm",
+        "jamf",
+        "mdm",
+        "endpoint management",
+        "endpoint manager",
+        "device management"
+      ],
+      "updated": "2026-09-14",
+      "note": "Named often enough in mid-size employer postings to be worth closing.",
+      "evidence_from_note": false
+    },
+    {
+      "id": "mobile-device-support",
+      "name": "Mobile device support",
+      "tier": "important",
+      "asked_for": "iOS and Android enrolment and troubleshooting",
+      "status": "partial",
+      "evidence": "General support exposure, not MDM-managed fleets.",
+      "limit": "General support exposure, not MDM-managed fleets.",
+      "aliases": [
+        "ios",
+        "android",
+        "mobile devices",
+        "iphone",
+        "ipad",
+        "mobile device management"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "comptia-a-plus",
+      "name": "CompTIA A+",
+      "tier": "optional",
+      "asked_for": "Frequently listed as an asset, occasionally as a requirement. A requirement makes it a credential-gate drop",
+      "status": "not_yet",
+      "evidence": "",
+      "limit": "",
+      "aliases": [
+        "comptia a+",
+        "a+",
+        "comptia",
+        "network+",
+        "security+"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "itil-foundation",
+      "name": "ITIL Foundation",
+      "tier": "optional",
+      "asked_for": "Same. Asset in most postings, fatal only where hard-required",
+      "status": "not_yet",
+      "evidence": "",
+      "limit": "",
+      "aliases": [
+        "itil",
+        "itil v4",
+        "itil foundation",
+        "itil certified"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "ccna",
+      "name": "CCNA",
+      "tier": "optional",
+      "asked_for": "Only matters for the 22220 network-leaning seats",
+      "status": "not_yet",
+      "evidence": "",
+      "limit": "",
+      "aliases": [
+        "ccna",
+        "cisco certified",
+        "cisco"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "azure-or-m365-administrator-certification",
+      "name": "Azure or M365 administrator certification",
+      "tier": "later",
+      "asked_for": "Moves him from support into systems administration",
+      "status": "not_yet",
+      "evidence": "",
+      "limit": "",
+      "aliases": [
+        "az-104",
+        "ms-102",
+        "azure administrator",
+        "microsoft certified",
+        "md-102"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "server-administration",
+      "name": "Server administration",
+      "tier": "later",
+      "asked_for": "Windows Server, virtualisation",
+      "status": "not_yet",
+      "evidence": "",
+      "limit": "",
+      "aliases": [
+        "windows server",
+        "server administration",
+        "vmware",
+        "hyper-v",
+        "virtualization",
+        "linux server",
+        "server support"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    }
+  ],
+  "positioning": "This is his strongest lane on paper and it should be treated that way. The 95 percent first-contact resolution figure is concrete, unusual and quotable, and it leads every application in this lane. The Bill Gosling year adds the thing most junior support candidates cannot show: a track record of holding a conversation with an unhappy person and still landing the outcome.\n\nMost postings in this lane grade Tier A. The two gaps that recur are PowerShell and Intune or SCCM, and closing either would remove the most common named requirement he misses. Where a posting leans network rather than end-user, it is likely 22220 and likely a stretch, so name the networking gap rather than glossing it.",
+  "interview_watch": "Expect a scenario: a user cannot log in, walk me through it. Answer it as a structured diagnostic, not a guess list, and say out loud when you would escalate and why. Expect a question about handling a queue when everything is urgent. The first-contact resolution number is the natural place to anchor that answer.",
+  "pr_note": "This is his broadest-pathway lane. 22221 is on the Brandon RCIP list and was on Manitoba's MPNP list as of v3.1 (re-verify). 22220 is on the North Bay and Sault Ste. Marie RCIP lists. AIP covers both from a designated Atlantic employer, and Ontario's Workforce Priority stream takes either with a qualifying offer. More live routes than any other lane he has.",
+  "not_required": "Security operations, firewall administration, and anything requiring a clearance. A posting hard-requiring Reliability Status or a clearance is a credential-gate drop regardless of skill.",
+  "notes": [
+    {
+      "heading": "Intro",
+      "text": "NOC 22221 and 22220, TEER 2. Priority lane. Read 00-index.md for the Status conventions and tier rules."
+    }
+  ],
+  "links": [
+    "linkedin",
+    "dev"
+  ],
+  "persona": "it_support",
+  "version": "3.5",
+  "source_updated": "2026-09-14",
+  "source_file": "lanes/source/lane-02-it-support.md",
+  "source_sha256": "6c6aaff15c0de86fd02f5611bea939dab871b13706f33e3220e9b39856608e70"
+}

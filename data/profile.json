@@ -1,0 +1,56 @@
+{
+  "version": "3.5",
+  "name": "Keerthivasan Kalaivanan",
+  "known_as": "Keerthi",
+  "location": { "city": "London", "province": "ON", "country": "Canada" },
+  "work_authorization": "Post-Graduate Work Permit, open work permit, no sponsorship required in Canada",
+  "us_work_authorization": false,
+  "seeks_us_employment": false,
+  "experience_band_years": { "min": 0, "max": 3 },
+  "credentials": [
+    { "name": "Visual Effects and Editing for Contemporary Media", "institution": "Fanshawe College, London ON", "from": "2024", "to": "2025", "lanes": [9, 12] },
+    { "name": "Game Development: Advanced Programming", "institution": "Fanshawe College, London ON", "from": "2023", "to": "2024", "lanes": [11] },
+    { "name": "Master of Computer Applications", "institution": "Anna University, Chennai", "from": "2020", "to": "2022",
+      "note": "Carries the post-secondary credential requirement for the Ontario Workforce Priority stream" },
+    { "name": "Bachelor of Commerce", "institution": "Ramakrishna Mission Vivekananda College, Chennai", "from": "2017", "to": "2020" }
+  ],
+  "certifications": [],
+  "clearances": [],
+  "portfolio": {
+    "vfx_film": "film.kkvasan.ca",
+    "agency": "k2digitalmedia.ca",
+    "dev": "dev.kkvasan.ca",
+    "blog": "blog.kkvasan.ca",
+    "code": "github.com/K-Keerthivasan",
+    "linkedin": "linkedin.com/in/kkvasan"
+  },
+  "portfolio_purpose": {
+    "agency": "Business website. K2 Digital Media: marketing, social, web and content client work.",
+    "dev": "Technical portfolio. Software, automation and data work.",
+    "vfx_film": "Film, VFX and video reel.",
+    "code": "Public repositories.",
+    "blog": "Writing."
+  },
+  "anchors": {
+    "it_support": "95 percent first-contact resolution rate at Certify Technologies",
+    "canadian_experience": "One year full-time Canadian work experience at Bill Gosling Outsourcing, Ontario"
+  },
+  "placements": {
+    "note": "Haply Robotics and Materia Bioworks always appear as separate entries labelled as Canadian work placements through Fanshawe College.",
+    "entries": ["Haply Robotics (via Fanshawe College)", "Materia Bioworks (via Fanshawe College)"]
+  },
+  "address_rules": {
+    "include_street_address_when": "local London ON roles",
+    "omit_street_address_when": "GTA, remote and out-of-town roles",
+    "residence_country": "Canada",
+    "residence_province": "Ontario",
+    "never": ["US address", "US state", "US phone number"]
+  },
+  "never_claim": [
+    "US work authorisation",
+    "any security clearance or Reliability Status",
+    "a total years-of-experience figure not stated in the profile",
+    "certifications not listed in certifications",
+    "sponsorship needs of any kind"
+  ]
+}

@@ -1,0 +1,465 @@
+{
+  "lane": 4,
+  "slug": "software-development",
+  "title": "Software development",
+  "track": "technical",
+  "set": "secondary",
+  "noc": [
+    {
+      "code": "21232",
+      "title": "Software developers and programmers",
+      "teer": 1,
+      "applies_when": "The default. Full stack, backend, frontend, web."
+    },
+    {
+      "code": "21231",
+      "title": "Software engineers and designers",
+      "teer": 1,
+      "applies_when": "Where the posting carries architecture or design responsibility. Steinbach RCIP code."
+    },
+    {
+      "code": "21233",
+      "title": "Web designers",
+      "teer": 1,
+      "applies_when": "Design-leaning web seats."
+    }
+  ],
+  "keywords": {
+    "core": [
+      "software developer",
+      "full stack developer",
+      "web developer",
+      "frontend developer",
+      "backend developer",
+      "junior developer",
+      "application developer",
+      "software engineer",
+      "junior software developer"
+    ],
+    "tool_anchored": [
+      "react developer",
+      "next.js developer",
+      "node.js developer",
+      "typescript developer",
+      "javascript developer",
+      "python developer",
+      "wordpress developer"
+    ],
+    "adjacent": [
+      "web application developer",
+      "api developer",
+      "junior programmer",
+      "developer analyst"
+    ]
+  },
+  "skills": [
+    {
+      "id": "javascript-and-typescript",
+      "name": "JavaScript and TypeScript",
+      "tier": "must",
+      "asked_for": "The working languages of most postings in this lane",
+      "status": "held",
+      "evidence": "K2 client builds, K2_Press, the local generation app.",
+      "limit": "",
+      "aliases": [
+        "javascript",
+        "typescript",
+        "js",
+        "ts",
+        "es6",
+        "ecmascript"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "react",
+      "name": "React",
+      "tier": "must",
+      "asked_for": "Named in the large majority of frontend and full stack postings",
+      "status": "held",
+      "evidence": "K2 Digital Media client work.",
+      "limit": "",
+      "aliases": [
+        "react",
+        "react.js",
+        "reactjs",
+        "redux",
+        "react hooks"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "next-js",
+      "name": "Next.js",
+      "tier": "must",
+      "asked_for": "Increasingly the default React framework in postings",
+      "status": "held",
+      "evidence": "K2 Digital Media client work.",
+      "limit": "",
+      "aliases": [
+        "next.js",
+        "nextjs",
+        "next"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "node-js",
+      "name": "Node.js",
+      "tier": "must",
+      "asked_for": "Backend of the same stack",
+      "status": "held",
+      "evidence": "K2_Press and the local pipeline app.",
+      "limit": "",
+      "aliases": [
+        "node.js",
+        "nodejs",
+        "node",
+        "express",
+        "express.js",
+        "nestjs"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "html-and-css",
+      "name": "HTML and CSS",
+      "tier": "must",
+      "asked_for": "Responsive layout, modern CSS",
+      "status": "held",
+      "evidence": "K2 Digital Media, web development is a core agency service.",
+      "limit": "",
+      "aliases": [
+        "html",
+        "css",
+        "html5",
+        "css3",
+        "sass",
+        "scss",
+        "tailwind",
+        "tailwind css",
+        "bootstrap",
+        "responsive design"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "rest-apis",
+      "name": "REST APIs",
+      "tier": "must",
+      "asked_for": "Designing and consuming",
+      "status": "held",
+      "evidence": "Every project he runs is API-integrated.",
+      "limit": "",
+      "aliases": [
+        "rest",
+        "rest api",
+        "rest apis",
+        "restful",
+        "apis",
+        "api development",
+        "http",
+        "api design"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "git-workflow",
+      "name": "Git workflow",
+      "tier": "must",
+      "asked_for": "Branching, pull requests, code review participation",
+      "status": "held",
+      "evidence": "Four maintained public repos.",
+      "limit": "",
+      "aliases": [
+        "git",
+        "github",
+        "gitlab",
+        "bitbucket",
+        "pull requests",
+        "code review",
+        "version control"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "databases",
+      "name": "Databases",
+      "tier": "must",
+      "asked_for": "Reading and writing from an application, schema basics",
+      "status": "partial",
+      "evidence": "Firebase and Supabase in production. Relational SQL depth is the gap, same one as lane 5.",
+      "limit": "Relational SQL depth is the gap, same one as lane 5.",
+      "aliases": [
+        "firebase",
+        "supabase",
+        "mongodb",
+        "nosql",
+        "database",
+        "databases",
+        "firestore",
+        "dynamodb"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "sql-and-relational-databases",
+      "name": "SQL and relational databases",
+      "tier": "important",
+      "asked_for": "PostgreSQL and MySQL, joins and schema design",
+      "status": "not_yet",
+      "evidence": "",
+      "limit": "",
+      "aliases": [
+        "sql",
+        "postgresql",
+        "postgres",
+        "mysql",
+        "sql server",
+        "relational database",
+        "relational databases",
+        "rdbms",
+        "t-sql",
+        "mariadb"
+      ],
+      "updated": "2026-09-14",
+      "note": "Supabase is Postgres underneath, so this gap is smaller than it looks and worth closing deliberately.",
+      "evidence_from_note": false
+    },
+    {
+      "id": "testing",
+      "name": "Testing",
+      "tier": "important",
+      "asked_for": "Jest, Vitest, React Testing Library",
+      "status": "not_yet",
+      "evidence": "",
+      "limit": "",
+      "aliases": [
+        "jest",
+        "vitest",
+        "react testing library",
+        "unit testing",
+        "unit tests",
+        "mocha",
+        "tdd",
+        "automated tests",
+        "test coverage",
+        "testing frameworks"
+      ],
+      "updated": "2026-09-14",
+      "note": "Shared gap with lane 1. Closing it serves both lanes.",
+      "evidence_from_note": false
+    },
+    {
+      "id": "python",
+      "name": "Python",
+      "tier": "important",
+      "asked_for": "Second language on many backend postings",
+      "status": "held",
+      "evidence": "Automation and pipeline work.",
+      "limit": "",
+      "aliases": [
+        "python",
+        "django",
+        "flask",
+        "fastapi"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "csharp-or-cpp",
+      "name": "C# or C++",
+      "tier": "important",
+      "asked_for": "Enterprise and systems postings",
+      "status": "partial",
+      "evidence": "Coursework and project-level work. Not production.",
+      "limit": "Not production.",
+      "aliases": [
+        "c#",
+        ".net",
+        "c++",
+        "dotnet",
+        "asp.net",
+        ".net core",
+        "csharp",
+        "cpp"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "cloud-deployment",
+      "name": "Cloud deployment",
+      "tier": "important",
+      "asked_for": "Vercel, Netlify, AWS, Azure",
+      "status": "partial",
+      "evidence": "Firebase, Supabase and Vercel-class deployment. Not major-cloud platform work.",
+      "limit": "Not major-cloud platform work.",
+      "aliases": [
+        "vercel",
+        "netlify",
+        "aws",
+        "azure",
+        "gcp",
+        "cloud",
+        "heroku",
+        "deployment",
+        "cloud platforms"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "ci-cd",
+      "name": "CI/CD",
+      "tier": "important",
+      "asked_for": "Automated build and deploy",
+      "status": "partial",
+      "evidence": "Repo-level automation, not team pipeline ownership.",
+      "limit": "Repo-level automation, not team pipeline ownership.",
+      "aliases": [
+        "ci/cd",
+        "continuous integration",
+        "continuous deployment",
+        "github actions",
+        "jenkins",
+        "pipelines",
+        "build pipelines"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "java",
+      "name": "Java",
+      "tier": "optional",
+      "asked_for": "Foundational for him. Never a hard blocker on enterprise dev roles per the standing rule",
+      "status": "partial",
+      "evidence": "Foundational for him. Never a hard blocker on enterprise dev roles per the standing rule",
+      "limit": "Never a hard blocker on enterprise dev roles per the standing rule",
+      "aliases": [
+        "java",
+        "spring",
+        "spring boot",
+        "jvm"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": true
+    },
+    {
+      "id": "docker-and-kubernetes",
+      "name": "Docker and Kubernetes",
+      "tier": "optional",
+      "asked_for": "Kubernetes familiarity is foundational and never a hard blocker",
+      "status": "partial",
+      "evidence": "Kubernetes familiarity is foundational and never a hard blocker",
+      "limit": "Kubernetes familiarity is foundational and never a hard blocker",
+      "aliases": [
+        "docker",
+        "kubernetes",
+        "k8s",
+        "containers",
+        "containerization"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": true
+    },
+    {
+      "id": "graphql",
+      "name": "GraphQL",
+      "tier": "optional",
+      "asked_for": "A minority of postings",
+      "status": "not_yet",
+      "evidence": "",
+      "limit": "",
+      "aliases": [
+        "graphql",
+        "apollo"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "system-design-at-scale",
+      "name": "System design at scale",
+      "tier": "later",
+      "asked_for": "Senior territory",
+      "status": "not_yet",
+      "evidence": "",
+      "limit": "",
+      "aliases": [
+        "system design",
+        "distributed systems",
+        "scalability",
+        "high availability",
+        "large-scale systems"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "microservices-architecture",
+      "name": "Microservices architecture",
+      "tier": "later",
+      "asked_for": "Senior territory",
+      "status": "not_yet",
+      "evidence": "",
+      "limit": "",
+      "aliases": [
+        "microservices",
+        "event-driven",
+        "kafka",
+        "service-oriented",
+        "message queues"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    }
+  ],
+  "positioning": "He builds and ships real web software for paying clients, which is more than most junior applicants can say, and the modern React and Next.js stack he works in is exactly what postings ask for. The honest shape of the gap is that agency work is broad and shallow where product work is narrow and deep: he has built many things once rather than one thing for two years, and he has not worked inside a team codebase with code review, tests and a release process.\n\nSay that plainly rather than letting an interviewer discover it. Most postings in this lane grade Tier A or Tier B, and the two recurring gaps are automated testing and relational SQL, both shared with other lanes, which makes them the highest-leverage things to close anywhere in this search.",
+  "interview_watch": "Expect a code exercise and expect a conversation about a project you chose. Pick K2_Press or the automation pipeline rather than a tutorial project, and be ready to say what you would do differently now. Expect a question about working with other people's code, which is the real gap, so answer it honestly with how you handle unfamiliar repos rather than claiming team experience you do not have.",
+  "pr_note": "21232 is on the North Bay RCIP list and was on MPNP as of v3.1 (re-verify). 21231 is on the Steinbach RCIP list. AIP covers the lane, and Ontario's Workforce Priority stream takes any of these with a qualifying offer. Strong codes, all TEER 1.",
+  "not_required": "Anything requiring a computer science degree as a hard prerequisite, which is a credential-gate drop rather than a skill gap.",
+  "notes": [
+    {
+      "heading": "Intro",
+      "text": "NOC 21232, 21231, 21233, TEER 1 to 2. Secondary lane. Read 00-index.md for the Status conventions and tier rules."
+    }
+  ],
+  "links": [
+    "linkedin",
+    "dev",
+    "code"
+  ],
+  "persona": "fullstack",
+  "version": "3.5",
+  "source_updated": "2026-09-14",
+  "source_file": "lanes/source/lane-04-software-development.md",
+  "source_sha256": "3b5e23e6041c9f7765bfd0ea0439553d2831da88129d4dca8a12066fb7f4ec69"
+}

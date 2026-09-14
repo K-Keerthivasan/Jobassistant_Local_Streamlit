@@ -1,0 +1,344 @@
+{
+  "lane": 10,
+  "slug": "design",
+  "title": "Design adjacent",
+  "track": "creative",
+  "set": "opportunistic",
+  "noc": [
+    {
+      "code": "52120",
+      "title": "Graphic designers and illustrators",
+      "teer": 2,
+      "applies_when": ""
+    }
+  ],
+  "keywords": {
+    "core": [
+      "graphic designer",
+      "junior designer",
+      "visual designer",
+      "marketing designer",
+      "digital designer",
+      "brand designer",
+      "junior graphic designer"
+    ],
+    "tool_anchored": [
+      "figma designer",
+      "adobe creative suite designer",
+      "canva designer"
+    ],
+    "adjacent": [
+      "web designer",
+      "ui designer",
+      "production designer",
+      "creative coordinator",
+      "design coordinator"
+    ]
+  },
+  "skills": [
+    {
+      "id": "design-tooling",
+      "name": "Design tooling",
+      "tier": "must",
+      "asked_for": "Figma above all, plus Adobe Illustrator and Photoshop",
+      "status": "partial",
+      "evidence": "Agency-level use in service of web and content delivery. Not Figma as a primary design environment with components and libraries.",
+      "limit": "Not Figma as a primary design environment with components and libraries.",
+      "aliases": [
+        "figma",
+        "adobe illustrator",
+        "illustrator",
+        "photoshop",
+        "indesign",
+        "adobe creative suite",
+        "creative cloud",
+        "sketch",
+        "adobe xd",
+        "canva",
+        "adobe"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "layout-and-typography",
+      "name": "Layout and typography",
+      "tier": "must",
+      "asked_for": "Hierarchy, spacing, type systems",
+      "status": "partial",
+      "evidence": "Applied through web builds and social content rather than studied formally.",
+      "limit": "Applied through web builds and social content rather than studied formally.",
+      "aliases": [
+        "typography",
+        "layout",
+        "visual hierarchy",
+        "composition",
+        "type",
+        "grid systems",
+        "layout design"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "brand-application",
+      "name": "Brand application",
+      "tier": "must",
+      "asked_for": "Working inside an existing brand system consistently",
+      "status": "held",
+      "evidence": "Multi-brand client work at K2 Digital Media.",
+      "limit": "",
+      "aliases": [
+        "brand guidelines",
+        "brand identity",
+        "brand standards",
+        "branding",
+        "brand consistency",
+        "brand design"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "social-and-marketing-asset-design",
+      "name": "Social and marketing asset design",
+      "tier": "must",
+      "asked_for": "Producing on-brand assets at format and at pace",
+      "status": "held",
+      "evidence": "Core K2 delivery.",
+      "limit": "",
+      "aliases": [
+        "social media graphics",
+        "marketing materials",
+        "digital assets",
+        "marketing collateral",
+        "ad creatives",
+        "banners",
+        "social assets",
+        "marketing design",
+        "digital ads"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "web-and-ui-design",
+      "name": "Web and UI design",
+      "tier": "must",
+      "asked_for": "Designing what gets built, responsive behaviour",
+      "status": "partial",
+      "evidence": "He designs and builds client sites, which is real but developer-led rather than design-led.",
+      "limit": "He designs and builds client sites, which is real but developer-led rather than design-led.",
+      "aliases": [
+        "web design",
+        "ui design",
+        "user interface",
+        "responsive design",
+        "landing page design",
+        "wireframes",
+        "website design",
+        "ui/ux"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "design-systems",
+      "name": "Design systems",
+      "tier": "important",
+      "asked_for": "Components, tokens, consistency at scale",
+      "status": "not_yet",
+      "evidence": "",
+      "limit": "",
+      "aliases": [
+        "design systems",
+        "component libraries",
+        "design tokens",
+        "style guides"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "prototyping",
+      "name": "Prototyping",
+      "tier": "important",
+      "asked_for": "Interactive flows in Figma",
+      "status": "not_yet",
+      "evidence": "",
+      "limit": "",
+      "aliases": [
+        "prototyping",
+        "prototypes",
+        "interactive prototypes",
+        "figma prototypes",
+        "user flows"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "accessibility-in-design",
+      "name": "Accessibility in design",
+      "tier": "important",
+      "asked_for": "Contrast, target size, readable hierarchy",
+      "status": "not_yet",
+      "evidence": "",
+      "limit": "",
+      "aliases": [
+        "accessibility",
+        "wcag",
+        "inclusive design",
+        "aoda",
+        "accessible design"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "portfolio",
+      "name": "Portfolio",
+      "tier": "important",
+      "asked_for": "A presented body of design work, not a list of sites",
+      "status": "not_yet",
+      "evidence": "",
+      "limit": "",
+      "aliases": [
+        "portfolio",
+        "design portfolio"
+      ],
+      "updated": "2026-09-14",
+      "note": "This is the real blocker for this lane.",
+      "evidence_from_note": false
+    },
+    {
+      "id": "motion-design",
+      "name": "Motion design",
+      "tier": "optional",
+      "asked_for": "Overlaps lane 9",
+      "status": "partial",
+      "evidence": "Overlaps lane 9",
+      "limit": "Overlaps lane 9",
+      "aliases": [
+        "motion design",
+        "motion graphics",
+        "after effects",
+        "animation",
+        "animated"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": true
+    },
+    {
+      "id": "print-production",
+      "name": "Print production",
+      "tier": "optional",
+      "asked_for": "Bleed, CMYK, press specs",
+      "status": "not_yet",
+      "evidence": "",
+      "limit": "",
+      "aliases": [
+        "print",
+        "print production",
+        "print design",
+        "prepress",
+        "cmyk",
+        "packaging",
+        "print materials"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "illustration",
+      "name": "Illustration",
+      "tier": "optional",
+      "asked_for": "Rarely required",
+      "status": "not_yet",
+      "evidence": "",
+      "limit": "",
+      "aliases": [
+        "illustration",
+        "illustrations",
+        "drawing",
+        "icon design",
+        "iconography"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "ux-research",
+      "name": "UX research",
+      "tier": "later",
+      "asked_for": "A different discipline",
+      "status": "not_yet",
+      "evidence": "",
+      "limit": "",
+      "aliases": [
+        "ux research",
+        "user research",
+        "usability testing",
+        "user interviews",
+        "personas",
+        "ux"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "design-leadership",
+      "name": "Design leadership",
+      "tier": "later",
+      "asked_for": "Senior territory",
+      "status": "not_yet",
+      "evidence": "",
+      "limit": "",
+      "aliases": [
+        "design lead",
+        "art direction",
+        "creative direction",
+        "design management"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    }
+  ],
+  "positioning": "This is his weakest lane and the matrix says so honestly. He produces design output as part of delivering web and content work, which is real, but he is a developer and marketer who designs rather than a designer. The missing piece is not taste or tooling, it is a presented design portfolio: design roles hire on a body of work shown as design decisions, and his work is currently shown as websites and campaigns.\n\nOn current statuses most design postings grade Tier C and get dropped, which is correct. If he wants this lane to produce, the move is a portfolio, not more skills. Until then, keep it opportunistic and let lanes 7, 8 and 9 carry Track 2.",
+  "interview_watch": "Expect a portfolio walkthrough and expect to be asked why, not what. Design interviews test the reasoning behind a choice. If the honest answer is that the client asked for it, say so rather than inventing a rationale, and pivot to a decision that was actually yours.",
+  "pr_note": "52120 is TEER 2 and clears the floor. No RCIP list covers it, so never tag a lane 10 role RCIP. AIP covers it from a designated Atlantic employer. Ontario's Workforce Priority stream takes it with a qualifying offer.",
+  "not_required": "A design degree, and formal UX credentials. A posting hard-requiring either is a credential-gate drop.",
+  "notes": [
+    {
+      "heading": "Intro",
+      "text": "NOC 52120, TEER 2. Track 2, opportunistic only. Read 00-index.md for the Status conventions and tier rules."
+    },
+    {
+      "heading": "The standing rule for this lane",
+      "text": "Do not stretch into this lane to fill a run. A role enters only where the posting is genuinely design-led and he can evidence it. This lane exists to catch the occasional real match, not to pad a thin batch, and it is the first thing to skip when a run is short."
+    }
+  ],
+  "links": [
+    "linkedin",
+    "agency",
+    "vfx_film"
+  ],
+  "persona": "design",
+  "version": "3.5",
+  "source_updated": "2026-09-14",
+  "source_file": "lanes/source/lane-10-design.md",
+  "source_sha256": "2ce409ea0bf6753dbc9e80c527f20137e37c05d61ecbb65b6b76db0e24341601"
+}

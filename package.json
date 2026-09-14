@@ -1,0 +1,12 @@
+{
+  "name": "resume-studio-data",
+  "private": true,
+  "description": "Convenience script names from the upgrade brief. The app is Python; these shell out to the resume_gen CLI. Activate the venv first.",
+  "scripts": {
+    "validate:data": "python -m resume_gen.lanes validate",
+    "sync:lanes": "python -m resume_gen.lanes sync",
+    "check:lanes": "python -m resume_gen.lanes sync --check",
+    "drift:lanes": "python -m resume_gen.lanes drift",
+    "test": "python -m unittest discover -s tests -v"
+  }
+}

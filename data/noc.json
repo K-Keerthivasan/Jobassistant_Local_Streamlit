@@ -1,0 +1,29 @@
+{
+  "version": "3.5",
+  "source_updated": "2026-09-14",
+  "note": "NOC 2021 codes the lanes map to, plus the trap codes that look like lane codes and are not. rcip_communities lists the Rural Community Immigration Pilot communities whose priority lists carry the code, per the v3.5 instruction set. pr_eligible false means the code sits below the TEER floor or is otherwise not a pathway code.",
+  "codes": {
+    "22222": { "title": "Information systems testing technicians", "teer": 2, "pr_eligible": true, "rcip_communities": [], "lanes": [1] },
+    "22221": { "title": "User support technicians", "teer": 2, "pr_eligible": true, "rcip_communities": ["Brandon"], "lanes": [2] },
+    "22220": { "title": "Computer network and web technicians", "teer": 2, "pr_eligible": true, "rcip_communities": ["North Bay", "Sault Ste. Marie"], "lanes": [2] },
+    "21232": { "title": "Software developers and programmers", "teer": 1, "pr_eligible": true, "rcip_communities": ["North Bay"], "lanes": [3, 4, 11], "example_titles": ["computer game developer", "interactive media developer", "multimedia developer"] },
+    "21231": { "title": "Software engineers and designers", "teer": 1, "pr_eligible": true, "rcip_communities": ["Steinbach"], "lanes": [4, 11] },
+    "21233": { "title": "Web designers", "teer": 1, "pr_eligible": true, "rcip_communities": [], "lanes": [4] },
+    "21211": { "title": "Data scientists", "teer": 1, "pr_eligible": true, "rcip_communities": [], "lanes": [3, 5] },
+    "21223": { "title": "Database analysts and data administrators", "teer": 1, "pr_eligible": true, "rcip_communities": [], "lanes": [3, 5] },
+    "21221": { "title": "Business systems specialists", "teer": 1, "pr_eligible": true, "rcip_communities": [], "lanes": [5] },
+    "21222": { "title": "Information systems specialists", "teer": 1, "pr_eligible": true, "rcip_communities": [], "lanes": [1, 2, 5] },
+    "12113": { "title": "Statistical officers and related research support occupations", "teer": 2, "pr_eligible": true, "rcip_communities": [], "lanes": [5] },
+    "62100": { "title": "Technical sales specialists, wholesale trade", "teer": 2, "pr_eligible": true, "rcip_communities": ["Altona"], "lanes": [6] },
+    "11202": { "title": "Professional occupations in advertising, marketing and public relations", "teer": 1, "pr_eligible": true, "rcip_communities": [], "lanes": [7, 8] },
+    "52119": { "title": "Other technical and coordinating occupations in motion pictures, broadcasting and the performing arts", "teer": 2, "pr_eligible": true, "rcip_communities": [], "lanes": [9, 12], "example_titles": ["special effects technician"] },
+    "52110": { "title": "Film and video camera operators", "teer": 2, "pr_eligible": true, "rcip_communities": [], "lanes": [9] },
+    "52120": { "title": "Graphic designers and illustrators", "teer": 2, "pr_eligible": true, "rcip_communities": [], "lanes": [10, 11, 12] },
+    "52111": { "title": "Graphic arts technicians", "teer": 2, "pr_eligible": true, "rcip_communities": [], "lanes": [12] },
+    "12112": { "title": "Records management technicians", "teer": 2, "pr_eligible": true, "rcip_communities": [], "lanes": [], "trap": "Not a data analyst code. A data title doing filing, indexing and retention schedules lands here and is a dead end for lane 5." },
+    "64100": { "title": "Retail salespersons and visual merchandisers", "teer": 4, "pr_eligible": false, "rcip_communities": [], "lanes": [], "trap": "Quota-carrying non-technical sales. Below the TEER floor." },
+    "64101": { "title": "Sales and account representatives, wholesale trade (non-technical)", "teer": 4, "pr_eligible": false, "rcip_communities": [], "lanes": [], "trap": "Non-technical sales. Below the TEER floor." }
+  },
+  "rcip_communities": ["Brandon", "North Bay", "Sault Ste. Marie", "Steinbach", "Altona"],
+  "aip_provinces": ["NS", "NB", "PEI", "NL", "Nova Scotia", "New Brunswick", "Prince Edward Island", "Newfoundland and Labrador"]
+}

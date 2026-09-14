@@ -1,0 +1,515 @@
+{
+  "lane": 11,
+  "slug": "game-development",
+  "title": "Game development and game design",
+  "track": "technical",
+  "set": "priority",
+  "noc": [
+    {
+      "code": "21232",
+      "title": "Software developers and programmers",
+      "teer": 1,
+      "applies_when": "The home code. \"Computer game developer\" and \"interactive media developer\" are named examples. Any gameplay, engine, tools or systems programming seat."
+    },
+    {
+      "code": "21231",
+      "title": "Software engineers and designers",
+      "teer": 1,
+      "applies_when": "Engine and architecture-level seats. Steinbach RCIP code."
+    },
+    {
+      "code": "52120",
+      "title": "Graphic designers and illustrators",
+      "teer": 2,
+      "applies_when": "Only where the seat is genuinely art-led rather than technical. Weaker, and not where he should aim."
+    }
+  ],
+  "keywords": {
+    "core": [
+      "junior game developer",
+      "game programmer",
+      "gameplay programmer",
+      "junior gameplay engineer",
+      "Unity developer",
+      "Unreal developer",
+      "Unreal Engine programmer",
+      "game engine programmer",
+      "tools programmer",
+      "junior game designer",
+      "level designer",
+      "technical designer"
+    ],
+    "tool_anchored": [],
+    "adjacent": [
+      "interactive developer",
+      "simulation developer",
+      "real-time 3D developer",
+      "XR developer",
+      "AR/VR developer",
+      "technical artist. Simulation and real-time 3D outside games is the underrated half of this lane and it is where the Haply Robotics haptics work lands perfectly: training simulation",
+      "medical simulation",
+      "industrial digital twins and visualisation all hire exactly this skill set and compete for far fewer candidates than games studios do"
+    ]
+  },
+  "skills": [
+    {
+      "id": "cpp",
+      "name": "C++",
+      "tier": "must",
+      "asked_for": "The language of the industry, especially engine and gameplay code",
+      "status": "held",
+      "evidence": "Custom game engine built from scratch in C++ and OpenGL. Haply Robotics C++ work bridging CHAI 3D.",
+      "limit": "",
+      "aliases": [
+        "c++",
+        "cpp",
+        "modern c++",
+        "c++17",
+        "c++20"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "csharp",
+      "name": "C#",
+      "tier": "must",
+      "asked_for": "Unity's language",
+      "status": "held",
+      "evidence": "Haply Robotics: Unity scripts, native plugins, and C# to C++ interop for real-time bidirectional haptics.",
+      "limit": "",
+      "aliases": [
+        "c#",
+        "csharp",
+        ".net",
+        "unity c#"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "a-named-engine",
+      "name": "A named engine",
+      "tier": "must",
+      "asked_for": "Unreal or Unity. Postings name one, rarely both",
+      "status": "held",
+      "evidence": "Both. Unity through Haply Robotics and coursework; Unreal Engine 5 through Death Bridge and the JKR channel work.",
+      "limit": "",
+      "aliases": [
+        "unreal engine",
+        "unreal",
+        "ue4",
+        "ue5",
+        "unity",
+        "unity3d",
+        "game engine",
+        "godot",
+        "unreal engine 5"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "gameplay-programming",
+      "name": "Gameplay programming",
+      "tier": "must",
+      "asked_for": "Mechanics, state, player systems",
+      "status": "held",
+      "evidence": "Death Bridge implementation plus the Fanshawe programme.",
+      "limit": "",
+      "aliases": [
+        "gameplay programming",
+        "gameplay",
+        "game mechanics",
+        "player systems",
+        "gameplay systems",
+        "gameplay programmer",
+        "gameplay features"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "3d-maths",
+      "name": "3D maths",
+      "tier": "must",
+      "asked_for": "Vectors, matrices, transforms, collision",
+      "status": "held",
+      "evidence": "Custom engine: rendering pipeline, animation, physics basics, collision detection, all hand-built.",
+      "limit": "",
+      "aliases": [
+        "3d math",
+        "3d maths",
+        "linear algebra",
+        "vectors",
+        "matrices",
+        "quaternions",
+        "mathematics",
+        "collision detection",
+        "math skills"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "version-control",
+      "name": "Version control",
+      "tier": "must",
+      "asked_for": "Git, and awareness that games teams often use Perforce",
+      "status": "held",
+      "evidence": "Maintained public repos. Perforce specifically is a gap, see Important.",
+      "limit": "",
+      "aliases": [
+        "git",
+        "github",
+        "gitlab",
+        "version control",
+        "source control",
+        "plastic scm"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "debugging-and-profiling",
+      "name": "Debugging and profiling",
+      "tier": "must",
+      "asked_for": "Finding the bug and finding the frame cost",
+      "status": "partial",
+      "evidence": "Real debugging across engine and interop work. Formal profiling against a frame budget is not evidenced.",
+      "limit": "Formal profiling against a frame budget is not evidenced.",
+      "aliases": [
+        "debugging",
+        "profiling",
+        "optimization",
+        "optimisation",
+        "performance",
+        "frame rate",
+        "memory management",
+        "performance optimization"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "game-design-fundamentals",
+      "name": "Game design fundamentals",
+      "tier": "must",
+      "asked_for": "Loops, pacing, player feedback, why a mechanic works",
+      "status": "partial",
+      "evidence": "Death Bridge is his own design work, so the thinking is real. It has not been tested against players or a design review.",
+      "limit": "It has not been tested against players or a design review.",
+      "aliases": [
+        "game design",
+        "game feel",
+        "systems design",
+        "player experience",
+        "design documentation",
+        "gdd",
+        "game design principles"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "shaders-and-graphics-programming",
+      "name": "Shaders and graphics programming",
+      "tier": "important",
+      "asked_for": "HLSL, GLSL, material work",
+      "status": "held",
+      "evidence": "Custom shaders and a hand-built OpenGL rendering pipeline. Genuinely uncommon at junior level.",
+      "limit": "",
+      "aliases": [
+        "shaders",
+        "hlsl",
+        "glsl",
+        "graphics programming",
+        "rendering",
+        "opengl",
+        "directx",
+        "vulkan",
+        "materials",
+        "rendering pipeline",
+        "graphics"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "perforce",
+      "name": "Perforce",
+      "tier": "important",
+      "asked_for": "The standard version control in games studios",
+      "status": "not_yet",
+      "evidence": "",
+      "limit": "",
+      "aliases": [
+        "perforce",
+        "p4",
+        "helix core",
+        "p4v"
+      ],
+      "updated": "2026-09-14",
+      "note": "Named often. Cheap to close and worth doing.",
+      "evidence_from_note": false
+    },
+    {
+      "id": "a-shipped-or-playable-build",
+      "name": "A shipped or playable build",
+      "tier": "important",
+      "asked_for": "Something someone else can actually play",
+      "status": "partial",
+      "evidence": "Death Bridge is in progress. This is the single highest-leverage gap in the lane.",
+      "limit": "This is the single highest-leverage gap in the lane.",
+      "aliases": [
+        "shipped title",
+        "shipped game",
+        "published game",
+        "playable demo",
+        "portfolio of games",
+        "released game",
+        "shipped titles"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "level-design-tooling",
+      "name": "Level design tooling",
+      "tier": "important",
+      "asked_for": "Building playable space in-engine",
+      "status": "partial",
+      "evidence": "Death Bridge environments. Not evidenced as a standalone discipline.",
+      "limit": "Not evidenced as a standalone discipline.",
+      "aliases": [
+        "level design",
+        "level editor",
+        "world building",
+        "environment design",
+        "blueprints",
+        "level layout"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "ui-implementation",
+      "name": "UI implementation",
+      "tier": "important",
+      "asked_for": "In-engine UI systems",
+      "status": "partial",
+      "evidence": "UI work across engine and app projects.",
+      "limit": "UI work across engine and app projects.",
+      "aliases": [
+        "ui implementation",
+        "ui programming",
+        "umg",
+        "unity ui",
+        "hud",
+        "menus",
+        "game ui"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "physics-and-animation-systems",
+      "name": "Physics and animation systems",
+      "tier": "important",
+      "asked_for": "Working with, not just against",
+      "status": "held",
+      "evidence": "Custom engine covers both; Haply work is multi-physics environments.",
+      "limit": "",
+      "aliases": [
+        "physics",
+        "animation systems",
+        "animation",
+        "physics engine",
+        "ragdoll",
+        "character animation",
+        "state machines",
+        "animation blueprints"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "agile-in-a-studio",
+      "name": "Agile in a studio",
+      "tier": "important",
+      "asked_for": "Sprints, milestones, producers",
+      "status": "not_yet",
+      "evidence": "",
+      "limit": "",
+      "aliases": [
+        "agile",
+        "scrum",
+        "sprints",
+        "jira",
+        "milestones",
+        "production pipeline",
+        "agile development"
+      ],
+      "updated": "2026-09-14",
+      "note": "Same gap as every other lane: he has not worked inside a team process.",
+      "evidence_from_note": false
+    },
+    {
+      "id": "blender-or-maya",
+      "name": "Blender or Maya",
+      "tier": "optional",
+      "asked_for": "Enough to handle and fix assets",
+      "status": "partial",
+      "evidence": "Enough to handle and fix assets",
+      "limit": "Enough to handle and fix assets",
+      "aliases": [
+        "blender",
+        "maya",
+        "3ds max",
+        "3d modelling",
+        "3d modeling",
+        "asset pipeline",
+        "3d assets"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": true
+    },
+    {
+      "id": "multiplayer-and-networking",
+      "name": "Multiplayer and networking",
+      "tier": "optional",
+      "asked_for": "Narrows the market when absent, but rarely junior-required",
+      "status": "not_yet",
+      "evidence": "",
+      "limit": "",
+      "aliases": [
+        "multiplayer",
+        "networking",
+        "netcode",
+        "online",
+        "replication",
+        "photon",
+        "mirror",
+        "network programming"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "console-certification",
+      "name": "Console certification",
+      "tier": "optional",
+      "asked_for": "Platform-holder requirements",
+      "status": "not_yet",
+      "evidence": "",
+      "limit": "",
+      "aliases": [
+        "console",
+        "playstation",
+        "xbox",
+        "nintendo switch",
+        "trc",
+        "console development"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "game-jams",
+      "name": "Game jams",
+      "tier": "optional",
+      "asked_for": "The cheapest credible way to show finished work and teamwork",
+      "status": "not_yet",
+      "evidence": "",
+      "limit": "",
+      "aliases": [
+        "game jam",
+        "game jams",
+        "ludum dare",
+        "itch.io"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "engine-architecture-at-team-scale",
+      "name": "Engine architecture at team scale",
+      "tier": "later",
+      "asked_for": "Senior territory",
+      "status": "not_yet",
+      "evidence": "",
+      "limit": "",
+      "aliases": [
+        "engine architecture",
+        "engine programming",
+        "core tech",
+        "engine development"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    },
+    {
+      "id": "technical-direction",
+      "name": "Technical direction",
+      "tier": "later",
+      "asked_for": "Senior territory",
+      "status": "not_yet",
+      "evidence": "",
+      "limit": "",
+      "aliases": [
+        "technical director",
+        "technical direction",
+        "technical lead"
+      ],
+      "updated": "2026-09-14",
+      "note": "",
+      "evidence_from_note": false
+    }
+  ],
+  "positioning": "This lane is stronger than it looks on a resume summary. A junior applicant who has built a game engine from scratch in C++ and OpenGL with shaders, a rendering pipeline, animation, physics and collision is not a typical junior applicant, and neither is one who wrote C# to C++ interop for real-time haptics on a research project. Lead with the engine and the Haply work, in that order, because they demonstrate the thing studios actually screen for at junior level: can this person reason about systems and performance, or have they only followed tutorials.\n\nThe honest gap is the one every self-taught and recently-graduated game candidate has: no finished, playable thing that someone else has played. Death Bridge is in progress and a playable vertical slice would move this lane more than any additional skill. A game jam would do the same job faster and adds the team-working evidence he is missing everywhere.\n\nMost postings in this lane grade Tier B on current statuses, moving to Tier A once there is a playable build. Perforce is the one cheap named gap.",
+  "interview_watch": "Expect a technical screen on C++ or C# fundamentals and 3D maths, and expect questions about the engine project specifically since it is the most interesting thing on the resume. Be ready to explain a design decision inside it and what you would do differently. Expect \"what games do you play and what would you change about one\" for design-leaning seats, which rewards a specific mechanical answer over enthusiasm. For simulation and real-time roles, lead with Haply rather than Death Bridge.",
+  "pr_note": "",
+  "not_required": "Published shipped titles, AAA credits, or a games-specific degree beyond what he has. A posting hard-requiring shipped commercial titles has effectively failed the seniority gate.",
+  "notes": [
+    {
+      "heading": "Intro",
+      "text": "New in v3.5. NOC 21232, TEER 1. Read 00-index.md for the Status conventions and tier rules.\n\nThe headline finding. NOC 21232 Software developers and programmers is TEER 1, and its illustrative example titles include \"computer game developer\", \"interactive media developer\" and \"multimedia developer\". Game development is not a weaker code than software development. It is the same code. That means this lane carries the full PR value of lane 4: North Bay RCIP lists 21232, MPNP listed it as of v3.1 (re-verify), AIP covers it from a designated Atlantic employer, and Ontario's Workforce Priority stream takes it with a qualifying offer. This lane costs him nothing on the immigration side, which was the thing worth checking before building it."
+    },
+    {
+      "heading": "Credentials",
+      "text": "- Game Development: Advanced Programming, Fanshawe College, London ON (2023 to 2024). A named game development credential, which is what most junior game postings ask for and most junior applicants substitute a portfolio for. He has both. - Master of Computer Applications, Anna University (2020 to 2022). Carries the post-secondary credential requirement for the Ontario Workforce Priority stream."
+    },
+    {
+      "heading": "Sourcing notes",
+      "text": "Geography reality: the Canadian games market concentrates in Montreal, Toronto, Vancouver and Quebec City, with a real cluster in Kitchener-Waterloo that is commutable-adjacent from London. Montreal and Quebec City postings frequently require French, which is a language-gate drop, so expect Quebec yield to be low and do not read that as the lane being dry."
+    }
+  ],
+  "links": [
+    "linkedin",
+    "code",
+    "dev"
+  ],
+  "persona": "game_dev",
+  "version": "3.5",
+  "source_updated": "2026-09-14",
+  "source_file": "lanes/source/lane-11-game-development.md",
+  "source_sha256": "d201c7a268d488fc51bdd17b1f41f05e35c5f8557eab1da994ed6159f7bc26c1"
+}
