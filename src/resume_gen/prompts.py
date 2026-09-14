@@ -19,7 +19,9 @@ GLOBAL RULES:
   metrics, team sizes, counts, percentages, or years of experience.
 - Use the target posting's terminology only where the profile supports it.
 - Preserve each job's real function. Never recast an unrelated role as a different
-  profession. Bullets must paraphrase facts from that same profile role.
+  profession. Every bullet must trace back to a fact from that same profile role,
+  restructured into the X-Y-Z shape below - restructuring is required, inventing
+  content is forbidden.
 - Use the candidate's exact identity and contact details.
 - Avoid filler, clichés, em/en dashes, and unsupported seniority.
 
@@ -28,9 +30,40 @@ RESUME:
 - Set `headline` to an empty string. Do not add a role label beneath the name.
 - Use a factual 2-3 sentence summary.
 - Order real skills and experience by relevance. Include all relevant roles.
-- Use up to 5 concise action-led bullets for recent/highly relevant roles and 2-3
-  for older/less relevant roles. Quantify only numbers explicitly present.
+- Use up to 5 bullets for recent/highly relevant roles and 2-3 for older ones.
 - Include factual education/certifications and list reflected job keywords.
+
+BULLETS - GOOGLE X-Y-Z FORMAT (this governs every experience bullet):
+Write each bullet as "Accomplished [X], as measured by [Y], by doing [Z]" - the
+result first, the measure of it, then the action that produced it. Write natural
+prose on one line; never print the literal words "X", "Y", "Z", "as measured by",
+or any bracketed template.
+  X = the OUTCOME, not the task.
+  Y = the MEASURE. Use a number ONLY if that exact figure appears in
+      CANDIDATE_PROFILE. Never invent, estimate or round one - a fabricated figure
+      is worse than none and will be stripped. With no figure available, measure it
+      concretely in words: what became accurate, audit-ready, repeatable, compliant,
+      faster to release, or unblocked, and across what scope. Vague intensifiers
+      ("significantly", "greatly", "drastically") are NOT a measure - omit them.
+  Z = the specific method, tool or system named in THAT role's facts.
+
+RESTRUCTURE, DO NOT RESTATE. A bullet that re-words the fact in the same order has
+FAILED. The fact gives you Z; work out the X it achieved and the Y that shows it,
+then put X first. Study the reordering - neither example invents a number:
+
+  fact:  "Document every customer interaction in CRM systems with accuracy,
+          keeping account records clean and audit-ready."
+  WRONG: "Document every customer interaction accurately in CRM systems."
+  RIGHT: "Kept collections records audit-ready under daily contact volume by
+          logging every customer interaction accurately in CRM systems."
+
+  fact:  "Built data integration pipelines connecting frontend dashboards to
+          backend services through REST APIs, handling ingestion, transformation
+          and validation."
+  WRONG: "Built data integration pipelines connecting dashboards to backend
+          services through REST APIs."
+  RIGHT: "Kept dashboards reporting trustworthy figures by building REST API
+          pipelines that validated data through ingestion and transformation."
 
 COVER LETTER:
 - Custom to this company and role, confident and natural, under 180 words.
@@ -64,17 +97,52 @@ RULES — follow exactly:
      Hadoop, etc. if they are not listed);
    - a job title more senior than the one in the profile (use the EXACT title given);
    - attributing a skill/tool to a role whose facts do not mention it.
-   Every experience bullet must paraphrase a specific fact from THAT role in the profile.
+   Every experience bullet must trace back to a specific fact from THAT role in the
+   profile — but restructured into the X-Y-Z shape required by rule 3, not copied
+   or lightly reworded. Restructuring is required; inventing content is forbidden.
 2. TAILOR. Reorder and emphasise the experience, skills, and wording most relevant to
    TARGET_ROLE. Mirror the job description's real terminology and keywords wherever it
    is truthful to do so (this is what ATS systems scan for). But NEVER recast a role as
    a different function than it actually was: a customer-service / collections / finance
    role stays that — do not relabel it as sales, marketing, or development. Any role
    marked PRESERVE must keep its bullets close to the given facts with minimal rephrasing.
-3. BULLETS. Each experience bullet starts with a strong action verb, is one line,
-   and focuses on outcome/impact. Quantify only with numbers that already exist in
-   CANDIDATE_PROFILE — never fabricate figures. Use up to 5 bullets for recent or
+3. BULLETS — GOOGLE X-Y-Z FORMAT. Write every experience bullet as
+   "Accomplished [X], as measured by [Y], by doing [Z]": the result first, the
+   measure of that result, then the action that produced it. Express it as natural
+   prose on one line starting with a strong past-tense action verb — never print
+   the literal words "X", "Y", "Z", "as measured by", or any bracketed template.
+     - X = the OUTCOME, not the task. "Kept account records audit-ready", not
+       "Was responsible for documenting accounts".
+     - Y = the MEASURE. Use a number ONLY IF THAT EXACT FIGURE APPEARS IN
+       CANDIDATE_PROFILE. Never invent, estimate, infer or round one — a fabricated
+       figure is worse than no figure, and it will be stripped. When the profile
+       gives no figure, measure it concretely in words instead: what became
+       accurate, audit-ready, repeatable, compliant, faster to release, or
+       unblocked, and across what scope. Vague intensifiers ("significantly",
+       "greatly", "dramatically", "drastically") are NOT a measure — omit them.
+     - Z = the specific method, tool, or system named in THAT role's facts.
+   Lead with the result, not the technology. Use up to 5 bullets for recent or
    highly relevant roles, and 2–3 for older or less relevant ones.
+
+   RESTRUCTURE, DO NOT RESTATE. A bullet that simply re-words the fact in the same
+   order has FAILED this rule. The fact tells you what was done (Z); you must work
+   out what it achieved (X) and how that shows (Y), then put X first. Worked
+   examples — study the reordering, and note that neither invents a number:
+
+     fact:  "Document every customer interaction in CRM systems with accuracy,
+             keeping account records clean and audit-ready."
+     WRONG: "Document every customer interaction accurately in CRM systems."
+             (restated the fact, result buried, still starts with the task)
+     RIGHT: "Kept collections records audit-ready under daily contact volume by
+             logging every customer interaction accurately in CRM systems."
+
+     fact:  "Built data integration pipelines connecting frontend dashboards to
+             backend services through REST APIs, handling ingestion,
+             transformation and validation."
+     WRONG: "Built data integration pipelines connecting dashboards to backend
+             services through REST APIs."
+     RIGHT: "Kept dashboards reporting trustworthy figures by building REST API
+             pipelines that validated data through ingestion and transformation."
 4. SUMMARY + HEADLINE. Set `headline` to an empty string. Do not add a target-role
    title, professional label, tagline, or descriptor beneath the candidate's name.
    Write a 2–3 sentence summary aimed at TARGET_ROLE, grounded only in real facts;
@@ -184,20 +252,36 @@ RULES:
 1. TRUTH ONLY. Use only real facts from CANDIDATE_PROFILE. Never invent employers, tools,
    metrics, years-of-experience figures, team sizes, percentages, or titles. If unsure,
    stay general but truthful.
-2. OPENER: ONE short, confident opening sentence that reacts to THIS specific posting and
-   fits THIS field (a marketing role, an IT-support role, a developer role, a sales role,
-   etc. — never assume software unless the role is software). It should sound natural for the
-   actual job, e.g. tie the candidate's day-to-day work to the role. Do NOT start every email
-   the same way.
-3. HOOK: ONE or TWO short sentences naming the candidate's real, specific experience that
-   matches the role's real requirements/terminology. Concrete, not generic.
-4. Casual and direct, first person, contractions (I'm, I've). Sound like a real person, not a
-   cover letter. No corporate filler. NEVER use em dashes or en dashes. Do NOT put a slash
-   between words. Avoid AI-tells ("I am excited to", "I am writing to", "leverage",
-   "passionate about", "results-driven", "detail-oriented").
-5. Write ONLY these two lines. Do NOT greet, do NOT mention attachments, a portfolio, links,
+2. OPENER: ONE short sentence that starts with the WORK, not with the candidate and not
+   with the posting. Lead with a specific, concrete observation about what this role
+   actually involves, then connect it to what the candidate genuinely does. It must fit
+   THIS field (marketing, IT support, developer, sales, QA, analyst — never assume
+   software unless the role is software), and must read differently for every posting.
+   BANNED openers, they are clichés or read as desperate:
+     "caught my eye", "I came across", "I saw your posting", "I am writing to",
+     "I would like to apply", "I am excited/thrilled/eager", "I hope this finds you well",
+     "As a recent graduate", "I believe I would be a great fit", "Please consider".
+   GOOD: "Most service desk work lives or dies on how cleanly tickets get documented,
+   which is the part I have spent the last year doing at volume."
+3. HOOK: ONE or TWO short sentences of EVIDENCE, not self-assessment. Name the real thing
+   the candidate built, ran, or fixed, and what it produced, in the posting's own
+   terminology. Never claim a trait about yourself, because a trait cannot be checked:
+   write "I built the REST pipelines that fed our reporting dashboards", never "I am a
+   fast learner", "I move fast without dropping quality", "I am detail-oriented", or
+   "I am passionate about". Show the work and let the reader draw the conclusion.
+4. REGISTER: a competent peer writing to another professional, not someone asking for a
+   favour. Confident, warm, straightforward. Never plead, apologise, over-thank, flatter
+   the company, or beg for consideration ("any opportunity", "even a chance", "I would be
+   grateful", "please let me know if there is any way"). Do not oversell either: no
+   superlatives about yourself, no "perfect fit", no exclamation marks.
+5. STYLE: first person, contractions (I'm, I've), plain words, active voice. Each sentence
+   does one job. No corporate filler ("leverage", "synergy", "results-driven",
+   "detail-oriented", "hit the ground running", "wear many hats", "value-add"). NEVER use
+   em dashes or en dashes. Do NOT put a slash between words. No semicolons. Vary sentence
+   length so it reads like a person wrote it.
+6. Write ONLY these two lines. Do NOT greet, do NOT mention attachments, a portfolio, links,
    a call, or any sign-off. Those are added automatically.
-6. OUTPUT. Return ONE valid JSON object: {"opener": "...", "hook": "..."} and nothing else."""
+7. OUTPUT. Return ONE valid JSON object: {"opener": "...", "hook": "..."} and nothing else."""
 
 
 # --------------------------------------------------------------------------- #

@@ -139,8 +139,8 @@ def generate_application_draft(
 # truth-only, pulled from the profile. No em dashes (humanize_email strips them).
 # --------------------------------------------------------------------------- #
 _HOOK_FALLBACK = (
-    "I have spent the last few years running real client projects end to end, from the "
-    "first brief to the thing that actually goes live, and I move fast without dropping quality."
+    "I have run client projects end to end, from the first brief through to the build that "
+    "goes live and the maintenance after it, so I am used to owning the whole thing."
 )
 
 
@@ -187,8 +187,9 @@ def _portfolio_line(profile: dict, attached: bool = True) -> str:
     if not parts:
         return "My resume is attached." if attached else ""
     if attached:
-        return "My resume is attached. If it is easier to just see the work, " + " and ".join(parts) + "."
-    return "If you would like to see the work, " + " and ".join(parts) + "."
+        return "My resume is attached, and the work itself is easier to judge directly: " \
+               + " and ".join(parts) + "."
+    return "The work itself is easier to judge directly: " + " and ".join(parts) + "."
 
 
 def _worklink_line(profile: dict) -> str:
@@ -212,8 +213,10 @@ def _short_location(profile: dict) -> str:
 
 
 def _greeting(contact_name: str) -> str:
+    """Name it when we know it; otherwise "Hello," reads cleaner and less generic
+    to a stranger than "Hi there,"."""
     n = (contact_name or "").strip()
-    return f"Hi {n}," if n else "Hi there,"
+    return f"Hi {n}," if n else "Hello,"
 
 
 def _uses_hermes(model: str | None) -> bool:
@@ -230,20 +233,26 @@ def generate_email(target: TargetRole, profile: dict | None = None, persona: dic
     profile = profile or load_profile()
     role = (target.title or "the role").strip()
     # The dynamic, model-generated pieces: a role-appropriate opener + a fit hook.
+    # Always model-write these two lines, even in Hermes fast mode: they are the only
+    # part of the email that is specific to this posting, and two short sentences are
+    # cheap next to sending a template that reads like everyone else's.
     opener = hook = ""
-    if not (settings.hermes_fast_mode and _uses_hermes(kw.get("model"))):
-        try:
-            eh = chat_structured(EMAIL_HOOK_SYSTEM, _context(profile, target, persona), EmailHook, **kw)
-            opener, hook = (eh.opener or "").strip(), (eh.hook or "").strip()
-        except Exception:
-            opener = hook = ""
+    try:
+        eh = chat_structured(EMAIL_HOOK_SYSTEM, _context(profile, target, persona), EmailHook, **kw)
+        opener, hook = (eh.opener or "").strip(), (eh.hook or "").strip()
+    except Exception:
+        opener = hook = ""
     body = "\n\n".join([
         _greeting(contact_name),
-        opener or f"Your {role} posting caught my eye, it lines up closely with what I do day to day.",
+        # Fallback only. Must obey the same rules as the prompt: no "I am writing to",
+        # no "caught my eye", result-oriented rather than pleading.
+        opener or f"The {role} work you have posted is close to what I already do day to day.",
         hook or _HOOK_FALLBACK,
         _worklink_line(profile),
-        "Happy to walk through any of it on a quick call whenever suits you.",
-        _signoff_block(profile, "Thanks for your time,"),
+        # Straightforward and low-pressure: one clear next step, offered rather than
+        # begged for. No "whenever suits you", no over-thanking.
+        "If it is worth a conversation, I am easy to reach.",
+        _signoff_block(profile, "Best regards,"),
     ])
     name = _signoff_name(profile)
     loc = _short_location(profile)
