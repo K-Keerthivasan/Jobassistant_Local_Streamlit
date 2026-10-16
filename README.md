@@ -48,6 +48,17 @@ docker compose -f docker/docker-compose.yml up -d --build
 #   -> Resume Studio at http://localhost:8088/
 ```
 
+For current Hermes releases, start the host-side generation bridge before using
+the **Hermes (agent)** engine in Resume Studio:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File tools/start_hermes_bridge.ps1
+```
+
+The launcher binds port 8642 on the host so Docker's `host.docker.internal`
+route can reach it, and requires the `HERMES_API_KEY` from `.env` for every
+request.
+
 Full install (profile, personas, sources, scraper collector, Tampermonkey, n8n) is
 in [`docs/setup.md`](docs/setup.md). What's stored and how to back up / reset:
 [`docs/data-and-privacy.md`](docs/data-and-privacy.md).
@@ -94,6 +105,8 @@ The rule the whole upgrade enforces in code: **a skill the matrix marks `buildin
 screening answer or outreach email. `tests/test_lane_guard.py` is the proof.
 
 ## Docs
+
+- [`application-mcp/README.md`](application-mcp/README.md) — regular Chrome application MCP service, extension setup, verified uploads, popup handling, per-site mappings and application evidence
 
 - [`docs/chatgpt-codex-automation.md`](docs/chatgpt-codex-automation.md) — ChatGPT/Codex browser automation with a final yes/no gate
 

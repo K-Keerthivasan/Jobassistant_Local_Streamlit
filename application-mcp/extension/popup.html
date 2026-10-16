@@ -1,0 +1,29 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Resume Studio Bridge</title>
+  </head>
+  <body style="font: 14px system-ui; width: 330px; padding: 12px">
+    <h2>Resume Studio Bridge</h2>
+    <p>
+      Use this extension in your main Chrome profile. Sign in and save passwords
+      directly in Chrome.
+    </p>
+    <pre id="status" style="white-space: pre-wrap"></pre>
+    <button id="connect">Connect</button>
+    <p>
+      To recover a moved or reopened application, select its tab, enter its
+      dashboard ID and adopt it.
+    </p>
+    <input id="application" placeholder="Application ID" /><button id="adopt">
+      Adopt current tab
+    </button>
+    <p>
+      <a href="http://127.0.0.1:8091" target="_blank"
+        >Open application dashboard</a
+      >
+    </p>
+    <script src="popup.js"></script>
+  </body>
+</html>

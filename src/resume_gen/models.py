@@ -3,7 +3,7 @@ told to return, so we can validate the model's JSON before rendering anything.""
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from pydantic import AliasChoices, BaseModel, Field
 
 
 # --------------------------------------------------------------------------- #
@@ -74,7 +74,10 @@ class ApplicationDraft(BaseModel):
     """Fast-path response: one model call produces both long-form artifacts."""
 
     resume: Resume
-    cover_letter: CoverLetter
+    # Agents often mirror the camelCase used everywhere else in the schema.
+    cover_letter: CoverLetter = Field(
+        validation_alias=AliasChoices("cover_letter", "coverLetter")
+    )
 
 
 class ApplicationEmail(BaseModel):
@@ -100,6 +103,19 @@ class ScreeningAnswer(BaseModel):
     """A first-person answer to one application screening question."""
 
     answer: str
+
+
+class NumberedAnswer(BaseModel):
+    """One answer in a batch, keyed to its question's number."""
+
+    id: int
+    answer: str
+
+
+class ScreeningAnswers(BaseModel):
+    """Answers to several screening questions, returned from one model call."""
+
+    answers: list[NumberedAnswer]
 
 
 class JobExtract(BaseModel):

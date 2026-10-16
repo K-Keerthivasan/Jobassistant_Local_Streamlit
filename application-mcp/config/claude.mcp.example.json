@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "resume-studio-chrome-applications": {
+      "command": "node",
+      "args": ["E:/Dev-Projects/Automatic-Resume-Generator/application-mcp/dist/proxy.js"],
+      "cwd": "E:/Dev-Projects/Automatic-Resume-Generator"
+    }
+  }
+}

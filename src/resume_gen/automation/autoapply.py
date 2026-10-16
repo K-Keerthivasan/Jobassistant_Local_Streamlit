@@ -389,10 +389,11 @@ def plan_screening_answers(questions: list[dict], target: TargetRole | None,
 
     Failures are captured per question so one bad item can't sink a whole form.
     """
-    from ..generate import generate_answer
+    from ..generate import generate_answers
 
     profile = profile or {}
     out = []
+    pending: list[tuple[dict, str]] = []    # (entry, prompt) drafted in one call below
     for field in questions or []:
         question = (field.get("label") or field.get("question")
                     or field.get("name") or "").strip()
@@ -459,21 +460,31 @@ def plan_screening_answers(questions: list[dict], target: TargetRole | None,
                 if options:
                     ask += ("\n\nChoose exactly one of these options and reply with it "
                             "verbatim: " + " | ".join(options))
-                try:
-                    entry["answer"] = generate_answer(
-                        ask, target, model=model, max_words=max_words
-                    )
-                    entry["source"] = "new"
-                    entry["verified"] = False
-                except Exception as e:
-                    entry["error"] = str(e)
-                    entry["source"] = "failed"
+                pending.append((entry, ask))
 
         if entry["answer"] and options:
             entry["answer"], entry["snapped_to_option"] = _snap_to_option(
                 entry["answer"], options
             )
         out.append(entry)
+
+    # Every question that needs a fresh draft shares ONE model call, so a form
+    # with many unbanked questions costs the same as a form with one.
+    if pending:
+        results = generate_answers([(ask, "") for _, ask in pending], target,
+                                   model=model, max_words=max_words)
+        for (entry, _), res in zip(pending, results):
+            if isinstance(res, Exception):
+                entry["error"] = str(res)
+                entry["source"] = "failed"
+                continue
+            entry["answer"] = res
+            entry["source"] = "new"
+            entry["verified"] = False
+            if res and entry["options"]:
+                entry["answer"], entry["snapped_to_option"] = _snap_to_option(
+                    res, entry["options"]
+                )
     return out
 
 

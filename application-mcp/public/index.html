@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Resume Studio · Applications</title>
+    <style>
+      body {
+        font: 16px system-ui;
+        background: #f4f6f9;
+        color: #172335;
+        margin: 0 auto;
+        max-width: 1150px;
+        padding: 32px;
+      }
+      h1 {
+        margin: 0;
+      }
+      header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      button,
+      input,
+      select {
+        font: inherit;
+        padding: 9px;
+        margin: 4px;
+        border: 1px solid #bac5d4;
+        border-radius: 6px;
+      }
+      button {
+        cursor: pointer;
+        background: white;
+      }
+      button.primary {
+        background: #244ecd;
+        color: white;
+      }
+      section,
+      article {
+        background: white;
+        border: 1px solid #d9e0e9;
+        padding: 22px;
+        margin: 20px 0;
+        border-radius: 12px;
+      }
+      pre {
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+        background: #f1f4f8;
+        padding: 14px;
+        max-height: 500px;
+        overflow: auto;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      td,
+      th {
+        text-align: left;
+        padding: 10px;
+        border-bottom: 1px solid #e1e5ec;
+      }
+      .muted {
+        color: #526074;
+      }
+      #error {
+        color: #a31525;
+      }
+      a {
+        color: #244ecd;
+      }
+      .badge {
+        border-radius: 20px;
+        padding: 4px 10px;
+        background: #e4ebfc;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div>
+        <h1>Application workspace</h1>
+        <p class="muted">
+          Regular Chrome · One job at a time · Approval before submission
+        </p>
+      </div>
+      <a href="http://127.0.0.1:8088">Resume Studio ↗</a>
+    </header>
+    <p id="health"></p>
+    <p id="error" role="alert"></p>
+    <section>
+      <h2>Generated jobs from the past seven days</h2>
+      <button id="queue">Refresh queue</button>
+      <div id="candidates"></div>
+    </section>
+    <section>
+      <h2>Current application</h2>
+      <select id="applications"></select
+      ><button id="refresh">Refresh</button><button id="stop">Stop all</button>
+      <div id="current"></div>
+    </section>
+    <section>
+      <h2>Confirmed reusable answer</h2>
+      <p class="muted">
+        Enter only an answer you have personally confirmed. Consent and
+        demographic choices are never reused.
+      </p>
+      <input id="question" placeholder="Exact question" /><input
+        id="answer"
+        placeholder="Confirmed answer"
+      /><button id="save-answer">Save confirmed answer</button>
+    </section>
+    <script src="/dashboard.js"></script>
+  </body>
+</html>

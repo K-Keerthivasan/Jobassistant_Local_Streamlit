@@ -99,10 +99,14 @@ def chat_structured(system: str, user: str, schema: Type[T], *, model: str | Non
                 return hermes_client.chat_structured(system, user, schema, model=model, **kw)
             except Exception as e:
                 # Hermes failed mid-call → fall back to local Ollama so the run still
-                # completes, and record it for the UI notice.
-                used = settings.ollama_model
-                _record_fallback(f"{schema.__name__}: {type(e).__name__}")
+                # completes, and record it for the UI notice. Without a reachable
+                # Ollama, surface the real Hermes error instead of a connection error.
                 from . import ollama_client
+                if not ollama_client.health():
+                    print(f"[ai] Hermes failed, Ollama unreachable: {e}", flush=True)
+                    raise
+                used = settings.ollama_model
+                _record_fallback(f"{schema.__name__}: {type(e).__name__}: {str(e)[:300]}")
                 return ollama_client.chat_structured(system, user, schema, model=used, **kw)
         from . import ollama_client
         return ollama_client.chat_structured(system, user, schema, model=model, **kw)

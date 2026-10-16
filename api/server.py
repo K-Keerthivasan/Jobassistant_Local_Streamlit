@@ -865,8 +865,9 @@ def _resolve_answer_target(job_key: str, company: str, title: str,
 @app.post("/answers")
 def answers(req: MultiAnswerRequest):
     """Answer several screening questions at once, each grounded in profile + job.
-    Per-question failures are returned inline so one bad item doesn't sink the batch."""
-    from resume_gen.generate import generate_answer
+    All questions share one model call. Per-question failures are returned inline
+    so one bad item doesn't sink the batch."""
+    from resume_gen.generate import generate_answers
 
     items = [it for it in (req.items or []) if it.question.strip()]
     if not items:
@@ -874,14 +875,14 @@ def answers(req: MultiAnswerRequest):
 
     target = _resolve_answer_target(req.job_key, req.company, req.title,
                                     req.description, req.location)
+    results = generate_answers([(it.question, it.draft) for it in items], target,
+                               model=req.model, max_words=req.max_words)
     out = []
-    for it in items:
-        try:
-            text = generate_answer(it.question, target, draft=it.draft,
-                                   model=req.model, max_words=req.max_words)
-            out.append({"question": it.question, "answer": text, "error": ""})
-        except Exception as e:
-            out.append({"question": it.question, "answer": "", "error": str(e)})
+    for it, res in zip(items, results):
+        if isinstance(res, Exception):
+            out.append({"question": it.question, "answer": "", "error": str(res)})
+        else:
+            out.append({"question": it.question, "answer": res, "error": ""})
     return {"answers": out}
 
 
@@ -2085,3 +2086,8 @@ def get_file(path: str):
 from api.upgrade_routes import register as _register_upgrade_routes  # noqa: E402
 
 _register_upgrade_routes(app)
+
+# Local regular-Chrome application engine; preserves the existing approval gate.
+from api.application_engine_routes import router as _application_engine_router  # noqa: E402
+
+app.include_router(_application_engine_router)

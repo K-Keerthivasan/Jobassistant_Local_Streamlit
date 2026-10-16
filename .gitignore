@@ -3,12 +3,16 @@ __pycache__/
 *.py[cod]
 *.egg-info/
 .venv/
+.venv-runtime/
 venv/
 .pytest_cache/
 
 # Env / secrets
 .env
 *.local
+.claude/settings.local.json
+tmp/*.log
+tmp/hermes-prompts/
 
 # Generated output (resumes, cover letters, emails)
 output/*

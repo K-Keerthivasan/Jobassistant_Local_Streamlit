@@ -1,0 +1,17 @@
+{
+  "manifest_version": 3,
+  "name": "Resume Studio Application Bridge",
+  "version": "0.1.0",
+  "description": "Connect your regular Chrome profile to your local Resume Studio application service.",
+  "permissions": [
+    "tabs",
+    "scripting",
+    "debugger",
+    "storage",
+    "webNavigation",
+    "alarms"
+  ],
+  "host_permissions": ["https://*/*", "http://127.0.0.1/*"],
+  "background": { "service_worker": "worker.js", "type": "module" },
+  "action": { "default_popup": "popup.html" }
+}

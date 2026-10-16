@@ -1,52 +1,17 @@
-[mcp_servers.resume_studio_browser]
-command = "npx.cmd"
-args = [
-    "-y",
-    "@playwright/mcp@latest",
-    "--browser",
-    "chrome",
-    "--user-data-dir",
-    'F:\Dev-Projects\Automatic-Resume-Generator\.pw-profile',
-    "--output-dir",
-    'F:\Dev-Projects\Automatic-Resume-Generator\data\job-applications\mcp-output',
-]
-cwd = 'F:\Dev-Projects\Automatic-Resume-Generator'
+# Main regular Chrome is controlled by the Resume Studio extension bridge.
+# Retired separate-profile browser configuration is backed up in engine/setup-backups.
+[mcp_servers.resume-studio]
+command = 'E:\Dev-Projects\Automatic-Resume-Generator\.venv-runtime\Scripts\python.exe'
+args = ['-m', 'resume_gen.mcp_server']
+cwd = 'E:\Dev-Projects\Automatic-Resume-Generator'
 startup_timeout_sec = 30
 tool_timeout_sec = 120
 enabled = true
 
-[mcp_servers.resume_studio_browser.tools.browser_navigate]
-approval_mode = "approve"
-
-[mcp_servers.resume_studio_browser.tools.browser_type]
-approval_mode = "approve"
-
-[mcp_servers.resume_studio_browser.tools.browser_click]
-approval_mode = "approve"
-
-[mcp_servers.resume_studio_browser.tools.browser_tabs]
-approval_mode = "approve"
-
-[mcp_servers.resume_studio_browser.tools.browser_select_option]
-approval_mode = "approve"
-
-[mcp_servers.resume_studio_browser.tools.browser_fill_form]
-approval_mode = "approve"
-
-[mcp_servers.resume_studio_browser.tools.browser_file_upload]
-approval_mode = "approve"
-
-[mcp_servers.resume_studio_browser.tools.browser_evaluate]
-approval_mode = "approve"
-
-[mcp_servers.playwright]
-command = "npx"
-args = [
-    "@playwright/mcp@latest",
-    "--browser",
-    "chrome",
-    "--user-data-dir",
-    'F:\Dev-Projects\Automatic-Resume-Generator\.pw-profile',
-    "--output-dir",
-    'F:\Dev-Projects\Automatic-Resume-Generator\data\job-applications\mcp-output',
-]
+[mcp_servers.resume-studio-chrome-applications]
+command = 'C:\Program Files\nodejs\node.exe'
+args = ['E:\Dev-Projects\Automatic-Resume-Generator\application-mcp\dist\proxy.js']
+cwd = 'E:\Dev-Projects\Automatic-Resume-Generator'
+startup_timeout_sec = 60
+tool_timeout_sec = 120
+enabled = true

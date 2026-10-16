@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "resume-studio": {
+      "command": "E:/Dev-Projects/Automatic-Resume-Generator/.venv-runtime/Scripts/python.exe",
+      "args": ["-m", "resume_gen.mcp_server"],
+      "cwd": "E:/Dev-Projects/Automatic-Resume-Generator"
+    },
+    "resume-studio-chrome-applications": {
+      "command": "node",
+      "args": ["E:/Dev-Projects/Automatic-Resume-Generator/application-mcp/dist/proxy.js"],
+      "cwd": "E:/Dev-Projects/Automatic-Resume-Generator"
+    }
+  }
+}

@@ -17,6 +17,7 @@ from .models import (
     JobExtract,
     Resume,
     ScreeningAnswer,
+    ScreeningAnswers,
     TargetRole,
 )
 from .personas import persona_directive
@@ -75,6 +76,81 @@ def generate_answer(question: str, target: TargetRole | None = None, *, draft: s
         )
     text = chat_structured(ANSWER_SYSTEM, user, ScreeningAnswer, model=model, **kw).answer
     return humanize_answer(text)
+
+
+_BATCH_ANSWER_RULE = (
+    "6. OUTPUT. You are given several numbered QUESTIONS. Answer each one separately, "
+    "applying rules 1 to 5 to every answer. A question that has its own MY_DRAFT follows "
+    'rule 3 for that answer only. Return ONE valid JSON object: {"answers": [{"id": 1, '
+    '"answer": "..."}, ...]} with exactly one entry per question id, and nothing else.'
+)
+
+
+def generate_answers(items: list[tuple[str, str]], target: TargetRole | None = None, *,
+                     profile: dict | None = None, model: str | None = None,
+                     max_words: int | None = None, **kw) -> list[str | Exception]:
+    """Answer several screening questions in ONE model call.
+
+    `items` is a list of (question, draft). The profile and job are sent once, not
+    once per question, so N questions cost one call. Returns one result per item, in
+    order: the answer, or the Exception that item failed with. A question the batch
+    reply leaves out is retried on its own, so nothing is silently dropped."""
+    if len(items) <= 1:
+        out: list[str | Exception] = []
+        for question, draft in items:
+            try:
+                out.append(generate_answer(question, target, draft=draft, profile=profile,
+                                           model=model, max_words=max_words, **kw))
+            except Exception as e:
+                out.append(e)
+        return out
+
+    profile = profile or load_profile()
+    t = target or TargetRole(company="", title="", description="")
+    blocks = []
+    for i, (question, draft) in enumerate(items, 1):
+        block = f"[{i}] QUESTION:\n{question.strip()}\n"
+        if draft.strip():
+            block += ("MY_DRAFT (rewrite THIS — keep its story and facts, only polish "
+                      "wording/flow):\n" + draft.strip() + "\n")
+        blocks.append(block)
+    user = (
+        "CANDIDATE_PROFILE:\n" + profile_to_prompt_block(profile) + "\n\n"
+        "TARGET_ROLE:\n"
+        f"  company: {t.company}\n  title: {t.title}\n  location: {t.location}\n"
+        f"  job_description: |\n    {(t.description or '').strip()}\n\n"
+        "QUESTIONS:\n" + "\n".join(blocks)
+    )
+    if max_words and max_words > 0:
+        user += (
+            f"\nLENGTH: Write about {max_words} words per answer. This is a HARD MAXIMUM "
+            f"for each answer. Answer each question directly and stop.\n"
+        )
+    system = ANSWER_SYSTEM.rsplit("6. OUTPUT.", 1)[0] + _BATCH_ANSWER_RULE
+
+    by_id: dict[int, str] = {}
+    batch_error: Exception | None = None
+    try:
+        reply = chat_structured(system, user, ScreeningAnswers, model=model, **kw)
+        by_id = {a.id: a.answer for a in reply.answers if (a.answer or "").strip()}
+    except Exception as e:
+        batch_error = e
+
+    results: list[str | Exception] = []
+    for i, (question, draft) in enumerate(items, 1):
+        if i in by_id:
+            results.append(humanize_answer(by_id[i]))
+        elif batch_error is not None:
+            # The whole call failed; retrying each question would multiply the cost
+            # of an outage, so report the failure for every item instead.
+            results.append(batch_error)
+        else:
+            try:
+                results.append(generate_answer(question, t, draft=draft, profile=profile,
+                                               model=model, max_words=max_words, **kw))
+            except Exception as e:
+                results.append(e)
+    return results
 
 
 def _context(profile: dict | None, target: TargetRole, persona: dict | None = None,
@@ -238,15 +314,17 @@ def generate_email(target: TargetRole, profile: dict | None = None, persona: dic
     profile = profile or load_profile()
     role = (target.title or "the role").strip()
     # The dynamic, model-generated pieces: a role-appropriate opener + a fit hook.
-    # Always model-write these two lines, even in Hermes fast mode: they are the only
-    # part of the email that is specific to this posting, and two short sentences are
-    # cheap next to sending a template that reads like everyone else's.
+    # In Hermes fast mode the application draft already consumed the full profile/JD
+    # context. Do not pay for a second agent session just for two email sentences;
+    # the deterministic, truth-only fallbacks below remain job-specific.
     opener = hook = ""
-    try:
-        eh = chat_structured(EMAIL_HOOK_SYSTEM, _context(profile, target, persona), EmailHook, **kw)
-        opener, hook = (eh.opener or "").strip(), (eh.hook or "").strip()
-    except Exception:
-        opener = hook = ""
+    email_model = kw.get("model")
+    if not (settings.hermes_fast_mode and _uses_hermes(email_model)):
+        try:
+            eh = chat_structured(EMAIL_HOOK_SYSTEM, _context(profile, target, persona), EmailHook, **kw)
+            opener, hook = (eh.opener or "").strip(), (eh.hook or "").strip()
+        except Exception:
+            opener = hook = ""
     body = "\n\n".join([
         _greeting(contact_name),
         # Fallback only. Must obey the same rules as the prompt: no "I am writing to",
