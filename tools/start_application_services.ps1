@@ -11,6 +11,9 @@ if (-not (Test-Path -LiteralPath $nodeEntry)) { throw 'Build application-mcp fir
 $config = Get-Content -LiteralPath $localConfig -Raw | ConvertFrom-Json
 if ($config.chromeExtensionId -notmatch '^[a-p]{32}$') { throw 'Configure the installed Chrome extension ID first.' }
 $env:APP_CHROME_EXTENSION_ID = $config.chromeExtensionId
+# Generation runs on Hermes through the local bridge on :8642. Without it every
+# generate request fails, so start it with the rest of the services.
+& (Join-Path $PSScriptRoot 'start_hermes_bridge.ps1')
 function Test-LocalService([string]$Url) {
     try { $response = Invoke-WebRequest -Uri $Url -UseBasicParsing -TimeoutSec 2; return $response.StatusCode -eq 200 } catch { return $false }
 }
