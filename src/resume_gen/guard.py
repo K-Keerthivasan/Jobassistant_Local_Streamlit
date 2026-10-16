@@ -40,18 +40,17 @@ def _profile_skill_text(profile: dict) -> str:
 
 
 def _display_location(profile: dict, target_location: str = "") -> str:
-    """Show the precise home city only for local jobs; for jobs elsewhere show
-    the broader location from the profile so applications remain appropriate."""
+    """Show the home address only for local jobs. GTA, remote and out-of-town
+    applications show no location at all (the document standard)."""
     c = profile.get("contact", {})
     full = c.get("location", "")
-    general = c.get("location_general", "") or full
     tl = (target_location or "").lower()
     home_city = full.split(",")[0].strip().lower() if full else ""
     if not tl:                      # no target info -> default to home
         return full
     if home_city and home_city in tl:   # job is in the home city -> show it
         return full
-    return general                  # remote / elsewhere -> broader true location
+    return ""                       # remote / elsewhere -> no location line
 
 
 def _profile_skills_flat(profile: dict) -> list[str]:
@@ -110,6 +109,31 @@ def _tokens(s: str) -> set[str]:
     return set(re.findall(r"[a-z0-9]+", (s or "").lower()))
 
 
+def _norm_title(s: str) -> str:
+    return re.sub(r"[^a-z0-9]+", " ", (s or "").lower()).strip()
+
+
+def _allowed_titles(match: dict) -> list[str]:
+    """The profile title first, then its approved alternative framings."""
+    return [t for t in [match.get("role", "")] + list(match.get("titles") or []) if t]
+
+
+def clean_headline(title: str) -> str:
+    """The posting title as printed beside the name: no requisition numbers,
+    no bracketed contract or location notes, no dashes."""
+    t = re.sub(r"\s*[\(\[][^)\]]*[\)\]]", "", title or "")
+    t = re.sub(r"\b(?:req(?:uisition)?|job)\s*(?:id|#|no\.?)?\s*[:#]?\s*[a-z0-9-]*\d[a-z0-9-]*",
+               "", t, flags=re.I)
+    t = re.sub(r"\s*[–—]\s*|\s+-\s+", ", ", t)
+    return re.sub(r"\s{2,}", " ", t).strip(" ,|-")
+
+
+def _summary_points_from(text: str) -> list[str]:
+    """Split a legacy paragraph summary into at most three sentence bullets."""
+    parts = [x.strip() for x in re.split(r"(?<=[.!?])\s+", text or "") if x.strip()]
+    return parts[:3]
+
+
 def _best_experience_match(gen, prof_exp: list[dict]) -> dict | None:
     """Match a generated experience entry to the profile role it came from, by
     token overlap on company (then role). Returns None if nothing plausibly
@@ -119,7 +143,9 @@ def _best_experience_match(gen, prof_exp: list[dict]) -> dict | None:
     best, best_score = None, 0.0
     for p in prof_exp:
         co = _tokens(p.get("company", ""))
-        role = _tokens(p.get("role", ""))
+        role = set()
+        for t in _allowed_titles(p):
+            role |= _tokens(t)
         score = len(gen_co & co) * 3 + len(gen_role & role)
         if score > best_score:
             best, best_score = p, score
@@ -224,6 +250,7 @@ def _grounded(atom: str, skill_text: str) -> bool:
 # --------------------------------------------------------------------------- #
 def enforce(resume: Resume, profile: dict, *, strict: bool = False,
             persona: dict | None = None, target_location: str = "",
+            target_title: str = "",
             extra_skills: list[str] | None = None,
             lane_ctx: dict | None = None,
             links: list | None = None) -> tuple[Resume, dict]:
@@ -261,11 +288,9 @@ def enforce(resume: Resume, profile: dict, *, strict: bool = False,
     )
 
     # --- HEADLINE + SUMMARY (strip invented "N years of experience" + metrics) --
-    # The target-role headline/tagline beneath the name was intentionally removed
-    # from the resume design. Clear it as a hard backstop for every model engine.
-    if resume.headline:
-        report.setdefault("headline_fixed", []).append(f"'{resume.headline}' -> ''")
-        resume.headline = ""
+    # The headline is the posting's own title, printed beside the name. It comes
+    # from the job, never from the model.
+    resume.headline = clean_headline(target_title)
 
     allowed_numbers = _numbers_in(_profile_number_text(profile))
 
@@ -277,10 +302,18 @@ def enforce(resume: Resume, profile: dict, *, strict: bool = False,
                 out = _strip_metrics(out)
         return out
 
-    new_summary = _clean_prose(resume.summary)
-    if new_summary != resume.summary:
+    # The career summary is three bullets. A model that returned a paragraph
+    # instead has it split into sentence bullets.
+    points = [p for p in (resume.summaryPoints or []) if (p or "").strip()]
+    if not points and (resume.summary or "").strip():
+        points = _summary_points_from(resume.summary)
+        report["summary_split_into_points"] = True
+    cleaned = [_clean_prose(p) for p in points]
+    if cleaned != points:
         report["summary_fixed"] = True
-        resume.summary = new_summary
+    resume.summaryPoints = [p for p in cleaned if p][:3]
+    if resume.summaryPoints:
+        resume.summary = ""
 
     # --- EDUCATION (verbatim from profile) ----------------------------------
     prof_edu = profile.get("education", [])
@@ -305,6 +338,8 @@ def enforce(resume: Resume, profile: dict, *, strict: bool = False,
     # Split into atoms and keep only the grounded ones, so a real skill isn't
     # dropped because of formatting and an unreal one ("./NET") isn't smuggled in.
     skill_text = _profile_skill_text(profile)
+    # An empty list is the model's call that this posting needs no skills section.
+    wants_skills = bool(resume.skills)
     kept: list[str] = []
     seen: set[str] = set()
     for s in resume.skills:
@@ -320,9 +355,9 @@ def enforce(resume: Resume, profile: dict, *, strict: bool = False,
             else:
                 report["skills_dropped"].append(atom)
 
-    # Backfill from the profile so a relevant Skills section always renders, even
-    # when the model returned too few grounded skills.
-    if len(kept) < 6:
+    # Backfill from the profile when a skills section was wanted but the model
+    # returned too few grounded skills.
+    if wants_skills and len(kept) < 6:
         filled = _backfill_skills(kept, profile, persona)
         added = [s for s in filled if s not in kept]
         if added:
@@ -348,14 +383,25 @@ def enforce(resume: Resume, profile: dict, *, strict: bool = False,
             kept_exp.append(e)
             continue
 
-        # company / role / dates / location are FACTS -> overwrite verbatim
-        # (kills inflated titles like 'Senior Software Engineer' for an 'Associate Developer').
+        # company / dates / location are FACTS -> overwrite verbatim. The title may be
+        # the profile title or one of its approved alternatives; anything else
+        # (e.g. 'Senior Software Engineer' for an 'Associate Developer') is reset.
         fixed = []
-        for fld, key in (("company", "company"), ("role", "role"),
+        allowed = {_norm_title(t): t for t in _allowed_titles(match)}
+        if _norm_title(e.role) in allowed:
+            e.role = allowed[_norm_title(e.role)]
+        else:
+            fixed.append(f"role '{e.role}' -> '{match.get('role', '')}'")
+            e.role = match.get("role", "")
+        e.dates = match.get("dates", "") or ""
+        for fld, key in (("company", "company"),
                          ("start", "start"), ("end", "end"), ("location", "location")):
             true_val = match.get(key, "")
             if true_val and getattr(e, fld).strip() != true_val:
-                fixed.append(f"{fld} '{getattr(e, fld)}' -> '{true_val}'")
+                # A blank location is not a correction worth flagging: the
+                # resume no longer prints per-role locations.
+                if getattr(e, fld).strip() or fld != "location":
+                    fixed.append(f"{fld} '{getattr(e, fld)}' -> '{true_val}'")
                 setattr(e, fld, true_val)
         if fixed:
             report.setdefault("experience_fixed", []).append(
@@ -387,10 +433,10 @@ def enforce(resume: Resume, profile: dict, *, strict: bool = False,
                     b = _strip_metrics(b)
             kept_bullets.append(b)
 
-        # Keep the resume full + truthful: top up thin roles from their real facts.
-        # Front (most-relevant) roles get more bullets, mirroring the prompt's intent.
+        # Top up a role the model left thin, from its real facts. Kept small: the
+        # resume is a one-page document and the length fitter trims what overflows.
         facts = match.get("facts", [])
-        target = (5 if idx < 2 else 3) if facts else len(kept_bullets)
+        target = (3 if idx == 0 else 1) if facts else len(kept_bullets)
         if facts and len(kept_bullets) < target:
             before = len(kept_bullets)
             kept_bullets = _topup_from_facts(kept_bullets, facts, target)
@@ -422,21 +468,24 @@ def enforce(resume: Resume, profile: dict, *, strict: bool = False,
             order.append(k)
     kept_exp = [by_role[k] for k in order]
 
-    # COMPLETENESS: never silently drop a REAL role. Append any profile role the
-    # model left out, with bullets straight from its facts (truthful). This keeps
-    # the model's prioritised order for what it chose, then adds the omitted real
-    # jobs after, so your full work history always appears (e.g. Certify).
-    present = {(_norm(e.company), _norm(e.role)) for e in kept_exp}
-    for i, p in enumerate(prof_exp):
-        if (_norm(p.get("company", "")), _norm(p.get("role", ""))) in present:
+    # COMPLETENESS: roles marked `always_include` appear on every resume; when the
+    # model left one out it is appended from its real facts. Other omitted roles
+    # were a relevance choice for a one-page resume; they are listed in the report
+    # so the omission is visible, never silent.
+    present = {_norm(e.company) for e in kept_exp}
+    for p in prof_exp:
+        if _norm(p.get("company", "")) in present:
             continue
         facts = list(p.get("facts", []))
+        if not p.get("always_include"):
+            report.setdefault("roles_omitted", []).append(p.get("company", ""))
+            continue
         if not facts:
             continue
         kept_exp.append(ExperienceItem(
             company=p.get("company", ""), role=p.get("role", ""),
             location=p.get("location", ""), start=p.get("start", ""),
-            end=p.get("end", ""), bullets=facts[:4]))
+            end=p.get("end", ""), dates=p.get("dates", "") or "", bullets=facts[:2]))
         report.setdefault("experience_added_from_profile", []).append(p.get("company", ""))
 
     resume.experience = kept_exp
@@ -449,9 +498,10 @@ def enforce(resume: Resume, profile: dict, *, strict: bool = False,
             ExperienceItem(
                 company=p.get("company", ""), role=p.get("role", ""),
                 location=p.get("location", ""), start=p.get("start", ""),
-                end=p.get("end", ""), bullets=list(p.get("facts", []))[: (5 if i < 2 else 3)],
+                end=p.get("end", ""), dates=p.get("dates", "") or "",
+                bullets=list(p.get("facts", []))[: (4 if i == 0 else 2)],
             )
-            for i, p in enumerate(prof_exp)
+            for i, p in enumerate(prof_exp) if p.get("always_include") or i < 3
         ]
 
     # --- LANE STATUS GUARD (matrix): building / not_yet never render ----------

@@ -144,6 +144,7 @@ def run(
 
     # Truth-guard (final backstop): hard-enforce identity/education/skills, strip metrics.
     resume, qa = enforce(resume, profile, strict=strict, persona=chosen,
+                         target_title=target.title,
                          target_location=target.location, lane_ctx=lane_ctx,
                          links=lane_links)
     qa["hermes_qa"] = hermes_qa_report
@@ -169,20 +170,24 @@ def run(
 
     doc_base = _document_base(target, getattr(resume, "fullName", "") or profile.get("full_name", ""))
 
-    # Auto-fit the résumé's typographic density so its REAL content fills ~2 pages
-    # (no fabrication — only font/spacing/margins scale), then page-validate. Renders
-    # to a temp dir only; nothing persists. Gated on make_pdf; fail-safe → density 1.0.
-    resume_density = 1.0
+    # Length: one full page, or two only when trimming the least relevant bullets
+    # and roles cannot fit one (then page two is at least half full). Decided from
+    # an estimate of the rendered height, so it runs in fast mode too. Trims only
+    # remove content and are listed in the QA report.
+    from .render.length import fit_length
+    resume, resume_density, qa["length"] = fit_length(resume, profile)
     if make_pdf and not settings.hermes_fast_mode:
+        # Refine the density against real renders (only font/spacing/margins scale).
         from .render.autofit import fit_resume
-        resume_density, qa["pages"] = fit_resume(resume, cover, doc_base, profile)
+        resume_density, qa["pages"] = fit_resume(
+            resume, cover, doc_base, profile, density=resume_density,
+            pages_target=qa["length"].get("pages_target", 1))
     elif make_pdf:
-        # Exact page fitting launches LibreOffice repeatedly (up to five renders).
-        # In fast mode keep generation responsive and use the standard density;
-        # the requested document is still rendered normally on download/send.
+        # Exact page fitting launches Word or LibreOffice several times. In fast mode
+        # the estimated density stands; documents still render normally on download.
         qa["pages"] = {
             "deferred": True,
-            "reason": "fast_mode_standard_density",
+            "reason": "fast_mode_estimated_density",
         }
 
     target_data = target.model_dump()

@@ -27,6 +27,9 @@ class ExperienceItem(BaseModel):
     location: str = ""
     start: str
     end: str
+    # Display override for irregular spans (e.g. two separate stints). Set by the
+    # truth-guard from the profile, never by the model.
+    dates: str = ""
     bullets: list[str] = Field(default_factory=list)
 
 
@@ -40,14 +43,20 @@ class Resume(BaseModel):
     """One valid JSON object the generator returns, per the prompt SCHEMA."""
 
     fullName: str
-    # Retained in stored/API JSON for backward compatibility. The resume layout no
-    # longer displays a target-role label beneath the candidate's name.
+    # The target job title, printed right-aligned beside the name. The truth-guard
+    # sets it from the posting title, so whatever the model returns is replaced.
     headline: str = Field(
         default="",
-        description="Legacy field; always return an empty string.",
+        description="The target job title exactly as posted.",
     )
     contact: Contact
-    summary: str
+    # Legacy paragraph summary. New resumes use `summaryPoints`; older stored runs
+    # still render their paragraph.
+    summary: str = ""
+    # Career summary as 3 short bullets (the current resume format).
+    summaryPoints: list[str] = Field(default_factory=list)
+    # Empty when the posting does not call for a skills section (the default for
+    # non-technical roles); the renderer then omits the section.
     skills: list[str] = Field(default_factory=list)
     experience: list[ExperienceItem] = Field(default_factory=list)
     education: list[EducationItem] = Field(default_factory=list)

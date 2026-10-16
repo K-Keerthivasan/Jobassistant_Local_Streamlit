@@ -138,6 +138,7 @@ def humanize_resume(resume: Resume) -> Resume:
     it never adds facts."""
     if resume.summary:
         resume.summary = _clean(resume.summary)
+    resume.summaryPoints = [_clean(p) for p in (resume.summaryPoints or [])]
     if resume.headline:
         resume.headline = deslash(dedash(resume.headline))
     resume.skills = [deslash(dedash(s)) for s in (resume.skills or [])]

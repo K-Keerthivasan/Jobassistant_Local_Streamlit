@@ -79,8 +79,9 @@ class LaneGuardTests(unittest.TestCase):
         r = _resume(["SQL"], ["Built Power BI dashboards from SQL queries for client reporting."],
                     summary="Analyst who builds Power BI dashboards. Expert in Tableau and Snowflake.")
         out, qa = enforce(r, PROFILE, strict=True, lane_ctx=self.ctx)
-        self.assertNotIn("Tableau", out.summary)
-        self.assertIn("Power BI", out.summary)
+        summary = " ".join(out.summaryPoints)
+        self.assertNotIn("Tableau", summary)
+        self.assertIn("Power BI", summary)
         self.assertEqual(qa["lane_guard"]["summary_flagged"], ["Tableau"])
 
     def test_no_lane_means_no_lane_guard(self):

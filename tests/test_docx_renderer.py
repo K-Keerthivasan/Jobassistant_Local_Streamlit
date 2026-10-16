@@ -47,12 +47,12 @@ class ResumeDocxAtsTests(unittest.TestCase):
             doc = Document(path)
 
         texts = [paragraph.text for paragraph in doc.paragraphs]
-        self.assertEqual(texts[0], "JORDAN SAMPLE")
-        # The headline/title is deliberately NOT rendered: the name is followed
-        # straight by the contact line. `Resume.headline` still exists on the
-        # model, it just doesn't reach the page.
+        # Name on the left, the target title right-aligned on the same line.
+        self.assertEqual(texts[0], "JORDAN SAMPLE\tTechnology Adoption Consultant")
         self.assertIn("jordan@example.com", texts[1])
-        self.assertNotIn("Technology Adoption Consultant", "\n".join(texts))
+        # Links print without the scheme.
+        self.assertIn("linkedin.com/in/jordan", texts[1])
+        self.assertNotIn("https://", texts[1])
         self.assertEqual(len(doc.tables), 0)
         self.assertNotIn("•", "\n".join(texts[:8]))
 
@@ -63,7 +63,7 @@ class ResumeDocxAtsTests(unittest.TestCase):
         ]
         self.assertEqual(
             heading_texts,
-            ["PROFESSIONAL SUMMARY", "SKILLS", "EXPERIENCE", "EDUCATION"],
+            ["CAREER SUMMARY", "SKILLS", "PROFESSIONAL EXPERIENCE", "EDUCATION"],
         )
 
         extracted = "\n".join(texts)

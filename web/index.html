@@ -1423,28 +1423,34 @@ function fallbackCopy(text, done) {
   ta.remove();
 }
 
+// Résumé text marks key phrases as **phrase**; the documents print them bold.
+const rich = s => esc(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/\*\*/g, '');
 function resumeHTML(r) {
   if (!r || !r.fullName) return '<div class="empty">No resume.</div>';
   const c = r.contact || {};
-  const links = (c.links || []).map(l => esc(l.label||l.url)).join(' · ');
-  const contact = [c.location, c.email, c.phone, links].filter(Boolean).join('  ·  ');
+  const links = (c.links || []).map(l => esc((l.url||'').replace(/^https?:\/\/(www\.)?/i, '').replace(/\/$/, '') || l.label)).join('  |  ');
+  const contact = [esc(c.location), esc(c.email), esc(c.phone), links].filter(Boolean).join('  |  ');
   const skills = (r.skills||[]).map(s => `<span>${esc(s)}</span>`).join('');
   const exp = (r.experience||[]).map(e => `
     <div class="job">
-      <div class="hd"><span class="co">${esc(e.company)}</span><span class="dt">${esc(e.start)} – ${esc(e.end)}</span></div>
-      <div class="ro">${esc(e.role)}${e.location ? ' · ' + esc(e.location) : ''}</div>
-      <ul>${(e.bullets||[]).map(b => `<li>${esc(b)}</li>`).join('')}</ul>
+      <div class="hd"><span class="co">${esc(e.role)}  |  ${esc(e.company)}</span><span class="dt">${esc(e.dates || [e.start, e.end].filter(Boolean).join(' to '))}</span></div>
+      <ul>${(e.bullets||[]).map(b => `<li>${rich(b)}</li>`).join('')}</ul>
     </div>`).join('');
   const edu = (r.education||[]).map(e =>
-    `<div class="edu"><b>${esc(e.credential)}</b> — ${esc(e.institution)}${e.year ? ', ' + esc(e.year) : ''}</div>`).join('');
+    `<div class="edu"><b>${esc(e.credential)}</b>  |  ${esc(e.institution)}${e.year ? ', ' + esc(e.year) : ''}</div>`).join('');
   const certs = (r.certifications||[]).length
     ? `<div class="sec">Certifications</div>${r.certifications.map(x=>`<div class="edu">${esc(x)}</div>`).join('')}` : '';
+  const points = r.summaryPoints || [];
+  const summary = points.length
+    ? `<ul>${points.map(p => `<li>${rich(p)}</li>`).join('')}</ul>`
+    : `<div>${rich(r.summary)}</div>`;
   return `<div class="doc">
     <h3>${esc(r.fullName)}</h3>
-    <div class="contact">${esc(contact)}</div>
-    <div class="sec">Summary</div><div>${esc(r.summary)}</div>
-    <div class="sec">Skills</div><div class="skills">${skills}</div>
-    <div class="sec">Experience</div>${exp}
+    ${r.headline ? `<div class="headline">${esc(r.headline)}</div>` : ''}
+    <div class="contact">${contact}</div>
+    <div class="sec">Career Summary</div>${summary}
+    ${skills ? `<div class="sec">Skills</div><div class="skills">${skills}</div>` : ''}
+    <div class="sec">Professional Experience</div>${exp}
     <div class="sec">Education</div>${edu}
     ${certs}
   </div>`;

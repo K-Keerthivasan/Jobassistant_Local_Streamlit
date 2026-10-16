@@ -1,11 +1,13 @@
 """Render validated Resume / CoverLetter models into styled .docx files using
-python-docx. Styling is defined here (acts as the template) and mirrors the
-clean look of the sample resumes: centred name header, contact line, ruled
-section headings, tight one-line bullets. ATS-safe (no text boxes / tables for
-content, real headings, standard fonts)."""
+python-docx. Styling is defined here (acts as the template) and follows the
+current resume format: name and target title on one line, a left-aligned contact
+line, navy ruled section headings, a bulleted career summary, "Title | Company"
+entries with right-aligned dates. ATS-safe (no text boxes / tables for content,
+real headings, standard fonts)."""
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 from docx import Document
@@ -32,6 +34,8 @@ SKILL_GROUP_LABELS = {
     "frontend_ui": "Frontend",
     "ai_automation": "AI & Automation",
     "game_dev": "Game Development",
+    "business_systems": "Business Systems",
+    "project_delivery": "Project Delivery",
     "data_analytics": "Data & Analytics",
     "qa_testing": "QA & Testing",
     "it_support": "IT Support",
@@ -45,28 +49,29 @@ SKILL_GROUP_LABELS = {
 
 
 def typo(k: float = 1.0) -> dict:
-    """Typography for the résumé at density ``k`` (1.0 == the original fixed
-    styling, so callers that don't scale are byte-identical). Higher k → larger
-    body font, looser line spacing, more section spacing, and wider margins, all
-    of which make the SAME real content occupy more vertical space. The auto-fit
-    search (render/autofit.py) picks the k that fills close to two pages."""
+    """Typography for the résumé at density ``k``. 1.0 is the standard one-page
+    look (11pt Arial, 0.5in margins, measured from the reference resume). Lower k tightens type, spacing and margins so
+    more real content fits one page; higher k loosens them so a short resume still
+    fills its page. The length fitter (render/length.py, render/autofit.py) picks k.
+    Nothing here changes content."""
     c = lambda v, lo, hi: max(lo, min(hi, v))   # clamp
-    # Font grows only gently (a 14pt résumé looks amateur); line spacing, paragraph
-    # spacing and margins carry most of the vertical expansion.
+    d = k - 1
     return {
-        "body": round(c(11.0 * (1 + (k - 1) * 0.45), 9.5, 12.5), 2),
-        "line": round(c(1.12 + (k - 1) * 0.85, 1.0, 1.5), 3),
-        "after": round(c(3.0 + (k - 1) * 12, 1.5, 9), 2),
-        "margin_in": round(c(0.75 + (k - 1) * 0.6, 0.6, 1.0), 3),
-        "heading_size": round(c(11.5 * (1 + (k - 1) * 0.4), 10.5, 13.5), 2),
-        "head_before": round(c(12.0 + (k - 1) * 14, 8, 22), 2),
-        "head_after": round(c(4.0 + (k - 1) * 5, 2, 9), 2),
-        "bullet_after": round(c(3.0 + (k - 1) * 10, 1.5, 9), 2),
-        "bullet_line": round(c(1.1 + (k - 1) * 0.85, 1.0, 1.45), 3),
-        "exp_before": round(c(7.0 + (k - 1) * 10, 4, 16), 2),
-        "skills_size": round(c(10.5 * (1 + (k - 1) * 0.4), 9.5, 12.0), 2),
-        "skills_after": round(c(2.0 + (k - 1) * 8, 1, 8), 2),
-        "small_size": round(c(10.0 * (1 + (k - 1) * 0.4), 9.0, 11.5), 2),  # dates, years
+        "body": round(c(11.0 * (1 + d * 0.5), 10.0, 12.0), 2),
+        "line": round(c(1.0 + d * 0.5, 1.0, 1.25), 3),
+        "after": round(c(2.0 + d * 8, 0.5, 6), 2),
+        "margin_in": round(c(0.5 + d * 0.5, 0.4, 0.8), 3),
+        "heading_size": round(c(12.0 * (1 + d * 0.3), 10.5, 13.0), 2),
+        "head_before": round(c(8.0 + d * 14, 4, 14), 2),
+        "head_after": round(c(3.0 + d * 5, 1.5, 6), 2),
+        "bullet_after": round(c(2.0 + d * 6, 0.5, 5), 2),
+        "bullet_line": round(c(1.0 + d * 0.5, 1.0, 1.25), 3),
+        "exp_before": round(c(5.0 + d * 8, 2, 10), 2),
+        "skills_size": round(c(10.5 * (1 + d * 0.5), 9.0, 11.5), 2),
+        "skills_after": round(c(1.0 + d * 5, 0, 4), 2),
+        "small_size": round(c(10.5 * (1 + d * 0.4), 9.0, 11.5), 2),  # dates, years
+        "name_size": round(c(15.0 * (1 + d * 0.3), 13.0, 18.0), 2),
+        "contact_size": round(c(9.0 * (1 + d * 0.3), 8.5, 10.0), 2),
     }
 
 
@@ -210,13 +215,38 @@ def _ats_safe_bullets(doc: Document) -> None:
         fonts.attrib.pop(qn("w:hint"), None)    # 'hint=default' re-selects Symbol
 
 
+_BOLD_RE = re.compile(r"\*\*(.+?)\*\*")
+
+
+def plain(text: str) -> str:
+    """Text with the **emphasis** markers removed."""
+    return (text or "").replace("**", "")
+
+
+def _rich(paragraph, text: str, *, size: float, color=None) -> None:
+    """Write `text`, turning **phrase** markers into bold runs. Unbalanced
+    markers are dropped rather than printed."""
+    color = color or DARK
+    if (text or "").count("**") % 2:
+        text = plain(text)
+    pos = 0
+    for m in _BOLD_RE.finditer(text or ""):
+        if m.start() > pos:
+            _run(paragraph, text[pos:m.start()], size=size, color=color)
+        _run(paragraph, m.group(1), bold=True, size=size, color=color)
+        pos = m.end()
+    if pos < len(text or ""):
+        _run(paragraph, text[pos:], size=size, color=color)
+
+
 def _bullet(doc: Document, text: str, t: dict | None = None):
     t = t or typo(1.0)
     p = doc.add_paragraph(style="List Bullet")
     p.paragraph_format.space_after = Pt(t["bullet_after"])
     p.paragraph_format.left_indent = Pt(14)
+    p.paragraph_format.first_line_indent = Pt(-10)
     p.paragraph_format.line_spacing = t["bullet_line"]
-    _run(p, text, size=t["body"])
+    _rich(p, text, size=t["body"])
     return p
 
 
@@ -230,21 +260,62 @@ def _tab_right(paragraph) -> None:
 
 
 # --------------------------------------------------------------------------- #
-# header (shared by resume + cover letter)
+# header + metadata (shared by resume + cover letter)
 # --------------------------------------------------------------------------- #
-def _header(doc: Document, full_name: str, contact) -> None:
-    name_p = doc.add_paragraph()
-    name_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    name_p.paragraph_format.space_after = Pt(1)
-    _run(name_p, full_name.upper(), bold=True, size=22, color=ACCENT)
+def _set_metadata(doc: Document, full_name: str, title: str) -> None:
+    """Author and title are the candidate's own. python-docx's template ships with
+    author "python-docx" and the comment "generated by python-docx"; both are
+    cleared so no tool trace survives into the .docx or the PDF made from it."""
+    cp = doc.core_properties
+    cp.author = full_name
+    cp.last_modified_by = full_name
+    cp.title = title
+    cp.subject = ""
+    cp.comments = ""
+    cp.keywords = ""
+    cp.category = ""
 
+
+def _display_url(url: str) -> str:
+    """'https://linkedin.com/in/kkvasan/' -> 'linkedin.com/in/kkvasan'."""
+    u = _re.sub(r"^https?://", "", (url or "").strip(), flags=_re.I)
+    u = _re.sub(r"^www\.", "", u, flags=_re.I)
+    return u.rstrip("/")
+
+
+def _contact_line(contact) -> str:
     parts = [contact.location, contact.email, contact.phone]
-    parts += [link.url for link in contact.links]
-    line = "  |  ".join(p for p in parts if p)
+    parts += [_display_url(link.url) for link in contact.links]
+    return "  |  ".join(p for p in parts if p)
+
+
+def _name_parts(full_name: str, profile: dict | None) -> tuple[str, str]:
+    """('KEERTHIVASAN', 'Keerthi') from the profile's resume_name and
+    preferred_name; falls back to the full name with no bracketed name."""
+    prof = profile or {}
+    shown = (prof.get("resume_name") or full_name or "").strip()
+    preferred = (prof.get("preferred_name") or "").strip()
+    if preferred and preferred.lower() == shown.lower():
+        preferred = ""
+    return shown.upper(), preferred
+
+
+def _header(doc: Document, full_name: str, contact, *, headline: str = "",
+            profile: dict | None = None, t: dict | None = None) -> None:
+    t = t or typo(1.0)
+    name, preferred = _name_parts(full_name, profile)
+    name_p = doc.add_paragraph()
+    name_p.paragraph_format.space_after = Pt(1)
+    _tab_right(name_p)
+    _run(name_p, name, bold=True, size=t["name_size"], color=ACCENT)
+    if preferred:
+        _run(name_p, f"  ({preferred})", size=t["name_size"] * 0.72, color=ACCENT)
+    if headline:
+        _run(name_p, f"\t{headline}", bold=True, size=t["body"] + 1, color=ACCENT)
+
     c = doc.add_paragraph()
-    c.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    c.paragraph_format.space_after = Pt(4)
-    _run(c, line, size=9.5, color=DARK)
+    c.paragraph_format.space_after = Pt(2)
+    _run(c, _contact_line(contact), size=t["contact_size"], color=DARK)
 
 
 # --------------------------------------------------------------------------- #
@@ -260,6 +331,19 @@ _MONTH_IDX = {m.lower(): i for i, m in enumerate(_MONTHS) if m}
 _MONTH_IDX.update({"january": 1, "february": 2, "march": 3, "april": 4, "june": 6,
                    "july": 7, "august": 8, "september": 9, "sept": 9, "october": 10,
                    "november": 11, "december": 12})
+
+
+def _date_range(start: str, end: str) -> str:
+    """'Aug 2024' + 'Nov 2024' -> 'Aug to Nov 2024'; '2023' + 'Present' ->
+    '2023 to Present'. Always "to", never a dash."""
+    a, b = _norm_date(start), _norm_date(end)
+    if not a or not b:
+        return a or b
+    ma = _re.fullmatch(r"([A-Z][a-z]{2}) (\d{4})", a)
+    mb = _re.fullmatch(r"([A-Z][a-z]{2}) (\d{4})", b)
+    if ma and mb and ma.group(2) == mb.group(2):
+        return f"{ma.group(1)} to {mb.group(1)} {mb.group(2)}"
+    return f"{a} to {b}"
 
 
 def _norm_date(s: str) -> str:
@@ -289,15 +373,21 @@ def render_resume(resume: Resume, out_path: Path, profile: dict | None = None,
                   density: float = 1.0) -> Path:
     t = typo(density)
     doc = Document()
-    doc.core_properties.title = f"{resume.fullName} - Resume"
-    doc.core_properties.subject = "Resume"
+    full_name = (profile or {}).get("full_name") or resume.fullName
+    _set_metadata(doc, full_name, f"{full_name} Resume")
     _base_styles(doc, t)
-    _header(doc, resume.fullName, resume.contact)
+    _header(doc, resume.fullName, resume.contact, headline=resume.headline,
+            profile=profile, t=t)
 
-    if resume.summary:
-        _heading(doc, "Professional Summary", t)
+    if resume.summaryPoints:
+        _heading(doc, "Career Summary", t)
+        for point in resume.summaryPoints:
+            _bullet(doc, point, t)
+    elif resume.summary:
+        # Runs stored before the bulleted summary still render their paragraph.
+        _heading(doc, "Career Summary", t)
         p = doc.add_paragraph()
-        _run(p, resume.summary, size=t["body"])
+        _rich(p, resume.summary, size=t["body"])
 
     if resume.skills:
         _heading(doc, "Skills", t)
@@ -316,24 +406,19 @@ def render_resume(resume: Resume, out_path: Path, profile: dict | None = None,
             _run(p, ", ".join(resume.skills), size=t["body"])
 
     if resume.experience:
-        _heading(doc, "Experience", t)
-        for e in resume.experience:
+        _heading(doc, "Professional Experience", t)
+        for i, e in enumerate(resume.experience):
             head = doc.add_paragraph()
-            head.paragraph_format.space_before = Pt(t["exp_before"])
-            head.paragraph_format.space_after = Pt(0)
+            head.paragraph_format.space_before = Pt(t["exp_before"] if i else 0)
+            head.paragraph_format.space_after = Pt(1)
             head.paragraph_format.keep_with_next = True
             _tab_right(head)
             _run(head, e.role, bold=True, size=t["body"])
             if e.company:
                 _run(head, f"  |  {e.company}", size=t["body"])
             # "to" for ranges: no em or en dashes anywhere in the document.
-            dates = " to ".join(d for d in (_norm_date(e.start), _norm_date(e.end)) if d)
-            _run(head, f"\t{dates}", size=t["small_size"], color=ACCENT)
-            if e.location:
-                loc = doc.add_paragraph()
-                loc.paragraph_format.space_after = Pt(2)
-                loc.paragraph_format.keep_with_next = True
-                _run(loc, e.location, size=9.5, italic=True)
+            dates = e.dates or _date_range(e.start, e.end)
+            _run(head, f"\t{dates}", size=t["small_size"], italic=True)
             for b in e.bullets:
                 _bullet(doc, b, t)
 
@@ -346,7 +431,8 @@ def render_resume(resume: Resume, out_path: Path, profile: dict | None = None,
             _run(p, ed.credential, bold=True, size=t["body"])
             _run(p, f"  |  {ed.institution}", size=t["body"])
             if ed.year:
-                _run(p, f"\t{ed.year}", size=t["small_size"], color=ACCENT)
+                year = _re.sub(r"\s*[-\u2013\u2014]\s*", " to ", ed.year)
+                _run(p, f"\t{year}", size=t["small_size"], italic=True)
 
     if resume.certifications:
         _heading(doc, "Certifications", t)
@@ -363,6 +449,7 @@ def render_resume(resume: Resume, out_path: Path, profile: dict | None = None,
 # --------------------------------------------------------------------------- #
 def render_cover_letter(cl: CoverLetter, out_path: Path) -> Path:
     doc = Document()
+    _set_metadata(doc, cl.fullName, f"{cl.fullName} Cover Letter")
     _base_styles(doc)
 
     name_p = doc.add_paragraph()

@@ -56,6 +56,12 @@ def profile_to_prompt_block(profile: dict) -> str:
     for e in profile.get("experience", []):
         add(f"  - {e.get('role', '')} | {e.get('company', '')}"
             f" | {e.get('location', '')} | {e.get('start', '')} to {e.get('end', '')}")
+        if e.get("titles"):
+            add(f"    alternative_titles: {' ; '.join(e['titles'])}")
+        if e.get("dates"):
+            add(f"    dates_worked: {e['dates']}")
+        if e.get("always_include"):
+            add("    ALWAYS_INCLUDE: this role appears on every resume.")
         if e.get("tags"):
             add(f"    relevance_tags: {', '.join(e['tags'])}")
         if e.get("preserve"):

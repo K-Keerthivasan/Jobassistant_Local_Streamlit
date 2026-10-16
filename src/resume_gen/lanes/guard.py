@@ -142,13 +142,26 @@ def apply_to_resume(resume: Resume, ctx: dict, *, strict: bool = False) -> tuple
                 report["bullets_flagged"].append(entry)
             new_bullets.append(b)
         e.bullets = new_bullets
+    def _scrub(text: str) -> str:
+        # Remove the offending sentence rather than the whole summary.
+        sentences = re.split(r"(?<=[.!?])\s+", text)
+        return " ".join(s for s in sentences if not _forbidden_hit(s)).strip()
+
     name = _forbidden_hit(resume.summary or "")
     if name:
         report["summary_flagged"].append(name)
         if strict:
-            # Remove the offending sentence rather than the whole summary.
-            sentences = re.split(r"(?<=[.!?])\s+", resume.summary)
-            resume.summary = " ".join(s for s in sentences if not _forbidden_hit(s)).strip()
+            resume.summary = _scrub(resume.summary)
+    kept_points = []
+    for point in resume.summaryPoints or []:
+        name = _forbidden_hit(point)
+        if name:
+            report["summary_flagged"].append(name)
+            if strict:
+                point = _scrub(point)
+        if point:
+            kept_points.append(point)
+    resume.summaryPoints = kept_points
     return resume, report
 
 

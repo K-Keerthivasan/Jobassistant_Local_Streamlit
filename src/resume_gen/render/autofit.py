@@ -1,12 +1,13 @@
-"""Auto-fit the résumé's typographic density so its REAL content fills close to
-two pages — never by inventing content, only by scaling font size, line spacing
-and margins (see docx_renderer.typo).
+"""Refine the résumé's density against a real render.
 
-The search renders the résumé to PDF a few times in a temp dir, measures how much
-of the last page is used, and walks the density up/down until the content lands
-in the target fill band. It runs ONCE at generation; the chosen density is stored
-in the run bundle and re-applied whenever the résumé is rendered for download, so
-downloads stay fast and deterministic. Fail-safe: any error returns density 1.0.
+render/length.py decides the page target (one page, or two when the content
+cannot fit one) and a starting density from an estimate. This module renders the
+résumé to PDF a few times in a temp dir and walks the density so the real
+document lands on that target: one page filled close to the bottom, or two pages
+with page two at least half full. Only font size, spacing and margins change,
+never content. It runs ONCE at generation; the chosen density is stored in the
+run bundle and re-applied whenever the résumé is rendered for download.
+Fail-safe: any error returns the starting density.
 """
 
 from __future__ import annotations
@@ -14,16 +15,11 @@ from __future__ import annotations
 import tempfile
 from pathlib import Path
 
-from ..config import settings
+from .length import DENSITIES, TWO_PAGE_MIN_FILL
 
-# Densities to try, compact → spacious. 1.00 == the original fixed styling.
-_DENSITIES = [0.92, 1.00, 1.10, 1.20, 1.30]
-_BASE_INDEX = 1                       # index of 1.00
-_MAX_STEPS = 3                        # extra renders beyond the first (cost guard)
-
-# Target fill of the whole two-page area. The user wants "comfortably into page 2"
-# (~75–90%): full page 1 plus roughly half-to-most of page 2.
-_FILL_LO, _FILL_HI = 0.75, 0.90
+_MAX_RENDERS = 4                      # cost guard (each render launches Word/LibreOffice)
+# A one-page résumé should run close to the bottom of the page.
+_ONE_PAGE_MIN_FILL = 0.88
 
 
 def _last_page_fill(pdf_path: Path, margin_in: float) -> tuple[int, float]:
@@ -56,62 +52,50 @@ def _last_page_fill(pdf_path: Path, margin_in: float) -> tuple[int, float]:
         return 0, 0.0
 
 
-def _overall_fill(pages: int, last_fill: float) -> float:
-    """Fraction of the two-page area filled."""
-    if pages <= 0:
-        return 0.0
-    if pages == 1:
-        return last_fill / 2.0
-    if pages == 2:
-        return (1.0 + last_fill) / 2.0
-    return 1.0                                 # 3+ pages: overflowing
+def _nearest_index(k: float) -> int:
+    return min(range(len(DENSITIES)), key=lambda i: abs(DENSITIES[i] - k))
 
 
-def fit_resume(resume, cover, doc_base: str, profile: dict) -> tuple[float, dict]:
-    """Pick the résumé density that best fills ~2 pages, then build the page
-    report (résumé at that density + the cover letter). Returns
-    ``(density, page_report)``. Fail-safe → ``(1.0, {})`` on any error."""
+def fit_resume(resume, cover, doc_base: str, profile: dict, *,
+               density: float = 1.0, pages_target: int = 1) -> tuple[float, dict]:
+    """Return ``(density, page_report)`` for the résumé rendered at the density
+    that best meets ``pages_target``, plus the cover letter's page check."""
     from .docx_renderer import render_cover_letter, render_resume, typo
     from .pagecheck import page_report
     from .pdf_export import to_pdf
 
+    min_fill = _ONE_PAGE_MIN_FILL if pages_target == 1 else TWO_PAGE_MIN_FILL
     try:
         with tempfile.TemporaryDirectory() as tmp:
             tmpdir = Path(tmp)
-            cache: dict[float, tuple[int, float, Path]] = {}
+            cache: dict[int, tuple[int, float, Path]] = {}
 
-            def measure(k: float):
-                if k in cache:
-                    return cache[k]
-                docx = tmpdir / f"{doc_base}_Resume_{int(round(k * 100))}.docx"
-                render_resume(resume, docx, profile, density=k)
-                pdf = Path(to_pdf(docx))
-                pages, fill = _last_page_fill(pdf, typo(k)["margin_in"])
-                cache[k] = (pages, fill, pdf)
-                return cache[k]
+            def measure(i: int):
+                if i not in cache:
+                    k = DENSITIES[i]
+                    docx = tmpdir / f"{doc_base}_Resume_{int(round(k * 100))}.docx"
+                    render_resume(resume, docx, profile, density=k)
+                    pdf = Path(to_pdf(docx))
+                    pages, fill = _last_page_fill(pdf, typo(k)["margin_in"])
+                    cache[i] = (pages, fill, pdf)
+                return cache[i]
 
-            i = _BASE_INDEX
-            pages, fill, pdf = measure(_DENSITIES[i])
-            for _ in range(_MAX_STEPS):
-                overall = _overall_fill(pages, fill)
-                if pages > 2 and i > 0:
-                    i -= 1                                   # overflow → tighten
-                elif pages < 2 and i < len(_DENSITIES) - 1:
-                    i += 1                                   # under a page → loosen
-                elif pages == 2 and overall < _FILL_LO and i < len(_DENSITIES) - 1:
-                    ni = i + 1                               # too sparse → try looser,
-                    np_, nf, npdf = measure(_DENSITIES[ni])  # but only if it stays ≤2pp
-                    if np_ <= 2:
-                        i, pages, fill, pdf = ni, np_, nf, npdf
-                        continue
-                    break
-                elif pages == 2 and overall > _FILL_HI and i > 0:
-                    i -= 1                                   # too dense → tighten a step
+            i = _nearest_index(density)
+            pages, fill, pdf = measure(i)
+            while len(cache) < _MAX_RENDERS:
+                if pages > pages_target and i > 0:
+                    i -= 1                                   # overflow: tighten
+                elif pages == pages_target and fill < min_fill and i < len(DENSITIES) - 1:
+                    np_, nf, npdf = measure(i + 1)           # sparse: loosen if it still fits
+                    if np_ != pages_target:
+                        break
+                    i += 1
+                elif pages < pages_target and i < len(DENSITIES) - 1:
+                    i += 1                                   # two-page target came up short
                 else:
-                    break                                    # in band (or can't improve)
-                pages, fill, pdf = measure(_DENSITIES[i])
+                    break
+                pages, fill, pdf = measure(i)
 
-            density = _DENSITIES[i]
             cover_pdf = None
             try:
                 cdocx = tmpdir / f"{doc_base}_Cover.docx"
@@ -119,6 +103,10 @@ def fit_resume(resume, cover, doc_base: str, profile: dict) -> tuple[float, dict
                 cover_pdf = to_pdf(cdocx)
             except Exception:
                 cover_pdf = None
-            return density, page_report(resume_pdf=pdf, cover_pdf=cover_pdf)
+            report = page_report(resume_pdf=pdf, cover_pdf=cover_pdf)
+            report["fit"] = {"method": "render", "pages_target": pages_target,
+                             "density": DENSITIES[i], "pages": pages,
+                             "last_page_fill": round(fill, 3)}
+            return DENSITIES[i], report
     except Exception:
-        return 1.0, {}
+        return density, {}

@@ -62,6 +62,12 @@ def validate_lane_set(lanes: dict[str, Lane], index: LanesIndex,
         p = DATA_DIR / "noc.json"
         noc_codes = (json.loads(p.read_text(encoding="utf-8")).get("codes", {}) if p.exists() else {})
 
+    try:
+        from ..personas import load_personas
+        known_personas = {p.get("id", "") for p in load_personas()}
+    except Exception:
+        known_personas = set()
+
     nums, slugs = set(), set()
     for e in index.lanes:
         if e.lane in nums:
@@ -77,6 +83,9 @@ def validate_lane_set(lanes: dict[str, Lane], index: LanesIndex,
                 problems.append(Problem("error", "lanes.index.json", f"lane {e.lane}: link key {key!r} not in portfolio_links"))
         if not e.persona:
             problems.append(Problem("error", "lanes.index.json", f"lane {e.lane}: persona (base resume mapping) missing"))
+        elif known_personas and e.persona not in known_personas:
+            problems.append(Problem("warning", "lanes.index.json",
+                                    f"lane {e.lane}: persona {e.persona!r} not in personas.yaml"))
 
     versions = set()
     for slug, lane in lanes.items():

@@ -1461,6 +1461,7 @@ def review(req: ReviewRequest):
             rw = rewrite_resume(resume, target, review=result, model=req.model,
                                 instructions=instr, confirmed_skills=confirmed)
             guarded, rw_qa = enforce(rw.resume, profile, persona=select_persona(tr),
+                                     target_title=tr.title,
                                      target_location=tr.location, extra_skills=confirmed)
             data["rewrite"] = guarded.model_dump()
             data["rewrite_changes"] = rw.changes

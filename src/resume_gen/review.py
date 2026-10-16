@@ -76,7 +76,12 @@ Be concise and concrete. Cap each list at about 6 items. Scores are integers 0-1
 def _resume_block(resume: Resume | dict[str, Any]) -> str:
     r = resume.model_dump() if isinstance(resume, Resume) else dict(resume or {})
     lines: list[str] = []
-    if r.get("summary"):
+    if r.get("headline"):
+        lines.append(f"TARGET TITLE: {r['headline']}")
+    if r.get("summaryPoints"):
+        lines.append("SUMMARY:")
+        lines.extend(f"  - {p}" for p in r["summaryPoints"])
+    elif r.get("summary"):
         lines.append(f"SUMMARY: {r['summary']}")
     if r.get("skills"):
         lines.append("SKILLS: " + ", ".join(map(str, r["skills"])))
@@ -215,7 +220,8 @@ ABSOLUTE TRUTH RULES (breaking any of these is a failure):
 - You MAY: reword bullets for impact and clarity, reorder bullets/skills to put the most
   role-relevant first, tighten the summary, and surface keywords from the job description
   ONLY where the candidate's existing facts already support them.
-- Keep the `headline` field empty. Do not add a role title, label, or tagline beneath the name.
+- Keep the `headline` field and the 3 `summaryPoints` bullets; you may tighten the bullets.
+- Keep an empty `skills` list empty: it means this posting needs no skills section.
 - If a job keyword is not supported by the candidate's real experience, leave it out — never fake it.
 
 Output the rewritten resume in the SAME schema as the input, plus a short `changes` list describing

@@ -186,6 +186,10 @@ def persona_directive(persona: dict | None) -> str:
     if persona.get("lead_with"):
         lines.append(f"  lead_with_experience: {persona['lead_with']}")
     if persona.get("foreground_skills"):
-        lines.append(f"  foreground_skills: {persona['foreground_skills']} "
-                     "(order the Skills section to lead with these; include 8-14 total)")
+        lines.append(f"  main_focus_skills: {persona['foreground_skills']} "
+                     "(lead the summary and bullets with these; if a Skills section is "
+                     "warranted, order it to lead with them)")
+    if persona.get("secondary_skills"):
+        lines.append(f"  secondary_skills: {persona['secondary_skills']} "
+                     "(supporting strengths: mention where the posting asks for them)")
     return "\n".join(lines) + "\n"

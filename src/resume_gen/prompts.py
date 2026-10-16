@@ -6,6 +6,49 @@ from __future__ import annotations
 from .models import ApplicationEmail, CoverLetter, Resume
 
 
+# Shared resume layout and content rules, used by the standalone resume prompt
+# and the fast-path draft prompt so the two never drift apart.
+RESUME_FORMAT = """1. ONE PAGE. The resume fills one page: a header, three summary bullets, the most
+   relevant experience, and education. Select, do not pad. Every line earns its place.
+2. HEADLINE. Set `headline` to the target job title exactly as posted. It prints
+   beside the candidate's name.
+3. CAREER SUMMARY. `summaryPoints` holds exactly 3 bullets of 15 to 25 words each,
+   aimed at THIS posting and grounded only in profile facts. Bullet 1: what the
+   candidate does that matches the role's core job. Bullet 2: the second requirement
+   the posting stresses, and how the candidate covers it. Bullet 3: the named tools,
+   systems and credentials that back it up. Set `summary` to an empty string.
+4. SKILLS SECTION, ONLY WHEN THE POSTING CALLS FOR ONE. When the posting lists
+   specific tools, languages, platforms or systems as requirements (typical for IT
+   support, QA, development, data, AI, game development and VFX roles), return 8 to 14
+   skills from the SKILLS inventory, ordered by how the posting ranks them. When it
+   does not (typical for product, project, marketing, sales, admin and content roles),
+   return an empty `skills` list and work the relevant tools into the summary and
+   bullets instead.
+5. WHICH ROLES. Include every role marked ALWAYS_INCLUDE. Add other roles only when
+   they are relevant to the posting. Order roles by relevance to the posting, not by
+   date: the most relevant role comes first.
+6. JOB TITLES. For each role use its profile title or ONE of its listed
+   alternative titles, whichever fits the posting best. Never write any other title.
+7. BULLETS. The most relevant role gets 4 to 6 bullets; other relevant roles get 2 to
+   3; ALWAYS_INCLUDE roles that are not relevant get 1. Each bullet:
+   - starts with a strong action verb, in present tense for a current role and past
+     tense for a finished one;
+   - says what was done, with which tool or method, for whom or to what end, using
+     only that role's facts, in the posting's own terms wherever that stays truthful;
+   - fits on one or two lines (12 to 28 words) and covers one idea;
+   - uses a number only if that exact figure is in the profile (the 95% first-contact
+     resolution rate is one), and never a vague intensifier ("significantly").
+   KEY PHRASES. In every summary bullet and experience bullet, wrap the one or two
+   phrases that most directly answer the posting's requirements in double asterisks,
+   e.g. "Lead **project kick-offs** with clients and vendors and set **project
+   timelines and milestones**." Each bolded phrase is 2 to 6 words; never bold a
+   whole bullet, a company name or a date.
+8. EDUCATION. List every education entry from the profile.
+9. STYLE. Canadian spelling. No em or en dashes: use "to" for ranges and commas or
+   pipes elsewhere. Plain text only, no symbols or tables in field values."""
+
+
+
 # Fast Hermes/Codex path: generate both long-form artifacts in one request so the
 # full factual profile and job description are not paid for twice. The structured
 # client supplies the JSON schema separately, so this prompt intentionally does
@@ -19,51 +62,12 @@ GLOBAL RULES:
   metrics, team sizes, counts, percentages, or years of experience.
 - Use the target posting's terminology only where the profile supports it.
 - Preserve each job's real function. Never recast an unrelated role as a different
-  profession. Every bullet must trace back to a fact from that same profile role,
-  restructured into the X-Y-Z shape below - restructuring is required, inventing
-  content is forbidden.
+  profession. Every bullet must trace back to a fact from that same profile role.
 - Use the candidate's exact identity and contact details.
 - Avoid filler, clichés, em/en dashes, and unsupported seniority.
 
 RESUME:
-- ATS-friendly plain content for a focused, well-filled two-page resume.
-- Set `headline` to an empty string. Do not add a role label beneath the name.
-- Use a factual 2-3 sentence summary.
-- Order real skills and experience by relevance. Include all relevant roles.
-- Use up to 5 bullets for recent/highly relevant roles and 2-3 for older ones.
-- Include factual education/certifications and list reflected job keywords.
-
-BULLETS - GOOGLE X-Y-Z FORMAT (this governs every experience bullet):
-Write each bullet as "Accomplished [X], as measured by [Y], by doing [Z]" - the
-result first, the measure of it, then the action that produced it. Write natural
-prose on one line; never print the literal words "X", "Y", "Z", "as measured by",
-or any bracketed template.
-  X = the OUTCOME, not the task.
-  Y = the MEASURE. Use a number ONLY if that exact figure appears in
-      CANDIDATE_PROFILE. Never invent, estimate or round one - a fabricated figure
-      is worse than none and will be stripped. With no figure available, measure it
-      concretely in words: what became accurate, audit-ready, repeatable, compliant,
-      faster to release, or unblocked, and across what scope. Vague intensifiers
-      ("significantly", "greatly", "drastically") are NOT a measure - omit them.
-  Z = the specific method, tool or system named in THAT role's facts.
-
-RESTRUCTURE, DO NOT RESTATE. A bullet that re-words the fact in the same order has
-FAILED. The fact gives you Z; work out the X it achieved and the Y that shows it,
-then put X first. Study the reordering - neither example invents a number:
-
-  fact:  "Document every customer interaction in CRM systems with accuracy,
-          keeping account records clean and audit-ready."
-  WRONG: "Document every customer interaction accurately in CRM systems."
-  RIGHT: "Kept collections records audit-ready under daily contact volume by
-          logging every customer interaction accurately in CRM systems."
-
-  fact:  "Built data integration pipelines connecting frontend dashboards to
-          backend services through REST APIs, handling ingestion, transformation
-          and validation."
-  WRONG: "Built data integration pipelines connecting dashboards to backend
-          services through REST APIs."
-  RIGHT: "Kept dashboards reporting trustworthy figures by building REST API
-          pipelines that validated data through ingestion and transformation."
+{RESUME_FORMAT}
 
 COVER LETTER (four paragraphs, no filler opener):
 1. Open on the strongest credential or piece of evidence for THIS role, anchored
@@ -80,7 +84,7 @@ Under 260 words. Canadian spelling. No em or en dashes.
 Return only the single structured object required by the supplied schema."""
 
 # --------------------------------------------------------------------------- #
-# RESUME — exact spec provided by the user
+# RESUME
 # --------------------------------------------------------------------------- #
 RESUME_SYSTEM = """You are an expert resume writer and career strategist. You produce ATS-friendly,
 recruiter-ready resumes tailored to a specific job.
@@ -89,101 +93,44 @@ You will be given:
 - CANDIDATE_PROFILE: the candidate's complete, factual background.
 - TARGET_ROLE: the company, job title, and job description for one specific opening.
 
-RULES — follow exactly:
-1. TRUTH ONLY. Use only facts present in CANDIDATE_PROFILE. Never invent or inflate
-   employers, dates, titles, degrees, certifications, metrics, or skills. If the role
-   asks for something the candidate does not have, do not claim it. SPECIFICALLY BANNED
-   (these are lies unless the exact fact is in CANDIDATE_PROFILE):
-   - any "N years of experience" claim or total years figure (the profile has none);
-   - team sizes, headcounts, user/customer counts, percentages, or any metric not
-     written verbatim in a profile fact;
-   - publications, papers, awards, or certifications not listed;
-   - technologies/tools not in the SKILLS inventory (e.g. do not add PyTorch, AWS,
-     Hadoop, etc. if they are not listed);
-   - a job title more senior than the one in the profile (use the EXACT title given);
-   - attributing a skill/tool to a role whose facts do not mention it.
-   Every experience bullet must trace back to a specific fact from THAT role in the
-   profile — but restructured into the X-Y-Z shape required by rule 3, not copied
-   or lightly reworded. Restructuring is required; inventing content is forbidden.
-2. TAILOR. Reorder and emphasise the experience, skills, and wording most relevant to
-   TARGET_ROLE. Mirror the job description's real terminology and keywords wherever it
-   is truthful to do so (this is what ATS systems scan for). But NEVER recast a role as
-   a different function than it actually was: a customer-service / collections / finance
-   role stays that — do not relabel it as sales, marketing, or development. Any role
-   marked PRESERVE must keep its bullets close to the given facts with minimal rephrasing.
-3. BULLETS — GOOGLE X-Y-Z FORMAT. Write every experience bullet as
-   "Accomplished [X], as measured by [Y], by doing [Z]": the result first, the
-   measure of that result, then the action that produced it. Express it as natural
-   prose on one line starting with a strong past-tense action verb — never print
-   the literal words "X", "Y", "Z", "as measured by", or any bracketed template.
-     - X = the OUTCOME, not the task. "Kept account records audit-ready", not
-       "Was responsible for documenting accounts".
-     - Y = the MEASURE. Use a number ONLY IF THAT EXACT FIGURE APPEARS IN
-       CANDIDATE_PROFILE. Never invent, estimate, infer or round one — a fabricated
-       figure is worse than no figure, and it will be stripped. When the profile
-       gives no figure, measure it concretely in words instead: what became
-       accurate, audit-ready, repeatable, compliant, faster to release, or
-       unblocked, and across what scope. Vague intensifiers ("significantly",
-       "greatly", "dramatically", "drastically") are NOT a measure — omit them.
-     - Z = the specific method, tool, or system named in THAT role's facts.
-   Lead with the result, not the technology. Use up to 5 bullets for recent or
-   highly relevant roles, and 2–3 for older or less relevant ones.
+TRUTH ONLY. Use only facts present in CANDIDATE_PROFILE. Never invent or inflate
+employers, dates, titles, degrees, certifications, metrics, or skills. If the role asks
+for something the candidate does not have, do not claim it. SPECIFICALLY BANNED unless
+the exact fact is in CANDIDATE_PROFILE: any "N years of experience" figure; team sizes,
+headcounts, counts, percentages or any metric not written in a profile fact;
+publications, awards or certifications not listed; tools not in the SKILLS inventory;
+attributing a tool to a role whose facts do not mention it. Never recast a role as a
+different function: a collections role stays a collections role. Any role marked
+PRESERVE keeps its bullets close to its facts.
 
-   RESTRUCTURE, DO NOT RESTATE. A bullet that simply re-words the fact in the same
-   order has FAILED this rule. The fact tells you what was done (Z); you must work
-   out what it achieved (X) and how that shows (Y), then put X first. Worked
-   examples — study the reordering, and note that neither invents a number:
+{RESUME_FORMAT}
 
-     fact:  "Document every customer interaction in CRM systems with accuracy,
-             keeping account records clean and audit-ready."
-     WRONG: "Document every customer interaction accurately in CRM systems."
-             (restated the fact, result buried, still starts with the task)
-     RIGHT: "Kept collections records audit-ready under daily contact volume by
-             logging every customer interaction accurately in CRM systems."
+TONE. Professional, specific, concise. No clichés or filler ("hardworking team player",
+"results-driven", "synergy", "passionate", "leverage").
 
-     fact:  "Built data integration pipelines connecting frontend dashboards to
-             backend services through REST APIs, handling ingestion,
-             transformation and validation."
-     WRONG: "Built data integration pipelines connecting dashboards to backend
-             services through REST APIs."
-     RIGHT: "Kept dashboards reporting trustworthy figures by building REST API
-             pipelines that validated data through ingestion and transformation."
-4. SUMMARY + HEADLINE. Set `headline` to an empty string. Do not add a target-role
-   title, professional label, tagline, or descriptor beneath the candidate's name.
-   Write a 2–3 sentence summary aimed at TARGET_ROLE, grounded only in real facts;
-   no invented duration, scale, or metrics.
-5. SKILLS. List skills ordered by relevance to TARGET_ROLE. Only skills the candidate
-   actually has.
-6. LENGTH. Target a focused, well-filled TWO-PAGE resume. Include ALL relevant roles
-   from CANDIDATE_PROFILE, ordered most-relevant first; only omit genuinely irrelevant
-   material. Do not pad — every line must earn its place, but do not over-compress to
-   one page either.
-7. ATS. Keep it parser-friendly: standard section content, plain text, real words and
-   dates (no tables, columns, graphics, or decorative symbols in the field values).
-8. TONE. Professional, specific, concise. No clichés or filler (e.g. avoid
-   "hardworking team player", "results-driven", "synergy").
-9. OUTPUT. Return ONE valid JSON object matching the SCHEMA below, and nothing else —
-   no markdown, no code fences, no commentary, no trailing text.
+OUTPUT. Return ONE valid JSON object matching the SCHEMA below, and nothing else: no
+markdown, no code fences, no commentary.
 
 SCHEMA:
 {
   "fullName": "string",
-  "headline": "string — always empty",
+  "headline": "string: the target job title exactly as posted",
   "contact": {
     "email": "string",
     "phone": "string",
     "location": "string",
     "links": [ { "label": "string", "url": "string" } ]
   },
-  "summary": "string",
-  "skills": [ "string" ],
+  "summary": "string: always empty",
+  "summaryPoints": [ "string: exactly 3 career summary bullets" ],
+  "skills": [ "string: empty list unless the posting calls for a skills section" ],
   "experience": [
     {
       "company": "string",
-      "role": "string",
+      "role": "string: the profile title or one of its listed alternatives",
       "location": "string",
-      "start": "string — e.g. 'Jan 2023'",
-      "end": "string — e.g. 'Present'",
+      "start": "string, e.g. 'Jan 2023'",
+      "end": "string, e.g. 'Present'",
       "bullets": [ "string" ]
     }
   ],
@@ -191,8 +138,14 @@ SCHEMA:
     { "institution": "string", "credential": "string", "year": "string" }
   ],
   "certifications": [ "string" ],
-  "keywordsMatched": [ "string — JD keywords you intentionally reflected, for QA" ]
+  "keywordsMatched": [ "string: JD keywords you intentionally reflected, for QA" ]
 }"""
+
+
+# Both prompts embed RESUME_FORMAT. Literal braces in the schemas rule out
+# str.format, so the placeholder is substituted directly.
+APPLICATION_DRAFT_SYSTEM = APPLICATION_DRAFT_SYSTEM.replace("{RESUME_FORMAT}", RESUME_FORMAT)
+RESUME_SYSTEM = RESUME_SYSTEM.replace("{RESUME_FORMAT}", RESUME_FORMAT)
 
 
 # --------------------------------------------------------------------------- #
