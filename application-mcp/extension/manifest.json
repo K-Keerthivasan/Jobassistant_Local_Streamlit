@@ -9,9 +9,11 @@
     "debugger",
     "storage",
     "webNavigation",
-    "alarms"
+    "alarms",
+    "notifications"
   ],
   "host_permissions": ["https://*/*", "http://127.0.0.1/*"],
   "background": { "service_worker": "worker.js", "type": "module" },
-  "action": { "default_popup": "popup.html" }
+  "action": { "default_popup": "popup.html" },
+  "icons": { "128": "icon128.png" }
 }

@@ -4,6 +4,7 @@ import { mkdir, open, readFile, unlink } from "node:fs/promises";
 import { StdioServerTransport } from "@modelcontextprotocol/server/stdio";
 import { Store } from "./store.js";
 import { ChromeBridge } from "./bridge.js";
+import { payloadFor, shouldNotify } from "./notify.js";
 import { Service } from "./service.js";
 import { Studio } from "./studio.js";
 import { makeMcp } from "./tools.js";
@@ -60,6 +61,12 @@ async function lock() {
 await lock();
 const store = new Store(path.join(data, "applications.sqlite"));
 const bridge = new ChromeBridge();
+// One desktop notification per barrier change, for the kinds switched on in
+// the dashboard's notification settings.
+store.onSave = (previous, next) => {
+  const barrier = shouldNotify(previous, next, store.notifySettings());
+  if (barrier) bridge.notify({ ...payloadFor(next, barrier) });
+};
 const service = new Service(store, bridge, new Studio(), root, [
   path.join(root, "data/job-applications"),
 ]);

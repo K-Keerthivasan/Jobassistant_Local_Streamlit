@@ -210,6 +210,34 @@ async function command(op, args) {
   if (op === "click") await new Promise((r) => setTimeout(r, 600));
   return result.result;
 }
+// Barrier notifications from the application service. Clicking one brings the
+// tracked application tab (or the dashboard) to the front.
+async function notify(args) {
+  await chrome.notifications.create("rs-" + Date.now(), {
+    type: "basic",
+    iconUrl: "icon128.png",
+    title: String(args.title || "Resume Studio"),
+    message: String(args.message || ""),
+    priority: 2,
+    requireInteraction: args.barrier !== "result",
+  });
+  await chrome.storage.session.set({ notifiedApplication: args.applicationId || "" });
+}
+chrome.notifications.onClicked.addListener(async (notificationId) => {
+  await ready;
+  chrome.notifications.clear(notificationId);
+  const { notifiedApplication } = await chrome.storage.session.get("notifiedApplication");
+  if (session?.tabId && (!notifiedApplication || session.applicationId === notifiedApplication)) {
+    try {
+      const tab = await chrome.tabs.update(session.tabId, { active: true });
+      await chrome.windows.update(tab.windowId, { focused: true });
+      return;
+    } catch {
+      /* Tab closed: fall through to the dashboard. */
+    }
+  }
+  await chrome.tabs.create({ url: "http://127.0.0.1:8091/", active: true });
+});
 function connect() {
   if (socket && [0, 1].includes(socket.readyState)) return;
   socket = new WebSocket("ws://127.0.0.1:8091/bridge");
@@ -219,6 +247,12 @@ function connect() {
       data = JSON.parse(event.data);
       if (data.op === "ping") {
         socket.send(JSON.stringify({ id: data.id, result: { alive: true } }));
+        return;
+      }
+      if (data.op === "notify") {
+        // Notifications never wait behind a running browser operation.
+        await notify(data.args || {});
+        socket.send(JSON.stringify({ id: data.id, result: { shown: true } }));
         return;
       }
       if (busy) throw new Error("A browser operation is already running.");

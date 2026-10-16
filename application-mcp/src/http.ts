@@ -5,6 +5,7 @@ import { WebSocketServer } from "ws";
 import { z } from "zod";
 import { toolset } from "./tools.js";
 import { outputSchema } from "./schema.js";
+import { BARRIERS } from "./notify.js";
 import type { Service } from "./service.js";
 import type { ChromeBridge } from "./bridge.js";
 
@@ -176,6 +177,26 @@ export function httpServer(
           );
           return;
         }
+      }
+      if (u.pathname === "/notifications" && req.method === "GET") {
+        json({ barriers: BARRIERS, settings: s.store.notifySettings() });
+        return;
+      }
+      if (u.pathname === "/notifications" && req.method === "POST") {
+        const update = z.record(z.string(), z.boolean()).parse(await body(req));
+        json({ barriers: BARRIERS, settings: s.store.notifySettings(update) });
+        return;
+      }
+      if (u.pathname === "/notifications/test" && req.method === "POST") {
+        await body(req);
+        const sent = bridge.notify({
+          applicationId: "",
+          barrier: "other",
+          title: "Resume Studio notifications are on",
+          message: "You will see one of these at each application barrier you switched on.",
+        });
+        json({ sent }, sent ? 200 : 409);
+        return;
       }
       const toolMatch = u.pathname.match(/^\/tools\/([a-z_]+)$/);
       if (req.method === "POST" && toolMatch && toolMatch[1] in tools) {

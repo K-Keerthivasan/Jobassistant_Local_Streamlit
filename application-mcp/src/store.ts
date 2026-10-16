@@ -1,8 +1,16 @@
 import Database from "better-sqlite3";
 import type { Application } from "./schema.js";
+import { defaultSettings, type NotifySettings } from "./notify.js";
+
+/** Called after every save with the previous state and reason (undefined for a new application). */
+export type SaveListener = (
+  previous: Pick<Application, "state" | "reason"> | undefined,
+  next: Application,
+) => void;
 
 export class Store {
   db: Database.Database;
+  onSave?: SaveListener;
   constructor(file: string) {
     this.db = new Database(file);
     this.db.pragma("journal_mode = WAL");
@@ -13,6 +21,7 @@ export class Store {
       CREATE TABLE IF NOT EXISTS events (id INTEGER PRIMARY KEY, application_id TEXT, at TEXT, kind TEXT, data TEXT);
       CREATE TABLE IF NOT EXISTS templates (host TEXT PRIMARY KEY, data TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS site_mappings (host TEXT NOT NULL, label TEXT NOT NULL, data TEXT NOT NULL, PRIMARY KEY(host,label));
+      CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, data TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS migrations (version INTEGER PRIMARY KEY);
       INSERT OR IGNORE INTO migrations VALUES (1);`);
     // Never replay a click after a crash. Require investigation of its visible result.
@@ -34,13 +43,41 @@ export class Store {
     }
   }
   save(a: Application) {
+    const prior = this.db
+      .prepare("SELECT data FROM applications WHERE id=?")
+      .get(a.id) as { data: string } | undefined;
+    const previous = prior ? (JSON.parse(prior.data) as Application) : undefined;
     a.updatedAt = new Date().toISOString();
     this.db
       .prepare(
         "INSERT INTO applications VALUES (?,?,?,?) ON CONFLICT(id) DO UPDATE SET state=excluded.state,data=excluded.data",
       )
       .run(a.id, a.input.jobUrl, a.state, JSON.stringify(a));
+    try {
+      this.onSave?.(
+        previous && { state: previous.state, reason: previous.reason },
+        a,
+      );
+    } catch {
+      /* A notification problem must never block saving an application. */
+    }
     return a;
+  }
+  notifySettings(update?: Partial<NotifySettings>): NotifySettings {
+    const row = this.db
+      .prepare("SELECT data FROM settings WHERE key='notifications'")
+      .get() as { data: string } | undefined;
+    const current = { ...defaultSettings(), ...(row ? JSON.parse(row.data) : {}) };
+    if (update) {
+      for (const [k, v] of Object.entries(update))
+        if (k in current && typeof v === "boolean") (current as any)[k] = v;
+      this.db
+        .prepare(
+          "INSERT INTO settings VALUES ('notifications',?) ON CONFLICT(key) DO UPDATE SET data=excluded.data",
+        )
+        .run(JSON.stringify(current));
+    }
+    return current;
   }
   get(id: string): Application {
     const row = this.db

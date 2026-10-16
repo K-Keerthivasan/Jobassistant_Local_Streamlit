@@ -43,6 +43,19 @@ export class ChromeBridge implements Browser {
       this.pending.clear();
     });
   }
+  /** Fire-and-forget desktop notification through the extension. Returns
+   * false when Chrome is not connected; never throws. */
+  notify(payload: Record<string, unknown>): boolean {
+    if (!this.socket || this.socket.readyState !== 1) return false;
+    try {
+      this.socket.send(
+        JSON.stringify({ id: randomUUID(), op: "notify", args: payload }),
+      );
+      return true;
+    } catch {
+      return false;
+    }
+  }
   command(op: string, args: Record<string, unknown>): Promise<unknown> {
     if (!this.socket || this.socket.readyState !== 1)
       return Promise.reject(

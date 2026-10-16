@@ -283,4 +283,34 @@ $("save-answer").onclick = () =>
       reuseAllowed: true,
     }),
   );
+async function loadNotifications() {
+  const { barriers, settings } = await api("/notifications");
+  $("notify").replaceChildren();
+  for (const b of barriers) {
+    const label = document.createElement("label");
+    label.style.display = "block";
+    const box = document.createElement("input");
+    box.type = "checkbox";
+    box.checked = !!settings[b.id];
+    box.onchange = () =>
+      act(async () => {
+        await api("/notifications", { [b.id]: box.checked });
+      });
+    label.append(box, " " + b.label);
+    $("notify").append(label);
+  }
+}
+$("notify-test").onclick = () =>
+  act(async () => {
+    const r = await fetch("/notifications/test", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{}",
+    });
+    if (!r.ok)
+      throw new Error(
+        "Chrome is not connected. Open the extension and click Connect, then try again.",
+      );
+  });
 act(refresh);
+act(loadNotifications);
