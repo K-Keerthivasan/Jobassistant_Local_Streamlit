@@ -38,7 +38,11 @@ def _last_page_fill(pdf_path: Path, margin_in: float) -> tuple[int, float]:
         def _visit(text, cm, tm, font_dict, font_size):
             if text and text.strip():
                 try:
-                    ys.append(float(tm[5]))   # y translation of this text run
+                    # Text origin in page space: the text matrix's translation
+                    # mapped through the current transformation matrix. Using
+                    # tm alone is wrong for producers that set a page-level cm.
+                    x, y = float(tm[4]), float(tm[5])
+                    ys.append(x * float(cm[1]) + y * float(cm[3]) + float(cm[5]))
                 except (TypeError, ValueError, IndexError):
                     pass
 

@@ -202,8 +202,10 @@ def run(
     # remove content and are listed in the QA report.
     from .render.length import fit_length
     resume, resume_density, qa["length"] = fit_length(resume, profile)
-    if make_pdf and not settings.hermes_fast_mode:
+    from .render.pdf_export import is_fast as _pdf_is_fast
+    if make_pdf and (not settings.hermes_fast_mode or _pdf_is_fast()):
         # Refine the density against real renders (only font/spacing/margins scale).
+        # Fast mode skips this only when the converter is slow (Word, LibreOffice).
         from .render.autofit import fit_resume
         resume_density, qa["pages"] = fit_resume(
             resume, cover, doc_base, profile, density=resume_density,

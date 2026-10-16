@@ -89,7 +89,9 @@ class Settings:
     )
 
     # PDF export
-    pdf_engine: str = os.getenv("PDF_ENGINE", "auto")  # auto | docx2pdf | libreoffice
+    pdf_engine: str = os.getenv("PDF_ENGINE", "auto")  # auto | wordcraft | docx2pdf | libreoffice
+    # wordcraft-cli location; empty = PATH, then C:\Program Files\WordCraft.
+    wordcraft_bin: str = os.getenv("WORDCRAFT_BIN", "")
     libreoffice_bin: str = os.getenv("LIBREOFFICE_BIN", "soffice")
 
     # Page validation: physical page size + max page count per document.
