@@ -24,7 +24,7 @@ from pydantic import BaseModel  # noqa: E402
 from resume_gen.config import settings  # noqa: E402
 from resume_gen.llm import ollama_client  # noqa: E402
 from resume_gen.models import TargetRole  # noqa: E402
-from resume_gen.pipeline import run  # noqa: E402
+from resume_gen.pipeline import EngineUnavailable, run  # noqa: E402
 
 app = FastAPI(title="Automatic Resume Generator", version="0.1.0")
 
@@ -209,6 +209,8 @@ def generate(req: GenerateRequest):
             except Exception:
                 pass   # the run still exists in the Library even if the job is gone
         return result
+    except EngineUnavailable as e:
+        raise HTTPException(status_code=503, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -781,6 +783,8 @@ def generate_queued_job(key_id: str, req: GenerateOptions | None = None):
                      lane=lane, grade=q.grade or None)
         update_status(key_id, "generated", result["folder"])
         return result
+    except EngineUnavailable as e:
+        raise HTTPException(status_code=503, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -1307,6 +1311,8 @@ def repeatable_generate(key: str, req: GenerateOptions | None = None):
                      skills_focus=skills_focus)
         mark_applied(key, folder=result["folder"], folder_name=result["folder_name"])
         return result
+    except EngineUnavailable as e:
+        raise HTTPException(status_code=503, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

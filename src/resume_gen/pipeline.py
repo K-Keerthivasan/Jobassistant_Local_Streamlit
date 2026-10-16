@@ -65,6 +65,31 @@ def _document_base(target: TargetRole, candidate_name: str = "") -> str:
     return "_".join(p for p in ("kk", company, title) if p) or "kk_Application"
 
 
+class EngineUnavailable(RuntimeError):
+    """No generation engine can be reached, so a run cannot start."""
+
+
+def check_engines(model: str | None) -> None:
+    """Fail fast with a clear message when the engine a run needs is down.
+
+    Hermes is reached through the local bridge (tools/hermes_cli_bridge.py on
+    :8642). When it is not running, the old behaviour was a silent switch to
+    Ollama and, without Ollama installed, an unexplained 500 a few seconds later."""
+    m = (model or "").strip().lower()
+    wants_hermes = m.startswith("hermes") or m == "split" or (
+        m in ("", "auto") and settings.default_engine == "hermes")
+    if not wants_hermes:
+        return
+    from .llm import hermes_client, ollama_client
+    if hermes_client.health() or ollama_client.health():
+        return
+    raise EngineUnavailable(
+        f"The Hermes bridge is not answering at {settings.hermes_base_url} and Ollama is "
+        "not running, so nothing can generate. Start the bridge with "
+        "tools/start_hermes_bridge.ps1 (tools/start_application_services.ps1 now starts "
+        "it too), then generate again.")
+
+
 def _resolve_engines(model: str | None) -> tuple[str | None, str | None]:
     """Map a requested engine selection to (resume_model, letters_model).
 
@@ -104,6 +129,7 @@ def run(
     skill claim. When absent it is resolved from the title, then from the persona.
     `grade`: the job's matrix grade (tier, gap flags, fit sentence); computed here
     when the caller has none."""
+    check_engines(model)
     profile = profile or load_profile()
     from .llm import fallbacks, reset_fallbacks, reset_run_metrics, run_metrics
     from . import lanes as lane_data
