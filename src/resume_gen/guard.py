@@ -332,6 +332,8 @@ def enforce(resume: Resume, profile: dict, *, strict: bool = False,
     if invented_certs:
         report["skills_dropped"].extend(f"cert:{c}" for c in invented_certs)
     resume.certifications = list(true_certs)
+    # Licences are facts: always the profile's list, never the model's.
+    resume.licences = list(profile.get("licences") or [])
 
     # --- SKILLS (keep only those grounded in the profile) -------------------
     # Models often emit compound tokens ("JavaScript/TypeScript", "C#/.NET").

@@ -433,6 +433,12 @@ def render_resume(resume: Resume, out_path: Path, profile: dict | None = None,
             if ed.year:
                 year = _re.sub(r"\s*[-\u2013\u2014]\s*", " to ", ed.year)
                 _run(p, f"\t{year}", size=t["small_size"], italic=True)
+        if resume.licences:
+            p = doc.add_paragraph()
+            p.paragraph_format.space_before = Pt(2)
+            p.paragraph_format.space_after = Pt(1)
+            _run(p, "Licences: ", bold=True, size=t["body"])
+            _run(p, ", ".join(resume.licences), size=t["body"])
 
     if resume.certifications:
         _heading(doc, "Certifications", t)

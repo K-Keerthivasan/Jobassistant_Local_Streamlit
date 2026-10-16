@@ -160,6 +160,16 @@ class RenderFormatTests(unittest.TestCase):
             cp = Document(path).core_properties
             self.assertNotIn("python-docx", f"{cp.author}{cp.comments}")
 
+    def test_licence_line_comes_from_the_profile(self):
+        profile = dict(PROFILE, licences=["Ontario G driver's licence"])
+        out, _ = enforce(_resume(licences=["Pilot licence"]), profile, target_title="X")
+        self.assertEqual(out.licences, ["Ontario G driver's licence"])
+        with TemporaryDirectory() as tmp:
+            path = Path(tmp) / "r.docx"
+            render_resume(out, path, profile)
+            texts = [p.text for p in Document(path).paragraphs]
+        self.assertIn("Licences: Ontario G driver's licence", texts)
+
     def test_date_ranges_use_to_and_compress_one_year(self):
         self.assertEqual(_date_range("Aug 2024", "Nov 2024"), "Aug to Nov 2024")
         self.assertEqual(_date_range("2023", "present"), "2023 to Present")

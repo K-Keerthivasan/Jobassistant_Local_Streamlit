@@ -85,5 +85,7 @@ def profile_to_prompt_block(profile: dict) -> str:
 
     certs = profile.get("certifications") or []
     add("\nCERTIFICATIONS: " + (", ".join(certs) if certs else "none"))
+    if profile.get("licences"):
+        add("LICENCES: " + ", ".join(profile["licences"]))
 
     return "\n".join(lines)

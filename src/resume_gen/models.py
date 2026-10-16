@@ -61,6 +61,8 @@ class Resume(BaseModel):
     experience: list[ExperienceItem] = Field(default_factory=list)
     education: list[EducationItem] = Field(default_factory=list)
     certifications: list[str] = Field(default_factory=list)
+    # Licences (e.g. a driver's licence), copied from the profile by the guard.
+    licences: list[str] = Field(default_factory=list)
     # JD keywords intentionally reflected, for QA.
     keywordsMatched: list[str] = Field(default_factory=list)
 

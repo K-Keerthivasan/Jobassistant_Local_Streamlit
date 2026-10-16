@@ -98,6 +98,8 @@ def estimate_height(resume: Resume, k: float, profile: dict | None = None) -> tu
         for ed in resume.education:
             text = f"{ed.credential}  |  {ed.institution}    {ed.year}"
             h += _lines(text, t["body"], width) * body_line + 1
+        if resume.licences:
+            h += body_line + 3
 
     if resume.certifications:
         h += heading() + sum(bullet(c) for c in resume.certifications)
