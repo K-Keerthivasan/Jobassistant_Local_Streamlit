@@ -68,6 +68,7 @@ export function httpServer(
       }
       if (req.method === "GET" && u.pathname === "/health") {
         json({
+          running: s.running || null,
           ok: true,
           chromeConnected: bridge.socket?.readyState === 1,
           extensionConfigured: !!extensionId,
@@ -136,7 +137,7 @@ export function httpServer(
         return;
       }
       const match = u.pathname.match(
-        /^\/applications\/([^/]+)(?:\/(history|required-action|resume|approval|cancel))?$/,
+        /^\/applications\/([^/]+)(?:\/(history|required-action|resume|approval|cancel|run|stop-run))?$/,
       );
       if (match) {
         const id = decodeURIComponent(match[1]);
@@ -150,6 +151,16 @@ export function httpServer(
                 ? { state: a.state, action: a.reason }
                 : a,
           );
+          return;
+        }
+        if (req.method === "POST" && action === "run") {
+          await body(req);
+          json(s.startRun(id));
+          return;
+        }
+        if (req.method === "POST" && action === "stop-run") {
+          await body(req);
+          json(s.stopRun());
           return;
         }
         if (req.method === "POST" && ["resume", "cancel"].includes(action)) {

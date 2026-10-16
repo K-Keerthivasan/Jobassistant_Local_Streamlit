@@ -2,15 +2,31 @@ import { randomUUID } from "node:crypto";
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import path from "node:path";
 import { ApplyInput, Snapshot, type Application } from "./schema.js";
-import { detectAts, plan, reviewProblems } from "./adapters.js";
+import {
+  detectAts,
+  isNavLabel,
+  pickFinal,
+  pickNav,
+  plan,
+  reviewProblems,
+} from "./adapters.js";
 import { digest, documentInfo, safeUrl, sensitive } from "./security.js";
 import { Store } from "./store.js";
 import type { Browser } from "./bridge.js";
 import { Studio } from "./studio.js";
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+const DONE = ["review", "submitting", "uncertain", "submitted", "failed", "rejected"];
+// How long a run waits for you at one barrier before giving up the wait.
+const WAIT_MINUTES = 30;
+
 export class Service {
   busy = false;
   stopped = false;
+  /** Application id the auto-run is driving, if any. */
+  running?: string;
+  runCancel = false;
+  waitMs = 4000;
   constructor(
     public store: Store,
     public browser: Browser,
@@ -73,6 +89,182 @@ export class Service {
       }
       throw e;
     }
+  }
+  /**
+   * Drive one application on its own until it needs the user: follow the
+   * posting's apply link, fill confirmed answers, attach the documents, click
+   * Next/Continue, and stop at the submit decision. At a login, CAPTCHA or a
+   * field only the user can answer it pauses (which sends a notification),
+   * watches the page, and carries on by itself once the barrier is gone.
+   * It never clicks a submit control.
+   */
+  startRun(id: string) {
+    if (this.running && this.running !== id)
+      throw new Error("Another application is already running.");
+    if (this.running === id) return { running: id };
+    const a = this.store.get(id);
+    if (DONE.includes(a.state))
+      throw new Error(`Nothing to run: the application is ${a.state}.`);
+    this.stopped = false;
+    this.running = id;
+    this.runCancel = false;
+    this.store.event(id, "auto_run_started", {});
+    void this.runLoop(id)
+      .catch((e) => {
+        const cur = this.store.get(id);
+        if (!DONE.includes(cur.state)) {
+          cur.state = "paused";
+          cur.reason = `Auto-run stopped: ${(e as Error).message}`;
+          this.store.save(cur);
+        }
+        this.store.event(id, "auto_run_error", { error: (e as Error).message });
+      })
+      .finally(() => {
+        if (this.running === id) this.running = undefined;
+        this.store.event(id, "auto_run_ended", {});
+      });
+    return { running: id };
+  }
+  stopRun() {
+    this.runCancel = true;
+    return { stopping: this.running || null };
+  }
+  private async pauseFor(id: string, reason: string) {
+    const a = this.store.get(id);
+    a.state = "paused";
+    a.reason = reason;
+    a.approvedHash = undefined;
+    this.store.save(a);
+    this.store.event(id, "human_required", { reason });
+  }
+  /** Watch the page while paused; true once the barrier is gone. */
+  private async waitForUser(id: string) {
+    const start = this.store.get(id);
+    const key = (s?: Snapshot) =>
+      s
+        ? JSON.stringify([
+            s.url,
+            s.fields.map((f) => f.selector),
+            reviewProblems(s).length,
+          ])
+        : "";
+    const before = key(start.snapshot);
+    const end = Date.now() + WAIT_MINUTES * 60_000;
+    while (Date.now() < end) {
+      await sleep(this.waitMs);
+      if (this.runCancel || this.stopped) return false;
+      const cur = this.store.get(id);
+      if (cur.state !== "paused") return true; // resumed from the dashboard
+      let snap: Snapshot;
+      try {
+        snap = Snapshot.parse(
+          await this.browser.command("scan", {
+            applicationId: id,
+            domains: cur.input.allowedDomains,
+          }),
+        );
+      } catch {
+        continue; // still on a login or another domain: keep waiting
+      }
+      if (snap.blockers.length) continue;
+      const blanks = reviewProblems(snap).length;
+      if (key(snap) !== before || blanks === 0) {
+        cur.state = "working";
+        cur.reason = "";
+        this.store.save(cur);
+        this.store.event(id, "barrier_cleared", { url: snap.url });
+        return true;
+      }
+    }
+    await this.pauseFor(
+      id,
+      `Waited ${WAIT_MINUTES} minutes at this step. Click Run when you are ready.`,
+    );
+    return false;
+  }
+  private async runLoop(id: string) {
+    let lastNav = false;
+    for (let step = 0; step < 80; step++) {
+      if (this.runCancel || this.stopped) return;
+      let a = this.store.get(id);
+      if (DONE.includes(a.state)) return;
+      if (a.state === "paused") {
+        // Our own apply/next click led to the employer's application site:
+        // approve that exact host once, as part of following the posting.
+        const host = /New domain[^(]*\(([a-z0-9.-]+)\)/i.exec(a.reason)?.[1];
+        if (host && lastNav && !a.input.allowedDomains.includes(host)) {
+          const u = await this.validateUrl("https://" + host);
+          a.input.allowedDomains.push(u.hostname);
+          a.state = "working";
+          a.reason = "";
+          this.store.save(a);
+          this.store.event(id, "domain_followed_from_apply", { domain: u.hostname });
+          lastNav = false;
+          continue;
+        }
+        if (!(await this.waitForUser(id))) return;
+        continue;
+      }
+      a = await this.exclusive(() => this.inspectInternal(this.active(id, true)));
+      if (a.state === "paused") continue;
+      lastNav = false;
+
+      a = await this.fill(id);
+      if (a.state === "paused") continue;
+
+      for (const doc of a.documents.filter((d) => !d.attached && !d.omissionReason)) {
+        const files = a.snapshot!.fields.filter((f) => f.type === "file");
+        const field =
+          files.find((f) =>
+            doc.kind === "resume"
+              ? /resume|résumé|\bcv\b/i.test(f.label)
+              : /cover/i.test(f.label),
+          ) ||
+          (doc.kind === "resume" && files.length === 1 ? files[0] : undefined);
+        if (!field || field.files.length) continue;
+        try {
+          a = await this.upload(id, doc.kind, field.selector, field.frameId);
+        } catch (e) {
+          await this.pauseFor(id, `Document upload: ${(e as Error).message}`);
+          break;
+        }
+      }
+      a = this.store.get(id);
+      if (a.state === "paused") continue;
+
+      const snapshot = a.snapshot!;
+      if (pickFinal(snapshot)) {
+        a = await this.review(id);
+        if (a.state === "review") return; // the submit decision is yours
+        continue; // review found problems and paused; wait for them
+      }
+      const blanks = reviewProblems(snapshot);
+      if (blanks.length) {
+        await this.pauseFor(id, `Fields need you: ${blanks.join("; ")}`);
+        continue;
+      }
+      const nav = pickNav(snapshot);
+      if (!nav) {
+        await this.pauseFor(
+          id,
+          "No Apply or Next control found on this page; move the application forward in Chrome.",
+        );
+        continue;
+      }
+      if (nav.href) {
+        const host = new URL(nav.href).hostname;
+        if (!a.input.allowedDomains.includes(host)) {
+          const u = await this.validateUrl(nav.href);
+          a.input.allowedDomains.push(u.hostname);
+          this.store.save(a);
+          this.store.event(id, "domain_followed_from_apply", { domain: u.hostname });
+        }
+      }
+      await this.navigate(id, nav.selector, nav.frameId);
+      lastNav = true;
+      await sleep(1500);
+    }
+    await this.pauseFor(id, "Auto-run step limit reached; continue in Chrome or click Run.");
   }
   async apply(raw: unknown) {
     return this.exclusive(async () => {
@@ -298,12 +490,7 @@ export class Service {
       const button = a.snapshot!.buttons.find(
         (b) => b.selector === selector && b.frameId === frameId,
       );
-      if (
-        !button ||
-        !/^(next|continue|save and continue|apply|apply now|apply for this job|start application)$/i.test(
-          button.label,
-        )
-      )
+      if (!button || !isNavLabel(button.label))
         throw new Error("Only an observed navigation control may be used.");
       if (button.href)
         await this.validateUrl(button.href, a.input.allowedDomains);

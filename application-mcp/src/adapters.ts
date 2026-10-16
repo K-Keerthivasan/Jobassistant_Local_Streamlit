@@ -112,3 +112,34 @@ export function reviewProblems(snapshot: Snapshot) {
       .map((f) => `${f.invalid ? "Invalid" : "Required blank"}: ${f.label}`),
   ];
 }
+
+// Controls the auto-run may click to move toward the form: the posting's own
+// apply link and in-form Next/Continue steps. Never a submit control.
+const NAV =
+  /^(next|continue|save and continue|save & continue|apply|apply now|apply online|click here to apply(?: online)?|apply for this (?:job|position|role)|apply to this (?:job|position|role)|start(?: your| my)? application|begin application|i'?m interested)$/i;
+export const isNavLabel = (label: string) =>
+  NAV.test(label.trim().replace(/\s+/g, " ")) && !/submit|send/i.test(label);
+// Final submission controls. Only clicked after a fresh yes on the review.
+export const FINAL = /^(submit application|submit|send application|apply now|apply)$/i;
+
+/** Pick the next navigation control: in-form steps first, then apply links. */
+export function pickNav(snapshot: Snapshot) {
+  const candidates = snapshot.buttons.filter(
+    (b) =>
+      isNavLabel(b.label) &&
+      (!b.href || /^https:/i.test(b.href)) &&
+      // A non-link "Apply" on a page with form fields is the final submit.
+      !(!b.href && /apply/i.test(b.label) && snapshot.fields.length > 0),
+  );
+  const rank = (label: string) =>
+    /^(next|continue|save)/i.test(label.trim()) ? 0 : 1;
+  return candidates.sort((x, y) => rank(x.label) - rank(y.label))[0];
+}
+
+/** The final submit control of a form page, if one is visible. */
+export function pickFinal(snapshot: Snapshot) {
+  if (!snapshot.fields.length) return undefined;
+  return snapshot.buttons.find(
+    (b) => !b.href && FINAL.test(b.label.trim().replace(/\s+/g, " ")),
+  );
+}

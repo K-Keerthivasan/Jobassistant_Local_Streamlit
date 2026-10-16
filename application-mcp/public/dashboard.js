@@ -1,6 +1,7 @@
 let applications = [];
 let selected;
 let queue = [];
+let manualOpen = false;
 const $ = (id) => document.getElementById(id);
 async function api(url, body) {
   const r = await fetch(
@@ -45,7 +46,7 @@ async function tool(name, args = {}) {
 async function refresh() {
   const h = await api("/health");
   $("health").textContent = h.chromeConnected
-    ? "Chrome connected"
+    ? "Chrome connected" + (h.running ? " · running an application" : "")
     : h.extensionConfigured
       ? "Waiting for the Chrome extension. Open Chrome and click Connect."
       : "Load the extension in regular Chrome, copy its ID, and start the service with APP_CHROME_EXTENSION_ID.";
@@ -79,6 +80,21 @@ async function render() {
       url: a.snapshot?.url || a.input.jobUrl,
     }),
   );
+  box.append(
+    button("Run until the next barrier", () =>
+      api(`/applications/${a.id}/run`, {}).then(refresh),
+    ),
+    button("Stop running", () =>
+      api(`/applications/${a.id}/stop-run`, {}).then(refresh),
+    ),
+  );
+  const manual = document.createElement("details");
+  manual.open = manualOpen;
+  manual.ontoggle = () => (manualOpen = manual.open);
+  const summary = document.createElement("summary");
+  summary.textContent = "Manual steps";
+  manual.append(summary);
+  box.append(manual);
   for (const [text, name] of [
     ["Inspect", "inspect_application"],
     ["Fill confirmed fields", "fill_application"],
@@ -87,7 +103,7 @@ async function render() {
     ["Verify uncertain submission", "verify_submission"],
     ["Sync verified result", "sync_application_result"],
   ])
-    box.append(button(text, () => tool(name)));
+    manual.append(button(text, () => tool(name)));
   box.append(
     button("Pause", () =>
       tool("pause_application", { reason: "Paused by user" }),
@@ -268,6 +284,7 @@ $("queue").onclick = () =>
             mode: "review",
           });
           selected = a.id;
+          await api(`/applications/${a.id}/run`, {});
           await refresh();
         }),
       );
@@ -312,5 +329,44 @@ $("notify-test").onclick = () =>
         "Chrome is not connected. Open the extension and click Connect, then try again.",
       );
   });
+// Keep the view current while a run works in the background, and, when the
+// queue option is on, prepare the next job once the current one is finished.
+const FINAL_STATES = ["submitted", "failed", "rejected"];
+let advancing = false;
+setInterval(async () => {
+  if (document.hidden) return;
+  // Never redraw under someone typing into a dashboard field.
+  if (["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement?.tagName))
+    return;
+  try {
+    await refresh();
+    if (!$("auto-queue").checked || advancing) return;
+    if (applications.some((a) => !FINAL_STATES.includes(a.state))) return;
+    advancing = true;
+    const { candidates } = await api("/candidates");
+    const job = candidates[0];
+    if (!job) {
+      $("auto-queue").checked = false;
+      $("error").textContent = "Queue finished: no more generated, unapplied jobs.";
+      return;
+    }
+    const s = await api("/prepare", { job_key: job.key_id, run_id: job.run_id });
+    const a = await api("/applications", {
+      jobUrl: s.job_url,
+      company: s.company,
+      title: s.title,
+      studioSessionId: s.session_id,
+      resumePath: s.documents.resume.path,
+      coverLetterPath: s.documents.cover_letter?.path || null,
+      mode: "review",
+    });
+    selected = a.id;
+    await api(`/applications/${a.id}/run`, {});
+  } catch (e) {
+    $("error").textContent = e.message;
+  } finally {
+    advancing = false;
+  }
+}, 4000);
 act(refresh);
 act(loadNotifications);

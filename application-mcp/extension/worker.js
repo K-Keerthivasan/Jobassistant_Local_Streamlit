@@ -94,10 +94,17 @@ async function command(op, args) {
     return { released: true };
   }
   const tab = await tabReady(session.tabId);
-  if (!permitted(tab.url))
+  if (!permitted(tab.url)) {
+    let host = "";
+    try {
+      host = new URL(tab.url).hostname;
+    } catch {
+      /* not a URL */
+    }
     throw new Error(
-      "New domain: approve the exact employer domain, or complete login manually, then resume.",
+      `New domain (${host}): approve the exact employer domain, or complete login manually, then resume.`,
     );
+  }
   if (op === "screenshot") {
     const checks = await chrome.scripting.executeScript({
       target: { tabId: session.tabId, allFrames: true },

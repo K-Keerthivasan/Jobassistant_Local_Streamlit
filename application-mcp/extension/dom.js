@@ -182,8 +182,11 @@ export function domTask(task) {
     ).trim();
     const permitted = task.submit
       ? /^(submit application|submit|send application|apply now)$/i
-      : /^(next|continue|save and continue|apply|apply now|apply for this job|start application)$/i;
-    if (!permitted.test(text) || (!task.submit && /submit|send/i.test(text)))
+      : /^(next|continue|save and continue|save & continue|apply|apply now|apply online|click here to apply(?: online)?|apply for this (?:job|position|role)|apply to this (?:job|position|role)|start(?: your| my)? application|begin application|i'?m interested)$/i;
+    if (
+      !permitted.test(text.replace(/\s+/g, " ")) ||
+      (!task.submit && /submit|send/i.test(text))
+    )
       throw new Error("Button requires manual review.");
     if (el.tagName === "A") {
       const u = new URL(el.href);
