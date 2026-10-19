@@ -280,6 +280,7 @@ export class Service {
         } catch { return false; }
       });
       candidates.sort((a:any,b:any)=>Number(detectAts(b.apply_url)==='indeed')-Number(detectAts(a.apply_url)==='indeed'));
+      const blockedReasons = new Map<string, number>();
       for (const job of candidates) {
         if (!this.store.queueEnabled() || this.stopped) break;
         try {
@@ -297,11 +298,23 @@ export class Service {
           this.queueRetry.set(job.key_id, Date.now() + 300000);
           this.queueMessage = `Could not prepare ${job.company}: ${(error as Error).message}`;
           this.store.event('queue', 'candidate_blocked', { jobKey: job.key_id, reason: (error as Error).message });
+          blockedReasons.set((error as Error).message, (blockedReasons.get((error as Error).message) || 0) + 1);
           // Never start another job if this attempt already opened a session.
           if (this.store.list().some(a => !a.deferredAt && !["submitted", "failed", "rejected"].includes(a.state))) return;
         }
       }
-      this.queueMessage = 'No new eligible jobs. Checking automatically.';
+      // Say why nothing opened instead of claiming there was nothing to do.
+      const blocked = [...blockedReasons.values()].reduce((n, v) => n + v, 0);
+      if (blocked) {
+        const [top, count] = [...blockedReasons.entries()].sort((a, b) => b[1] - a[1])[0];
+        this.queueMessage = `${blocked} job${blocked === 1 ? '' : 's'} could not be opened` +
+          ` (${count}× “${top}”). Retrying them in 5 minutes.`;
+      } else {
+        const waiting = (response.candidates || []).length - candidates.length;
+        this.queueMessage = waiting > 0
+          ? `No job to open in this queue now (${waiting} other generated job${waiting === 1 ? '' : 's'} are out of scope, already handled, or retrying). Checking automatically.`
+          : 'No new eligible jobs. Checking automatically.';
+      }
     } finally { this.queueAdvancing = false; }
   }
   constructor(
@@ -655,11 +668,14 @@ export class Service {
       )
         throw new Error("Finish or cancel the active application first.");
       const u = await this.validateUrl(input.jobUrl);
-      if (/(^|\.)(indeed\.com|linkedin\.com)$/.test(u.hostname))
+      // LinkedIn postings stay out: use the employer's own URL. Indeed postings are
+      // supported (the Indeed queue): Easy Apply runs on Indeed's own apply site.
+      if (/(^|\.)linkedin\.com$/.test(u.hostname))
         throw new Error("Use the direct employer application URL.");
       input.jobUrl = u.href;
+      const indeed = /(^|\.)indeed\.com$/.test(u.hostname);
       input.allowedDomains = [
-        ...new Set([u.hostname, ...input.allowedDomains]),
+        ...new Set([u.hostname, ...(indeed ? ["smartapply.indeed.com"] : []), ...input.allowedDomains]),
       ];
       for (const host of input.allowedDomains)
         await this.validateUrl("https://" + host);
