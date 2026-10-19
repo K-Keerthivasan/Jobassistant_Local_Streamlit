@@ -252,6 +252,46 @@ test("session expiration, CAPTCHA and unavailable jobs pause", async ({
   const s = await page.evaluate(domTask, { op: "scan" });
   expect(s.blockers).toHaveLength(3);
 });
+test("invisible verification frames (Indeed) are not a CAPTCHA to solve", async ({
+  page,
+}) => {
+  await page.setContent(
+    '<iframe title="reCAPTCHA" src="about:blank#size=invisible" width="256" height="60"></iframe>' +
+      '<div style="visibility:hidden"><iframe title="hCaptcha challenge" src="about:blank" width="400" height="580"></iframe></div>' +
+      '<iframe title="CAPTCHA" src="about:blank" width="1" height="1"></iframe>' +
+      '<iframe title="CAPTCHA" src="about:blank" style="position:absolute;top:-10000px" width="300" height="150"></iframe>',
+  );
+  const s = await page.evaluate(domTask, { op: "scan" });
+  expect(s.blockers).toEqual([]);
+});
+test("Indeed review page reports the resume it would send and finds its Edit control", async ({
+  page,
+}) => {
+  // domTask only treats smartapply.indeed.com as Indeed; serve the fixture there.
+  await page.route("https://smartapply.indeed.com/**", (route) =>
+    route.fulfill({
+      contentType: "text/html",
+      body:
+        '<main><h1>Review your application</h1>' +
+        '<section><div><h2>Contact information</h2><a href="#c">Edit</a></div><p>Keerthivasan Kalaivanan</p></section>' +
+        '<section><div><h2>Resume</h2><a href="#d">Download</a><button id="edit-resume" onclick="this.dataset.clicked=1">Edit</button></div>' +
+        '<div><span>kk_DWS_StructuredCablingTechnician.pdf</span></div></section>' +
+        '<section><div><h2>Supporting documents</h2><button id="add-docs" onclick="this.dataset.clicked=1">Add</button></div>' +
+        '<p>No cover letter or additional documents added. This is optional to add.</p></section>' +
+        '<button>Submit your application</button></main>',
+    }),
+  );
+  await page.goto("https://smartapply.indeed.com/beta/indeedapply/form/review-module");
+  const s = await page.evaluate(domTask, { op: "scan" });
+  expect(s.attachments).toEqual([
+    { kind: "resume", name: "kk_DWS_StructuredCablingTechnician.pdf", frameId: 0, shownByIndeed: true },
+  ]);
+  await page.evaluate(domTask, { op: "indeedPart", part: "Resume", action: "Edit" });
+  expect(await page.getAttribute("#edit-resume", "data-clicked")).toBe("1");
+  expect(await page.getAttribute("#add-docs", "data-clicked")).toBeNull();
+  await page.evaluate(domTask, { op: "indeedPart", part: "Supporting documents", action: "Add" });
+  expect(await page.getAttribute("#add-docs", "data-clicked")).toBe("1");
+});
 test("Apply in same tab and popup both navigate with observable application forms", async ({
   page,
   context,

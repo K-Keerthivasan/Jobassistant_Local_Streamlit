@@ -222,14 +222,10 @@ async function command(op, args) {
     const blockers = [];
     const captchaVerified = await verificationStatus(frames);
     for (const frame of frames) {
-      if (!permitted(frame.url)) {
-        if (
-          /captcha|recaptcha|hcaptcha/i.test(frame.url) &&
-          !(captchaVerified && trustedRecaptchaFrame(frame.url))
-        )
-          blockers.push("CAPTCHA: complete it in Chrome.");
-        continue;
-      }
+      // CAPTCHA frames are judged by the page scan, which sees whether the frame
+      // is actually on screen; a frame's URL alone can't tell an invisible
+      // verification frame (Indeed) from a challenge you must solve.
+      if (!permitted(frame.url)) continue;
       const [r] = await chrome.scripting.executeScript({
         target: { tabId: session.tabId, frameIds: [frame.frameId] },
         func: domTask,
@@ -378,7 +374,7 @@ function connect() {
     try {
       data = JSON.parse(event.data);
       if (data.op === "ping") {
-        socket.send(JSON.stringify({ id: data.id, result: { alive: true } }));
+        socket.send(JSON.stringify({ id: data.id, result: { alive: true, version: chrome.runtime.getManifest().version } }));
         return;
       }
       if (data.op === "notify") {

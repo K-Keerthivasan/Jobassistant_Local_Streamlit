@@ -138,14 +138,20 @@ export async function domTask(task) {
     const blockers = [];
     if (controls.some((el) => visible(el) && protectedField(el)))
       blockers.push("Login or verification: complete it in Chrome.");
-    if (
-      queryAll("iframe").some(
-        (el) =>
-          visible(el) &&
-          /captcha|recaptcha|hcaptcha/i.test(el.src + " " + el.title) &&
-          !task.captchaVerified,
-      )
-    )
+    // A CAPTCHA you must solve is a visible, on-screen widget. Sites such as
+    // Indeed load invisible verification frames (size=invisible, hidden challenge
+    // frames, the corner badge) that need nothing from you; those don't count.
+    const realCaptcha = (el) => {
+      const src = (el.src || "") + " " + (el.title || "");
+      if (!/captcha|recaptcha|hcaptcha|turnstile/i.test(src)) return false;
+      if (/invisible/i.test(el.src || "")) return false;
+      const cs = getComputedStyle(el);
+      if (cs.display === "none" || cs.visibility === "hidden" || Number(cs.opacity) === 0) return false;
+      const r = el.getBoundingClientRect();
+      if (r.width < 100 || r.height < 60) return false;
+      return r.bottom > 0 && r.right > 0 && r.left < innerWidth && r.top < innerHeight * 3;
+    };
+    if (queryAll("iframe").some((el) => realCaptcha(el) && !task.captchaVerified))
       blockers.push("CAPTCHA: complete it in Chrome.");
     const body = document.body?.innerText || "";
     if (

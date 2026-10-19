@@ -73,7 +73,9 @@ async function refresh() {
   if(!scopeLoaded){queueScope=q.scope || 'all';scopeLoaded=true;}renderScope();
   $("queue-status").textContent = (q.enabled ? "Queue enabled · " : "Queue stopped · ") + q.message;
   $("auto-queue").checked = q.enabled;
-  $("health").textContent = h.chromeConnected
+  $("health").textContent = h.chromeConnected && h.extensionOutdated
+    ? `Chrome extension is out of date (${h.extensionVersion}, needs ${h.extensionExpected}). Open chrome://extensions, reload Resume Studio Application Bridge, then click Connect.`
+    : h.chromeConnected
     ? "Chrome connected" + (h.running ? " · running an application" : "")
     : h.extensionConfigured
       ? "Waiting for the Chrome extension. Open Chrome and click Connect."

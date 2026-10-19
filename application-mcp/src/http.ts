@@ -7,7 +7,7 @@ import { toolset } from "./tools.js";
 import { outputSchema } from "./schema.js";
 import { BARRIERS } from "./notify.js";
 import type { Service } from "./service.js";
-import type { ChromeBridge } from "./bridge.js";
+import { EXPECTED_EXTENSION_VERSION, type ChromeBridge } from "./bridge.js";
 
 async function body(req: IncomingMessage) {
   if (req.headers["content-type"]?.split(";")[0] !== "application/json")
@@ -124,6 +124,10 @@ export function httpServer(
           running: s.running || null,
           ok: true,
           chromeConnected: bridge.socket?.readyState === 1,
+          extensionVersion: bridge.extensionVersion,
+          extensionExpected: EXPECTED_EXTENSION_VERSION,
+          extensionOutdated: bridge.socket?.readyState === 1 && !!bridge.extensionVersion &&
+            bridge.extensionVersion !== EXPECTED_EXTENSION_VERSION,
           extensionConfigured: !!extensionId,
           stopped: s.stopped,
           aiAnswersConfigured: !!process.env.APP_HERMES_BASE_URL,
@@ -323,8 +327,7 @@ export function httpServer(
     wss.handleUpgrade(req, socket, head, (ws) => bridge.connect(ws));
   });
   const heartbeat = setInterval(() => {
-    if (bridge.socket?.readyState === 1)
-      bridge.command("ping", {}).catch(() => {});
+    if (bridge.socket?.readyState === 1) void bridge.refreshVersion();
   }, 20000);
   heartbeat.unref();
   server.on("close", () => {

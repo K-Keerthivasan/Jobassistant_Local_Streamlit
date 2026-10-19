@@ -5,8 +5,14 @@ export interface Browser {
   command(op: string, args: Record<string, unknown>): Promise<unknown>;
   notify?(payload:Record<string,unknown>):boolean;
 }
+/** The extension version this service expects (extension/manifest.json). When
+ * Chrome runs an older one, page-reading fixes don't apply until it's reloaded. */
+export const EXPECTED_EXTENSION_VERSION = "0.3.0";
+
 export class ChromeBridge implements Browser {
   socket?: WebSocket;
+  /** Version the connected extension reported; "" until it answers a ping. */
+  extensionVersion = "";
   pending = new Map<
     string,
     {
@@ -21,6 +27,9 @@ export class ChromeBridge implements Browser {
       return;
     }
     this.socket = socket;
+    this.extensionVersion = "";
+    // Learn the extension's version as soon as it connects.
+    setTimeout(() => void this.refreshVersion(), 0);
     socket.on("message", (raw) => {
       try {
         const data = JSON.parse(raw.toString());
@@ -43,6 +52,14 @@ export class ChromeBridge implements Browser {
       }
       this.pending.clear();
     });
+  }
+  async refreshVersion() {
+    try {
+      const r = (await this.command("ping", {})) as { version?: string };
+      this.extensionVersion = r?.version || "unknown (before 0.3.0)";
+    } catch {
+      /* Disconnected; the next connection asks again. */
+    }
   }
   /** Fire-and-forget desktop notification through the extension. Returns
    * false when Chrome is not connected; never throws. */

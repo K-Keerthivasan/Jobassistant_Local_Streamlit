@@ -62,3 +62,10 @@ test("nothing is clicked when both documents are already this job's, or off Inde
   const other = setup(Snapshot.parse({ ...review("old.pdf"), url: "https://careers.example.com/review" }));
   try { assert.equal(await other.step(), false); assert.equal(other.calls.length, 0); } finally { other.close(); }
 });
+
+test("the service expects the extension version in manifest.json", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const { EXPECTED_EXTENSION_VERSION } = await import("../src/bridge.js");
+  const manifest = JSON.parse(await readFile(new URL("../extension/manifest.json", import.meta.url), "utf8"));
+  assert.equal(EXPECTED_EXTENSION_VERSION, manifest.version);
+});
