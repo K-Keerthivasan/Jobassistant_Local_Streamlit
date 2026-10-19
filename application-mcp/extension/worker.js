@@ -62,6 +62,18 @@ function permitted(url) {
     return false;
   }
 }
+// A frame may be read or used when its own address is approved, or when it is a
+// blank/srcdoc frame (no address of its own; it belongs to its parent's page,
+// which is how Indeed renders its review sections) inside an allowed frame.
+function frameAllowed(frame, frames) {
+  if (!frame) return false;
+  if (permitted(frame.url) || indeedFrame(frame.url)) return true;
+  if (/^(?:about:blank|about:srcdoc)?$/.test(frame.url || "") && frame.parentFrameId >= 0) {
+    const parent = frames.find((f) => f.frameId === frame.parentFrameId);
+    return frameAllowed(parent, frames);
+  }
+  return false;
+}
 // Indeed's apply site embeds parts of its pages from other indeed.com hosts.
 // Those frames are read (never navigated) while the application is on Indeed.
 function indeedFrame(url) {
@@ -236,7 +248,7 @@ async function command(op, args) {
       // CAPTCHA frames are judged by the page scan, which sees whether the frame
       // is actually on screen; a frame's URL alone can't tell an invisible
       // verification frame (Indeed) from a challenge you must solve.
-      if (!permitted(frame.url) && !indeedFrame(frame.url)) continue;
+      if (!frameAllowed(frame, frames)) continue;
       const [r] = await chrome.scripting.executeScript({
         target: { tabId: session.tabId, frameIds: [frame.frameId] },
         func: domTask,
@@ -271,7 +283,7 @@ async function command(op, args) {
   if (op === "indeedPart") {
     const frames = await chrome.webNavigation.getAllFrames({ tabId: session.tabId });
     let last = "Indeed control not found.";
-    for (const frame of frames.filter((f) => permitted(f.url) || indeedFrame(f.url))) {
+    for (const frame of frames.filter((f) => frameAllowed(f, frames))) {
       try {
         const [r] = await chrome.scripting.executeScript({
           target: { tabId: session.tabId, frameIds: [frame.frameId] },
@@ -283,21 +295,21 @@ async function command(op, args) {
     }
     throw new Error(last);
   }
-  const frame = await chrome.webNavigation.getFrame({
-    tabId: session.tabId,
-    frameId: args.frameId || 0,
-  });
-  if (!frame || !permitted(frame.url))
+  const allFrames = await chrome.webNavigation.getAllFrames({ tabId: session.tabId });
+  const frame = allFrames.find((f) => f.frameId === (args.frameId || 0));
+  if (!frameAllowed(frame, allFrames))
     throw new Error("Unapproved frame destination.");
   if (op === "upload") {
     // chrome.debugger operates on the selected regular-profile tab only. No cookies or credentials are read.
     // Cross-origin iframe uploads are deliberately manual until a tested debugger target adapter exists.
-    if (args.frameId)
+    // Verified bytes can be attached inside the frame that holds the control;
+    // the debugger file path below works on the top frame only.
+    if (args.frameId && !args.contentBase64)
       throw new Error(
         "Upload in an iframe requires manual file selection in Chrome.",
       );
     if(args.contentBase64){
-      const [result]=await chrome.scripting.executeScript({target:{tabId:session.tabId,frameIds:[0]},func:domTask,args:[{...args,op:'attach'}]});
+      const [result]=await chrome.scripting.executeScript({target:{tabId:session.tabId,frameIds:[args.frameId || 0]},func:domTask,args:[{...args,op:'attach'}]});
       if(!result?.result?.uploaded)throw new Error('Document bytes were not accepted by the upload control.');
       return result.result;
     }
