@@ -117,3 +117,29 @@ def list_models() -> list[str]:
         return sorted(m["name"] for m in r.json().get("models", []))
     except (httpx.HTTPError, KeyError, ValueError):
         return []
+
+
+_EFFECTIVE: dict = {"at": 0.0, "configured": "", "model": ""}
+
+
+def effective_model() -> str:
+    """The Ollama model a call should actually use.
+
+    OLLAMA_MODEL can name a model that isn't installed (qwen3:8b when only
+    qwen3:latest is pulled), which used to make every fallback fail with a 404.
+    Use the configured model when installed, else an installed model of the same
+    family, else the first installed one. Checked at most once a minute."""
+    import time as _time
+
+    configured = settings.ollama_model
+    now = _time.monotonic()
+    if _EFFECTIVE["configured"] == configured and now - _EFFECTIVE["at"] < 60 and _EFFECTIVE["model"]:
+        return _EFFECTIVE["model"]
+    installed = list_models()
+    chosen = configured
+    if installed and configured not in installed:
+        family = configured.split(":")[0]
+        chosen = next((m for m in installed if m.split(":")[0] == family), installed[0])
+        print(f"[ai] Ollama model {configured} is not installed; using {chosen}", flush=True)
+    _EFFECTIVE.update(at=now, configured=configured, model=chosen)
+    return chosen

@@ -4,6 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Resume Studio</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231F3864'/%3E%3Cpath d='M9 8h9a5 5 0 0 1 0 10h-4l6 6' stroke='white' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M9 8v16' stroke='white' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E">
 <script>
   // Apply saved theme before first paint to avoid a flash.
   // NOTE: accessing localStorage THROWS in Firefox when site storage is blocked
@@ -148,6 +149,45 @@
   .view.active { display: block; animation: fade .18s ease; }
   @keyframes fade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
   .page-h { margin: 0 0 4px; font-size: 22px; font-weight: 700; letter-spacing: -.2px; }
+  /* AI Engine view */
+  .ai-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; margin-bottom: 16px; }
+  .ai-cards .card { margin: 0; }
+  .ai-card h3 { margin: 0 0 6px; font-size: 15px; display: flex; align-items: center; gap: 8px; }
+  .ai-card dl { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; margin: 8px 0 0; font-size: 13px; }
+  .ai-card dt { color: var(--muted); }
+  .ai-card dd { margin: 0; overflow-wrap: anywhere; }
+  .ai-card .how { font-size: 12.5px; color: var(--muted); margin: 8px 0 0; }
+  .ai-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; background: var(--faint); }
+  .ai-dot.up { background: var(--ok); } .ai-dot.down { background: var(--err); }
+  .ai-two { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 16px; align-items: start; margin-bottom: 16px; }
+  .ai-two .card { margin: 0; }
+  .ai-h { font-size: 16px; margin: 0 0 4px; }
+  .ai-steps { margin: 12px 0 0; padding-left: 22px; display: grid; gap: 10px; }
+  .ai-steps li.off { opacity: .5; }
+  .ai-steps .nm { font-weight: 600; }
+  .ai-steps .ds { font-size: 13px; color: var(--muted); }
+  .ai-tag { display: inline-block; font-size: 11.5px; font-weight: 700; border-radius: 999px; padding: 1px 8px; margin-left: 6px; border: 1px solid var(--line); }
+  .ai-tag.ai { background: var(--accent-soft); color: var(--accent-d); border-color: transparent; }
+  .ai-tag.rules { background: var(--surface-2, #eef1f6); color: var(--muted); }
+  .ai-tag.err { background: var(--err-bg); color: var(--err); border-color: var(--err-line); }
+  .ai-tag.warn { background: var(--warn-bg); color: var(--warn); border-color: var(--warn-line); }
+  .ai-tag.ok { background: var(--ok-bg); color: var(--ok); border-color: var(--ok-line); }
+  .ai-settings { display: grid; gap: 12px; margin-top: 10px; }
+  .ai-settings .set { display: grid; gap: 3px; }
+  .ai-settings .set > label { font-weight: 600; font-size: 13px; display: flex; gap: 8px; align-items: center; }
+  .ai-settings .set > .muted { font-size: 12.5px; margin: 0; }
+  .ai-settings select, .ai-settings input[type=number] { max-width: 260px; padding: 7px 9px; border-radius: 8px; border: 1px solid var(--line); background: var(--input-bg); color: var(--ink); }
+  .ai-actions { display: flex; gap: 12px; align-items: center; margin-top: 14px; }
+  .ai-table-wrap { overflow-x: auto; }
+  .ai-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .ai-table th { text-align: left; color: var(--muted); font-weight: 600; padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  .ai-table td { padding: 7px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  .ai-table tbody tr { cursor: pointer; }
+  .ai-table tbody tr:hover, .ai-table tbody tr.sel { background: var(--accent-soft); }
+  .ai-detail { margin-top: 12px; border-top: 1px solid var(--line); padding-top: 12px; }
+  .ai-detail pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 320px; overflow: auto; background: var(--soft-bg); border: 1px solid var(--line); border-radius: 8px; padding: 10px; font-size: 12px; }
+  .ai-warn { background: var(--warn-bg); border: 1px solid var(--warn-line); color: var(--warn); border-radius: 10px; padding: 10px 12px; margin-bottom: 12px; font-size: 13.5px; }
+  @media (max-width: 900px) { .ai-two { grid-template-columns: 1fr; } }
   .page-sub { color: var(--muted); margin: 0 0 22px; font-size: 14px; }
 
   /* ---------- Cards / forms ---------- */
@@ -524,6 +564,7 @@
       <button data-view="companies"><span class="ic">🏢</span> Companies</button>
       <button data-view="qa"><span class="ic">💬</span> Q&amp;A</button>
       <button data-view="bulk"><span class="ic">⚡</span> Bulk Generate</button>
+      <button data-view="ai"><span class="ic">🧠</span> AI Engine</button>
       <button data-view="profile"><span class="ic">👤</span> Profile</button>
       <button data-view="library"><span class="ic">📚</span> Library</button>
     </nav>
@@ -909,6 +950,55 @@
     </section>
 
     <!-- ===== Profile (apply profile + repeat companies + saved company details) ===== -->
+    <!-- ===== AI Engine: what the AI does, which engine, and your controls ===== -->
+    <section class="view" id="view-ai">
+      <div class="toolbar">
+        <div>
+          <h1 class="page-h">🧠 AI Engine</h1>
+          <p class="muted">Which AI answers each step, what it was asked, what it replied, and the switches that control it.</p>
+        </div>
+        <span class="sp"></span>
+        <button class="btn ghost sm" id="ai-test-hermes">Test Hermes</button>
+        <button class="btn ghost sm" id="ai-test-ollama">Test Ollama</button>
+        <button class="btn subtle sm" id="ai-refresh">Refresh</button>
+      </div>
+      <div id="ai-warnings"></div>
+      <div class="ai-cards" id="ai-cards" aria-live="polite"><div class="card">Checking engines…</div></div>
+
+      <div class="ai-two">
+        <div class="card">
+          <h2 class="ai-h">How AI builds an application</h2>
+          <p class="muted">The steps of one generation with your current settings. <span class="ai-tag ai">AI</span> steps call an engine; <span class="ai-tag rules">Rules</span> steps are fixed code that never invents anything.</p>
+          <ol class="ai-steps" id="ai-steps"></ol>
+          <h2 class="ai-h" style="margin-top:18px">How AI helps on a job site</h2>
+          <p class="muted">In the Chrome application workspace (port 8091).</p>
+          <ol class="ai-steps" id="ai-apply-steps"></ol>
+        </div>
+        <div class="card">
+          <h2 class="ai-h">Controls</h2>
+          <p class="muted">Changes apply straight away and are saved to <code>data/ai_settings.json</code>, which overrides <code>.env</code>.</p>
+          <form id="ai-settings" class="ai-settings"></form>
+          <div class="ai-actions"><button class="btn primary sm" id="ai-save" type="button">Save AI settings</button><span id="ai-save-note" class="muted" role="status"></span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="toolbar" style="margin-bottom:8px">
+          <h2 class="ai-h" style="margin:0">AI activity</h2>
+          <span class="muted" id="ai-today"></span>
+          <span class="sp"></span>
+          <label class="muted"><input type="checkbox" id="ai-only-errors"> Only problems</label>
+          <label class="muted"><input type="checkbox" id="ai-autorefresh" checked> Live</label>
+          <button class="btn danger sm" id="ai-clear" type="button">Clear log</button>
+        </div>
+        <div class="ai-table-wrap"><table class="ai-table" id="ai-table">
+          <thead><tr><th>Time</th><th>Task</th><th>Job</th><th>Engine</th><th>Time taken</th><th>Tokens</th><th>Result</th></tr></thead>
+          <tbody><tr><td colspan="7" class="muted">No AI calls yet.</td></tr></tbody>
+        </table></div>
+        <div id="ai-detail" class="ai-detail" hidden></div>
+      </div>
+    </section>
+
     <section class="view" id="view-profile">
       <h1 class="page-h">Apply profile</h1>
       <p class="page-sub">The data behind auto-apply: your autofill answers, the companies you reapply to often, and details the autofill assistant has saved. Used by the Playwright autofill assistant and the email-apply path. Click any field to copy.</p>
@@ -1100,6 +1190,7 @@ function showView(view) {
   if (view === 'profile') renderSetup();   // fills #sk-applyprofile, #pf-repeats, #pf-saved
   if (view === 'hermes-scrape') { $('cs-enabled-note').innerHTML = CLOUD_ENABLED ? '' : '<b style="color:var(--warn)">Set HERMES_API_KEY in .env (the Hermes gateway API_SERVER_KEY) to enable.</b>'; }
   if (view === 'library') loadLibrary();
+  if (view === 'ai') loadAiView();
 }
 document.querySelectorAll('.nav button').forEach(b => b.onclick = () => showView(b.dataset.view));
 // Tooltips so the icon-only rail (collapsed sidebar) stays readable.
@@ -1165,8 +1256,12 @@ async function loadModels() {
       addOpt('auto', 'Auto · ⭐ priority → Hermes, else local', sel, false);
       const g1 = document.createElement('optgroup'); g1.label = 'Local (Ollama)';
       locals.forEach(n => addOpt(n, n, g1, false)); sel.appendChild(g1);
-      const g2 = document.createElement('optgroup'); g2.label = '🤖 Hermes (agent)';
-      m.cloud.forEach(c => addOpt(c.id, c.label, g2, false)); sel.appendChild(g2);
+      // Only list Hermes models beyond the default one already at the top.
+      const extra = m.cloud.filter(c => c.id !== HERMES_DEFAULT);
+      if (extra.length) {
+        const g2 = document.createElement('optgroup'); g2.label = '🤖 Hermes (agent)';
+        extra.forEach(c => addOpt(c.id, c.label, g2, false)); sel.appendChild(g2);
+      }
     } else {
       locals.forEach(n => addOpt(n, n, sel, n === m.default));
       // Hermes not detected — AI will run on local Ollama. Tell the user once.
@@ -1178,6 +1273,158 @@ async function loadModels() {
     loadUsage();
   } catch {}
 }
+
+/* ---------- AI Engine view ---------- */
+let aiTimer = null, aiSelected = '';
+const aiFmtTime = (iso) => { try { return new Date(iso).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit', second: '2-digit'}); } catch { return iso; } };
+const aiEngineName = (m) => (m || '').startsWith('hermes') ? 'Hermes' : (m ? `Ollama · ${m}` : '');
+function aiCard(title, up, rows, how, extra) {
+  const dl = rows.filter(r => r[1] !== undefined && r[1] !== '').map(([k, v]) => `<dt>${esc(k)}</dt><dd>${v}</dd>`).join('');
+  return `<div class="card ai-card"><h3><span class="ai-dot ${up === null ? '' : up ? 'up' : 'down'}"></span>${esc(title)}</h3>
+    ${extra || ''}<dl>${dl}</dl>${how ? `<p class="how">${esc(how)}</p>` : ''}</div>`;
+}
+async function loadAiStatus() {
+  const s = await api('/ai/status');
+  const h = s.hermes, o = s.ollama, d = s.defaults, t = s.today || {};
+  $('ai-warnings').innerHTML = (s.warnings || []).map(w => `<div class="ai-warn">⚠ ${esc(w)}</div>`).join('');
+  const last = t.last;
+  $('ai-cards').innerHTML =
+    aiCard('Hermes', h.configured ? h.reachable : false, [
+      ['Status', h.configured ? (h.reachable ? `Answering (${h.latency_ms} ms)` : 'Not answering') : 'Not configured (no HERMES_API_KEY)'],
+      ['Model', esc(h.model)], ['Bridge', esc(h.base_url)],
+    ], h.how) +
+    aiCard('Ollama', o.reachable, [
+      ['Status', o.reachable ? `Answering (${o.latency_ms} ms)` : 'Not running'],
+      ['Model in use', esc(o.effective_model) + (o.effective_model !== o.configured_model ? ` <span class="ai-tag warn">set: ${esc(o.configured_model)}</span>` : '')],
+      ['Installed', esc((o.installed || []).join(', ') || 'none')],
+    ], o.how) +
+    aiCard('How requests are routed', null, [
+      ['Default engine', d.engine === 'hermes' ? 'Hermes' : 'Ollama'],
+      ['Fast mode', d.fast_mode ? 'On: one Hermes call per application' : 'Off: up to 4 calls per application'],
+      ['If Hermes fails', d.fallback ? 'Retry on Ollama' : 'Show the error'],
+      ['Timeout', `${d.timeout} s per call`],
+      ['PDFs', esc(d.pdf_engine)],
+    ]) +
+    aiCard('Today', null, [
+      ['AI calls', String(t.calls_today || 0)],
+      ['Problems', t.failed_today ? `<span class="ai-tag err">${t.failed_today} failed</span>` : 'none'],
+      ['Fallbacks', t.fallbacks_today ? `<span class="ai-tag warn">${t.fallbacks_today}</span>` : 'none'],
+      ['Average time', t.avg_seconds_today ? fmtSecs(t.avg_seconds_today) : ''],
+      ['Last call', last ? `${esc(last.task)} · ${aiFmtTime(last.at)}` : ''],
+    ]);
+}
+async function loadAiPipeline() {
+  const { steps, apply_steps } = await api('/ai/pipeline');
+  const stepHtml = (st) => `<li class="${st.runs ? '' : 'off'}">
+      <span class="nm">${esc(st.name)}</span>
+      <span class="ai-tag ${st.kind === 'ai' ? 'ai' : 'rules'}">${st.kind === 'ai' ? 'AI · ' + esc(st.engine) : 'Rules · ' + esc(st.engine)}</span>
+      ${st.runs ? '' : '<span class="ai-tag">skipped with current settings</span>'}
+      <div class="ds">${esc(st.does)}</div></li>`;
+  $('ai-apply-steps').innerHTML = (apply_steps || []).map(stepHtml).join('');
+  $('ai-steps').innerHTML = steps.map(st => `<li class="${st.runs ? '' : 'off'}">
+      <span class="nm">${esc(st.name)}</span>
+      <span class="ai-tag ${st.kind === 'ai' ? 'ai' : 'rules'}">${st.kind === 'ai' ? 'AI · ' + esc(st.engine) : 'Rules · ' + esc(st.engine)}</span>
+      ${st.runs ? '' : '<span class="ai-tag">skipped with current settings</span>'}
+      <div class="ds">${esc(st.does)}</div></li>`).join('');
+}
+async function loadAiSettings() {
+  const { settings, ollama_models } = await api('/ai/settings');
+  const f = $('ai-settings');
+  f.innerHTML = Object.entries(settings).map(([name, s]) => {
+    const id = 'ai-set-' + name;
+    let control;
+    if (s.type === 'bool') {
+      control = `<label for="${id}"><input type="checkbox" id="${id}" data-name="${name}" ${s.value ? 'checked' : ''}> ${esc(s.label)}</label>`;
+    } else if (name === 'default_engine') {
+      control = `<label for="${id}">${esc(s.label)}</label><select id="${id}" data-name="${name}">
+        <option value="hermes" ${s.value === 'hermes' ? 'selected' : ''}>Hermes</option>
+        <option value="ollama" ${s.value === 'ollama' ? 'selected' : ''}>Ollama</option></select>`;
+    } else if (name === 'ollama_model') {
+      const opts = [...new Set([...(ollama_models || []), s.value])];
+      control = `<label for="${id}">${esc(s.label)}</label><select id="${id}" data-name="${name}">${opts.map(m =>
+        `<option value="${esc(m)}" ${m === s.value ? 'selected' : ''}>${esc(m)}${(ollama_models || []).includes(m) ? '' : ' (not installed)'}</option>`).join('')}</select>`;
+    } else {
+      control = `<label for="${id}">${esc(s.label)}</label><input type="number" min="10" max="1800" step="10" id="${id}" data-name="${name}" value="${esc(s.value)}">`;
+    }
+    return `<div class="set">${control}<p class="muted">${esc(s.help)}</p></div>`;
+  }).join('');
+}
+async function saveAiSettings() {
+  const changes = {};
+  $('ai-settings').querySelectorAll('[data-name]').forEach(el => {
+    changes[el.dataset.name] = el.type === 'checkbox' ? el.checked : (el.type === 'number' ? Number(el.value) : el.value);
+  });
+  try {
+    await api('/ai/settings', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(changes) });
+    $('ai-save-note').textContent = 'Saved. New settings are in force.';
+    toast('AI settings saved');
+    await Promise.all([loadAiStatus(), loadAiPipeline(), loadModels()]);
+  } catch (e) { $('ai-save-note').textContent = e.message; toast(e.message, true); }
+}
+function aiResult(e) {
+  if (e.status !== 'ok') return `<span class="ai-tag err" title="${esc(e.error)}">Failed</span>`;
+  if (e.fallback) return `<span class="ai-tag warn" title="${esc(e.fallback)}">Fell back</span>`;
+  return '<span class="ai-tag ok">OK</span>';
+}
+async function loadAiActivity() {
+  const { items, summary } = await api('/ai/activity?limit=150');
+  const t = summary || {};
+  $('ai-today').textContent = `${t.calls_today || 0} calls today`;
+  const rows = items.filter(e => !$('ai-only-errors').checked || e.status !== 'ok' || e.fallback);
+  const body = $('ai-table').querySelector('tbody');
+  body.innerHTML = rows.length ? rows.map(e => `<tr data-id="${esc(e.id)}" class="${e.id === aiSelected ? 'sel' : ''}" title="${esc(e.purpose)}">
+      <td>${aiFmtTime(e.at)}</td><td>${esc(e.task)}</td><td>${esc(e.job || '')}</td>
+      <td>${esc(aiEngineName(e.engine_used))}</td><td>${fmtSecs(e.seconds)}</td>
+      <td>${(e.input_tokens + e.output_tokens) ? Number(e.input_tokens + e.output_tokens).toLocaleString() : ''}</td>
+      <td>${aiResult(e)}</td></tr>`).join('') : '<tr><td colspan="7" class="muted">No AI calls yet. Generate an application, or use Test Hermes.</td></tr>';
+  body.querySelectorAll('tr[data-id]').forEach(tr => tr.onclick = () => showAiDetail(tr.dataset.id));
+}
+async function showAiDetail(id) {
+  aiSelected = id;
+  const e = await api('/ai/activity/' + enc(id));
+  const box = $('ai-detail');
+  const block = (title, text) => text ? `<h3 class="ai-h" style="margin-top:12px">${esc(title)}</h3><pre>${esc(text)}</pre>` : '';
+  box.hidden = false;
+  box.innerHTML = `<div class="toolbar" style="margin:0"><strong>${esc(e.task)}</strong><span class="muted">${esc(e.purpose)}</span><span class="sp"></span><button class="btn subtle sm" id="ai-detail-close" type="button">Close</button></div>
+    <p class="muted">Asked for <b>${esc(aiEngineName(e.engine_requested) || e.engine_requested)}</b>, answered by <b>${esc(aiEngineName(e.engine_used))}</b> in ${fmtSecs(e.seconds)}
+    · ${Number(e.prompt_chars || 0).toLocaleString()} prompt characters${e.input_tokens ? ` · ${e.input_tokens.toLocaleString()} in / ${e.output_tokens.toLocaleString()} out tokens` : ''}${e.job ? ' · ' + esc(e.job) : ''}</p>
+    ${e.fallback ? `<div class="ai-warn">${esc(e.fallback)}</div>` : ''}
+    ${e.error ? `<div class="ai-warn">${esc(e.error)}</div>` : ''}
+    ${e.user_prompt === undefined ? '<p class="muted">Prompt recording was off for this call.</p>' : ''}
+    ${block('Instructions sent (system prompt)', e.system_prompt)}${block('Request (your profile, the job and the task)', e.user_prompt)}${block('Reply', e.response)}`;
+  $('ai-detail-close').onclick = () => { box.hidden = true; aiSelected = ''; loadAiActivity(); };
+  loadAiActivity();
+}
+async function aiTest(engine) {
+  const btn = $('ai-test-' + engine); btn.disabled = true; const label = btn.textContent; btn.textContent = 'Testing…';
+  try {
+    const r = await api('/ai/test', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ engine }) });
+    if (r.ok) toast(`${aiEngineName(r.engine)} answered in ${r.seconds}s: “${r.reply}”`);
+    else toast(r.fallback ? `Hermes failed; Ollama answered instead (${r.seconds}s)` : `${engine} failed: ${r.error}`, true);
+  } catch (e) { toast(e.message, true); }
+  finally { btn.disabled = false; btn.textContent = label; loadAiStatus(); loadAiActivity(); }
+}
+async function loadAiView() {
+  try { await Promise.all([loadAiStatus(), loadAiPipeline(), loadAiSettings(), loadAiActivity()]); }
+  catch (e) { toast('AI Engine: ' + e.message, true); }
+  clearInterval(aiTimer);
+  let tick = 0;
+  aiTimer = setInterval(() => {
+    if (!$('view-ai').classList.contains('active')) { clearInterval(aiTimer); return; }
+    if (document.hidden || !$('ai-autorefresh').checked) return;
+    loadAiActivity().catch(() => {});
+    if (++tick % 3 === 0) loadAiStatus().catch(() => {});
+  }, 5000);
+}
+$('ai-refresh').onclick = loadAiView;
+$('ai-save').onclick = saveAiSettings;
+$('ai-test-hermes').onclick = () => aiTest('hermes');
+$('ai-test-ollama').onclick = () => aiTest('ollama');
+$('ai-only-errors').onchange = loadAiActivity;
+$('ai-clear').onclick = async () => {
+  if (!confirm('Clear the AI activity log? This removes the recorded prompts and replies.')) return;
+  await api('/ai/activity', { method: 'DELETE' }); $('ai-detail').hidden = true; loadAiActivity(); loadAiStatus();
+};
 
 // Resolve which model to use for a generation given the job's priority.
 // 'split' is passed through untouched — the backend routes the résumé to Ollama

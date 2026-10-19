@@ -70,6 +70,17 @@ class Settings:
     # is down. Set DEFAULT_ENGINE=ollama to make local Ollama the default instead.
     default_engine: str = os.getenv("DEFAULT_ENGINE", "hermes").strip().lower()
 
+    # When a Hermes call fails, retry it on local Ollama (the run completes, and
+    # the fallback is shown in the AI activity log). Off = the Hermes error stands.
+    allow_ollama_fallback: bool = os.getenv("ALLOW_OLLAMA_FALLBACK", "1").strip().lower() not in (
+        "0", "false", "no", "off"
+    )
+    # Keep a trimmed copy of each AI prompt and reply in data/ai_activity.jsonl so
+    # the AI Engine view can show exactly what was asked and answered.
+    record_prompts: bool = os.getenv("AI_RECORD_PROMPTS", "1").strip().lower() not in (
+        "0", "false", "no", "off"
+    )
+
     # Paths
     profile_path: Path = field(
         default_factory=lambda: _path(os.getenv("PROFILE_PATH", "data/profile/master_profile.yaml"))

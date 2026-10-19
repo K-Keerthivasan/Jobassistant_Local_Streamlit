@@ -602,7 +602,8 @@ export class Service {
         }
         continue;
       }
-      const nav = await adviseNavigation(snapshot, process.env.APP_HERMES_BASE_URL || "");
+      const nav = await adviseNavigation(snapshot, process.env.APP_HERMES_BASE_URL || "", fetch,
+        `${this.store.get(id).input.company} · ${this.store.get(id).input.title}`);
       if (this.stopped || this.runCancel || this.store.get(id).state !== "working") return;
       if (!nav) {
         // Give client-rendered portals time to hydrate before deferring them.

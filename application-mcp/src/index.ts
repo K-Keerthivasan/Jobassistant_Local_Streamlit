@@ -5,6 +5,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/server/stdio";
 import { Store } from "./store.js";
 import { ChromeBridge } from "./bridge.js";
 import { payloadFor, shouldNotify } from "./notify.js";
+import { setAiLogSink, studioSink } from "./ailog.js";
 import { Service } from "./service.js";
 import { Studio } from "./studio.js";
 import { makeMcp } from "./tools.js";
@@ -77,6 +78,8 @@ if (process.env.APP_WINDOWS_WORKSPACE) {
   }
 }
 const bridge = new ChromeBridge();
+// Report the engine's own Hermes calls to Resume Studio's AI activity log.
+setAiLogSink(studioSink());
 // One desktop notification per barrier change, for the kinds switched on in
 // the dashboard's notification settings.
 store.onSave = (previous, next) => {

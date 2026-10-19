@@ -119,8 +119,10 @@ class GuardFormatTests(unittest.TestCase):
     def test_location_only_on_local_roles(self):
         out, _ = enforce(_resume(), PROFILE, target_title="X", target_location="London, ON")
         self.assertEqual(out.contact.location, "London, ON")
+        # Outside London the location broadens rather than disappearing
+        # (tests/test_resume_location_policy.py owns the full rule).
         out, _ = enforce(_resume(), PROFILE, target_title="X", target_location="Toronto, ON")
-        self.assertEqual(out.contact.location, "")
+        self.assertEqual(out.contact.location, "Ontario, Canada")
 
 
 class RenderFormatTests(unittest.TestCase):
@@ -135,7 +137,8 @@ class RenderFormatTests(unittest.TestCase):
                          target_location="Brampton, ON")
         doc = self._render(out)
         self.assertEqual(doc.paragraphs[0].text, "KEERTHIVASAN  (Keerthi)\tAssociate Product Manager")
-        self.assertEqual(doc.paragraphs[1].text, "k@example.com  |  555-0100  |  linkedin.com/in/kkvasan")
+        self.assertEqual(doc.paragraphs[1].text,
+                         "Ontario, Canada  |  k@example.com  |  555-0100  |  linkedin.com/in/kkvasan")
 
     def test_key_phrases_render_bold_without_markers(self):
         doc = self._render(_resume())

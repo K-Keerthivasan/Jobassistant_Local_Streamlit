@@ -112,7 +112,16 @@ def _resolve_engines(model: str | None) -> tuple[str | None, str | None]:
     return None, None
 
 
-def run(
+def run(target: TargetRole, **kw) -> dict:
+    """Generate one application. Every AI call made for it is tagged with the
+    job in the AI activity log (see `_run` for the options)."""
+    from .llm.activity import job_context
+
+    with job_context(target.company, target.title):
+        return _run(target, **kw)
+
+
+def _run(
     target: TargetRole,
     *,
     make_pdf: bool = True,

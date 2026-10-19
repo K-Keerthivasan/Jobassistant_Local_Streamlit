@@ -71,7 +71,9 @@ def _record_fallback(reason: str) -> None:
     if not hasattr(_local, "fb"):
         _local.fb = []
     _local.fb.append(reason)
-    print(f"[ai] Hermes unavailable → fell back to Ollama ({reason})", flush=True)
+    # ASCII only: a Windows console (cp1252) raises on characters like an arrow,
+    # which used to turn every fallback into a crash.
+    print(f"[ai] Hermes unavailable -> fell back to Ollama ({reason})".encode("ascii", "replace").decode(), flush=True)
 
 
 def _default_model() -> str:
@@ -85,35 +87,79 @@ def _default_model() -> str:
 
 
 def chat_structured(system: str, user: str, schema: Type[T], *, model: str | None = None, **kw) -> T:
-    # "split"/"auto"/none are meta-selections, not real model ids — resolve to the
-    # default engine (Hermes-first, Ollama fallback). pipeline.run handles real "split".
+    """Run one structured AI call and record it in the AI activity log."""
+    requested = model or "auto"
     if not model or str(model).strip().lower() in ("split", "auto"):
         model = _default_model()
-    kw.setdefault("timeout", settings.llm_timeout)  # cap every AI request
+    state = {"used": model, "fallback": ""}
+    tokens_before = _token_totals()
     start = time.perf_counter()
-    used = model
+    result = None
+    error: Exception | None = None
     try:
-        if str(model).startswith("hermes"):
-            from . import hermes_client
-            try:
-                return hermes_client.chat_structured(system, user, schema, model=model, **kw)
-            except hermes_client.HermesRateLimitError:
-                raise  # a quota wait is not permission to switch providers
-            except Exception as e:
-                # Hermes failed mid-call → fall back to local Ollama so the run still
-                # completes, and record it for the UI notice. Without a reachable
-                # Ollama, surface the real Hermes error instead of a connection error.
-                from . import ollama_client
-                if not ollama_client.health():
-                    print(f"[ai] Hermes failed, Ollama unreachable: {e}", flush=True)
-                    raise
-                used = settings.ollama_model
-                _record_fallback(f"{schema.__name__}: {type(e).__name__}: {str(e)[:300]}")
-                return ollama_client.chat_structured(system, user, schema, model=used, **kw)
-        from . import ollama_client
-        return ollama_client.chat_structured(system, user, schema, model=model, **kw)
+        result = _route(system, user, schema, model, state, **kw)
+        return result
+    except Exception as e:
+        error = e
+        raise
     finally:
-        _log_time(used, time.perf_counter() - start, schema.__name__)
+        elapsed = time.perf_counter() - start
+        _log_time(state["used"], elapsed, schema.__name__)
+        tokens_after = _token_totals()
+        from . import activity
+        reply = ""
+        if result is not None:
+            try:
+                reply = result.model_dump_json(indent=2)
+            except Exception:
+                reply = str(result)
+        activity.record(
+            schema=schema.__name__, requested=str(requested), used=str(state["used"]),
+            seconds=elapsed, status="ok" if error is None else "error",
+            error="" if error is None else f"{type(error).__name__}: {error}",
+            fallback=state["fallback"],
+            input_tokens=tokens_after[0] - tokens_before[0],
+            output_tokens=tokens_after[1] - tokens_before[1],
+            system=system, user=user, response=reply,
+            keep_prompts=settings.record_prompts,
+        )
+
+
+def _token_totals() -> tuple[int, int]:
+    m = getattr(_local, "metrics", None) or {}
+    return int(m.get("input_tokens", 0)), int(m.get("output_tokens", 0))
+
+
+def _route(system: str, user: str, schema: Type[T], model: str, state: dict, **kw) -> T:
+    # "split"/"auto"/none were resolved by the caller to the default engine
+    # (Hermes-first, Ollama fallback). pipeline.run handles real "split".
+    kw.setdefault("timeout", settings.llm_timeout)  # cap every AI request
+    if str(model).startswith("hermes"):
+        from . import hermes_client
+        try:
+            return hermes_client.chat_structured(system, user, schema, model=model, **kw)
+        except hermes_client.HermesRateLimitError:
+            raise  # a quota wait is not permission to switch providers
+        except Exception as e:
+            # Hermes failed mid-call → fall back to local Ollama so the run still
+            # completes, and record it for the UI notice. Without a reachable
+            # Ollama, or with the fallback switched off, surface the real Hermes error.
+            from . import ollama_client
+            if not settings.allow_ollama_fallback:
+                raise
+            if not ollama_client.health():
+                print(f"[ai] Hermes failed, Ollama unreachable: {e}".encode("ascii", "replace").decode(), flush=True)
+                raise
+            used = ollama_client.effective_model()
+            state["used"] = used
+            state["fallback"] = f"Hermes failed ({type(e).__name__}: {str(e)[:200]}); answered by Ollama {used}"
+            _record_fallback(f"{schema.__name__}: {type(e).__name__}: {str(e)[:300]}")
+            return ollama_client.chat_structured(system, user, schema, model=used, **kw)
+    from . import ollama_client
+    if model == settings.ollama_model:
+        model = ollama_client.effective_model()
+        state["used"] = model
+    return ollama_client.chat_structured(system, user, schema, model=model, **kw)
 
 
 def _log_time(model: str, elapsed: float, label: str) -> None:

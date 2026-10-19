@@ -2099,6 +2099,13 @@ from api.application_engine_routes import router as _application_engine_router  
 
 app.include_router(_application_engine_router)
 
+# AI Engine view: engine status, step map, settings, tests and the activity log.
+from api.ai_routes import router as _ai_router  # noqa: E402
+from resume_gen import ai_settings as _ai_settings  # noqa: E402
+
+_ai_settings.apply_saved()
+app.include_router(_ai_router)
+
 from api.generation_batch_routes import register as _register_generation_batches  # noqa: E402
 
 def _generate_batch_item(spec):
