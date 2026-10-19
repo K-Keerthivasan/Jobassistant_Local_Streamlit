@@ -5,6 +5,7 @@ import threading
 import time
 import uuid
 from collections import Counter
+from datetime import datetime
 
 from fastapi import HTTPException
 from pydantic import BaseModel, Field
@@ -79,7 +80,16 @@ class GenerationQueue:
             job = store.get_job(spec['key_id']) if spec.get('key_id') else None
             prior = runs.get_run(job.notes.strip()) if job and job.notes else None
             target = (prior or {}).get('target') or {}
-            if prior and job.company == target.get('company') and job.title == target.get('title'):
+            # Skip only a run this batch already produced (a restart mid-batch must
+            # not generate twice). A run from before the batch is exactly what a
+            # regenerate batch is meant to replace.
+            produced_by_batch = False
+            if prior and prior.get('created_at'):
+                try:
+                    produced_by_batch = datetime.fromisoformat(prior['created_at']).timestamp() >= batch['created']
+                except ValueError:
+                    produced_by_batch = False
+            if prior and produced_by_batch and job.company == target.get('company') and job.title == target.get('title'):
                 result = {'folder': prior['run_id'], 'skipped_existing': True}
             else:
                 result = self.generate(spec)

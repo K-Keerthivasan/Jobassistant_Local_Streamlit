@@ -88,3 +88,39 @@ class GenerationBatchTests(unittest.TestCase):
         self.assertEqual(batch['counts'], {'pending': 2})
         self.assertEqual(batch['items'][0]['attempts'], 0)
         self.assertFalse(batch['complete'])
+
+
+class RegenerateExistingTests(GenerationBatchTests):
+    """A batch replaces runs made before it, but never redoes one it made itself."""
+
+    def _queue(self, run_created_at, calls):
+        from unittest import mock
+        from types import SimpleNamespace
+        import api.generation_batch_routes as gb
+        job = SimpleNamespace(company='Acme', title='Analyst', notes='run1')
+        prior = {'run_id': 'run1', 'created_at': run_created_at, 'target': {'company': 'Acme', 'title': 'Analyst'}}
+        patches = [mock.patch.object(gb.store, 'get_job', return_value=job),
+                   mock.patch.object(gb.runs, 'get_run', return_value=prior)]
+        for p in patches:
+            p.start()
+            self.addCleanup(p.stop)
+        queue = GenerationQueue(lambda spec: calls.append(spec['key_id']) or {'folder': 'run2'}, self.connection)
+        queue.initialize()
+        return queue
+
+    def test_a_run_from_before_the_batch_is_regenerated(self):
+        calls = []
+        queue = self._queue('2020-01-01T00:00:00', calls)
+        queue.create([BatchItem(key_id='k1')])
+        queue.step()
+        self.assertEqual(calls, ['k1'])
+        self.assertNotIn('skipped_existing', queue.list()[0]['items'][0]['result'])
+
+    def test_a_run_this_batch_already_made_is_not_repeated(self):
+        from datetime import datetime, timedelta
+        calls = []
+        queue = self._queue((datetime.now() + timedelta(minutes=1)).isoformat(timespec='seconds'), calls)
+        queue.create([BatchItem(key_id='k1')])
+        queue.step()
+        self.assertEqual(calls, [])
+        self.assertTrue(queue.list()[0]['items'][0]['result']['skipped_existing'])
