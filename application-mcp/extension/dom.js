@@ -6,6 +6,34 @@ export async function domTask(task) {
     for (const el of roots[i].querySelectorAll("*"))
       if (el.shadowRoot) roots.push(el.shadowRoot);
   const queryAll = (css) => roots.flatMap(root => [...root.querySelectorAll(css)]);
+
+  // Indeed Easy Apply review page: each part (Contact information, Resume,
+  // Supporting documents) is a heading with an Edit or Add control and, for the
+  // documents, the file name Indeed will send.
+  const indeedApply = /(^|\.)smartapply\.indeed\.com$/.test(location.hostname);
+  const INDEED_PARTS = ["Contact information", "Resume", "Supporting documents", "Relevant experience", "Employer questions"];
+  const indeedPart = (title) => {
+    const head = queryAll("h1,h2,h3,h4,h5,h6,span,div,p,legend").find(
+      (e) => visible(e) && e.childElementCount === 0 && (e.innerText || "").trim() === title,
+    );
+    if (!head) return null;
+    let box = head.parentElement, best = null;
+    while (box && box !== document.body) {
+      const lines = (box.innerText || "").split("\n").map((s) => s.trim());
+      if (INDEED_PARTS.some((t) => t !== title && lines.includes(t))) break;
+      best = box;
+      box = box.parentElement;
+    }
+    return best;
+  };
+  const indeedFiles = (part) =>
+    part ? (part.innerText || "").split("\n").map((s) => s.trim())
+      .filter((s) => s.length <= 255 && !/[\\/]/.test(s) && /\.(pdf|docx?|txt|rtf)$/i.test(s)) : [];
+  const indeedControl = (part, action) =>
+    part ? [...part.querySelectorAll("a,button,[role=button],[role=link]")].find((e) => {
+      const t = (e.innerText || e.getAttribute("aria-label") || "").trim();
+      return visible(e) && (t === action || new RegExp("^" + action + "\\b", "i").test(t));
+    }) : null;
   const visible = (el) =>
     el.getClientRects().length > 0 &&
     getComputedStyle(el).visibility !== "hidden";
@@ -268,6 +296,16 @@ export async function domTask(task) {
         if (!attachments.some(a => a.kind === kind && a.name === name)) attachments.push({kind,name,frameId:0});
       }
     }
+    // Indeed shows the resume (and any supporting document) it will send as a
+    // file name on its review page; report it so the app can tell whether it is
+    // this job's document or an older upload.
+    if (indeedApply) {
+      for (const [kind, title] of [["resume", "Resume"], ["cover_letter", "Supporting documents"]]) {
+        for (const name of indeedFiles(indeedPart(title)))
+          if (!attachments.some((a) => a.kind === kind && a.name === name))
+            attachments.push({ kind, name, frameId: 0, shownByIndeed: true });
+      }
+    }
     const buttons = [
       ...queryAll(
         'button,a[href],input[type="submit"],input[type="button"],[role="button"]',
@@ -332,6 +370,16 @@ export async function domTask(task) {
       reviewText: !blockers.length && buttons.some(b=>/^submit(?: your)? application$/i.test(b.label.trim())) ? (document.querySelector('main')?.innerText || body).slice(0,16000) : '',
       attachments,
     };
+  }
+  if (task.op === "indeedPart") {
+    // Only Indeed's own apply site, only the Edit/Add control of a named part.
+    if (!indeedApply) throw new Error("Indeed controls are only used on smartapply.indeed.com.");
+    if (!["Resume", "Supporting documents"].includes(task.part) || !["Edit", "Add"].includes(task.action))
+      throw new Error("Unsupported Indeed control.");
+    const control = indeedControl(indeedPart(task.part), task.action);
+    if (!control) throw new Error(`Indeed ${task.part} ${task.action} control not found.`);
+    control.click();
+    return { clicked: true };
   }
   let contexts = [document];
   const segments = task.selector.split(" >>> ");

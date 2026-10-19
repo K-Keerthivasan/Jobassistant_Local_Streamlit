@@ -30,6 +30,10 @@ const DONE = [
 const WAIT_MINUTES = 30;
 const missingTab=(error:unknown)=>/^(?:No matching application tab\.|No tab with id:\s*\d+\.?$)/i.test(error instanceof Error?error.message:String(error));
 
+const isIndeedApply = (url: string) => {
+  try { return /(^|\.)smartapply\.indeed\.com$/.test(new URL(url).hostname); } catch { return false; }
+};
+
 export class Service {
   private fieldIssues=new Map<string,Map<string,string>>();
   private answerAttempts=new Set<string>();
@@ -557,6 +561,7 @@ export class Service {
       }
       lastNav = false;
       preparedCaptcha = false;
+      if (await this.indeedDocuments(id)) continue;
 
       try { a = await this.uploadResumeFirst(id); }
       catch (e) { await this.pauseFor(id, `Document upload: ${(e as Error).message}`); continue; }
@@ -580,7 +585,9 @@ export class Service {
               ? /resume|résumé|\bcv\b/i.test(f.label)
               : /cover/i.test(f.label),
           ) ||
-          (doc.kind === "resume" && files.length === 1 ? files[0] : undefined);
+          (doc.kind === "resume" && files.length === 1 ? files[0] : undefined) ||
+          (doc.kind === "cover_letter" && files.length === 1 && isIndeedApply(a.snapshot!.url) &&
+            a.documents.some((d) => d.kind === "resume" && d.attached) ? files[0] : undefined);
         if (!field || field.files.length) continue;
         try {
           a = await this.upload(id, doc.kind, field.selector, field.frameId);
@@ -928,6 +935,43 @@ export class Service {
       }
     }
   }
+  /**
+   * Indeed Easy Apply goes straight to its review page when an older resume is on
+   * file, and would send that file. On the review page: if the resume Indeed shows
+   * isn't this job's, click Edit next to Resume (once) so the resume page with its
+   * upload control opens; once the right resume is in place and the cover letter
+   * isn't, click Add under Supporting documents (once). Returns true when it
+   * clicked, so the caller re-reads the new page.
+   */
+  private async indeedDocuments(id: string): Promise<boolean> {
+    const a = this.store.get(id);
+    const s = a.snapshot;
+    if (!s || !isIndeedApply(s.url) || !/review/i.test(s.url)) return false;
+    const resume = a.documents.find((d) => d.kind === "resume");
+    const cover = a.documents.find((d) => d.kind === "cover_letter");
+    const shown = (kind: string) => s.attachments.filter((r) => r.kind === kind && r.shownByIndeed).map((r) => r.name);
+    let part: "Resume" | "Supporting documents" | "" = "";
+    let action: "Edit" | "Add" = "Edit";
+    if (resume && !resume.attached && shown("resume").length && !shown("resume").includes(resume.name) && !a.indeedResumeEditAt) {
+      part = "Resume"; action = "Edit"; a.indeedResumeEditAt = new Date().toISOString();
+    } else if (cover && !cover.attached && !cover.omissionReason && resume?.attached && !shown("cover_letter").includes(cover.name) && !a.indeedCoverAddAt) {
+      part = "Supporting documents"; action = "Add"; a.indeedCoverAddAt = new Date().toISOString();
+    }
+    if (!part) return false;
+    this.store.save(a);
+    try {
+      await this.command(a, "indeedPart", { part, action });
+      this.store.event(id, "indeed_document_step", { part, action, shown: shown(part === "Resume" ? "resume" : "cover_letter") });
+      const cur = this.store.get(id);
+      if (cur.state === "paused" && !cur.snapshot?.blockers.some((b) => !/^CAPTCHA:/.test(b))) {
+        cur.state = "working"; cur.reason = ""; this.store.save(cur);
+      }
+      return true;
+    } catch (error) {
+      this.store.event(id, "indeed_document_step_failed", { part, action, reason: (error as Error).message });
+      return false;
+    }
+  }
   private async uploadResumeFirst(id: string, allowPendingCaptcha = false) {
     let a = await this.exclusive(() => this.inspectInternal(this.active(id, true)));
     if (a.state === 'paused' && !this.mayPrepareWithPendingCaptcha(a, allowPendingCaptcha)) return a;
@@ -957,6 +1001,7 @@ export class Service {
   }
   async preparePage(id: string, allowPendingCaptcha = false) {
     const initial=this.store.get(id);initial.preparationStage='preparing';this.store.save(initial);
+    if (await this.indeedDocuments(id)) return this.store.get(id);
     try {
     let a = await this.uploadResumeFirst(id, allowPendingCaptcha);
     a.preparationStage='preparing';this.store.save(a);
@@ -1003,8 +1048,13 @@ export class Service {
     const problems = reviewProblems(a.snapshot!);
     problems.push(...(this.fieldIssues.get(id)?.values() || []));
     for (const doc of a.documents)
-      if (!doc.attached && !doc.omissionReason)
-        problems.push(`Document not attached: ${doc.kind}`);
+      if (!doc.attached && !doc.omissionReason) {
+        const shown = a.snapshot!.attachments.find((r) => r.kind === doc.kind && r.shownByIndeed);
+        problems.push(shown
+          ? `Indeed is set to send ${shown.name}, not this job's ${doc.kind === "resume" ? "resume" : "cover letter"} ${doc.name}. ` +
+            `Click ${doc.kind === "resume" ? "Edit next to Resume" : "Add under Supporting documents"} and upload ${doc.name}`
+          : `Document not attached: ${doc.kind}`);
+      }
     if (problems.length) {
       a.state = "paused";
       a.reason = problems.join("; ");

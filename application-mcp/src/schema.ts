@@ -42,6 +42,9 @@ export const Snapshot = z.object({
         kind: z.enum(["resume", "cover_letter"]),
         name: z.string(),
         frameId: z.number(),
+        // Indeed review page: the file Indeed is set to send, which may be an
+        // older upload rather than this job's document.
+        shownByIndeed: z.boolean().optional(),
       }),
     )
     .default([]),
@@ -103,6 +106,8 @@ export const ApplicationSchema = z.object({
   preparationStage:z.enum(['preparing','uploading','needs_user']).optional(),
   educationBatchSourceHash:z.string().optional(),
   retryMissingDocumentsRequested:z.boolean().optional(),
+  indeedResumeEditAt: z.string().optional(),
+  indeedCoverAddAt: z.string().optional(),
   createdAt: z.string(),
   updatedAt: z.string(),
   reviewHash: z.string().optional(),

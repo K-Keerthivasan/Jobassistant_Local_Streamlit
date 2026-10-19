@@ -307,14 +307,14 @@ async function command(op, args) {
     }
     return { uploaded: true };
   }
-  if (!["fill", "click"].includes(op))
+  if (!["fill", "click", "indeedPart"].includes(op))
     throw new Error("Unknown bridge command.");
   const [result] = await chrome.scripting.executeScript({
     target: { tabId: session.tabId, frameIds: [args.frameId || 0] },
     func: domTask,
     args: [{ ...args, op }],
   });
-  if (op === "click") await new Promise((r) => setTimeout(r, 600));
+  if (op === "click" || op === "indeedPart") await new Promise((r) => setTimeout(r, 1200));
   return result.result;
 }
 // Barrier notifications from the application service. Clicking one brings the
