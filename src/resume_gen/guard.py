@@ -118,6 +118,10 @@ def _tokens(s: str) -> set[str]:
     return set(re.findall(r"[a-z0-9]+", (s or "").lower()))
 
 
+# Every experience entry shows at least this many bullets.
+MIN_ROLE_BULLETS = 4
+
+
 def _norm_title(s: str) -> str:
     return re.sub(r"[^a-z0-9]+", " ", (s or "").lower()).strip()
 
@@ -444,10 +448,10 @@ def enforce(resume: Resume, profile: dict, *, strict: bool = False,
                     b = _strip_metrics(b)
             kept_bullets.append(b)
 
-        # Top up a role the model left thin, from its real facts. Kept small: the
-        # resume is a one-page document and the length fitter trims what overflows.
+        # Every role carries at least 4 bullets (5 for the lead role); a role the
+        # model left thin is topped up from its own real profile facts.
         facts = match.get("facts", [])
-        target = (3 if idx == 0 else 1) if facts else len(kept_bullets)
+        target = (5 if idx == 0 else MIN_ROLE_BULLETS) if facts else len(kept_bullets)
         if facts and len(kept_bullets) < target:
             before = len(kept_bullets)
             kept_bullets = _topup_from_facts(kept_bullets, facts, target)
@@ -496,7 +500,7 @@ def enforce(resume: Resume, profile: dict, *, strict: bool = False,
         kept_exp.append(ExperienceItem(
             company=p.get("company", ""), role=p.get("role", ""),
             location=p.get("location", ""), start=p.get("start", ""),
-            end=p.get("end", ""), dates=p.get("dates", "") or "", bullets=facts[:2]))
+            end=p.get("end", ""), dates=p.get("dates", "") or "", bullets=facts[:MIN_ROLE_BULLETS]))
         report.setdefault("experience_added_from_profile", []).append(p.get("company", ""))
 
     resume.experience = kept_exp
@@ -734,7 +738,7 @@ def has_violations(report: dict) -> bool:
     if any(report.get(k) for k in (
         "skills_dropped", "fabricated_numbers", "identity_fixed",
         "experience_fixed", "unmatched_experience", "ungrounded_in_bullets",
-        "ungrounded_bullets", "headline_fixed", "summary_fixed", "bullets_from_facts",
+        "ungrounded_bullets", "headline_fixed", "summary_fixed",
         "experience_rebuilt_from_profile",
     )):
         return True

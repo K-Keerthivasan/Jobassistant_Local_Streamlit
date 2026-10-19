@@ -19,7 +19,7 @@ from .length import DENSITIES, TWO_PAGE_MIN_FILL
 
 _MAX_RENDERS = 4                      # cost guard (each render launches Word/LibreOffice)
 # A one-page résumé should run close to the bottom of the page.
-_ONE_PAGE_MIN_FILL = 0.88
+_ONE_PAGE_MIN_FILL = 0.92
 
 
 def _last_page_fill(pdf_path: Path, margin_in: float) -> tuple[int, float]:
@@ -52,6 +52,20 @@ def _last_page_fill(pdf_path: Path, margin_in: float) -> tuple[int, float]:
             return n, 0.0
         used = (h - margin_pt) - min(ys)      # top-of-content → lowest baseline
         return n, max(0.0, min(1.0, used / usable))
+    except Exception:
+        return 0, 0.0
+
+
+def render_pages(resume, profile: dict, density: float) -> tuple[int, float]:
+    """Render once and return (pages, last-page fill). (0, 0.0) on any error."""
+    from .docx_renderer import render_resume, typo
+    from .pdf_export import to_pdf
+
+    try:
+        with tempfile.TemporaryDirectory() as tmp:
+            docx = Path(tmp) / "probe.docx"
+            render_resume(resume, docx, profile, density=density)
+            return _last_page_fill(Path(to_pdf(docx)), typo(density)["margin_in"])
     except Exception:
         return 0, 0.0
 

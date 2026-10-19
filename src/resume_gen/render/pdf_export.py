@@ -33,9 +33,13 @@ def wordcraft_bin() -> str | None:
 
 
 def is_fast() -> bool:
-    """True when conversion is cheap enough to render several times per run."""
+    """True when a converter is available to check the real page a few times per
+    run: WordCraft (about 0.1s) or LibreOffice (a few seconds, as in Docker), so
+    the page fill is measured rather than estimated."""
     engine = settings.pdf_engine
-    return engine == "wordcraft" or (engine == "auto" and wordcraft_bin() is not None)
+    if engine == "wordcraft" or (engine == "auto" and wordcraft_bin() is not None):
+        return True
+    return engine in ("libreoffice", "auto") and shutil.which(settings.libreoffice_bin) is not None
 
 
 def _wordcraft(docx_path: Path, pdf_path: Path) -> Path:

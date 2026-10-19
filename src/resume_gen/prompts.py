@@ -8,8 +8,9 @@ from .models import ApplicationEmail, CoverLetter, Resume
 
 # Shared resume layout and content rules, used by the standalone resume prompt
 # and the fast-path draft prompt so the two never drift apart.
-RESUME_FORMAT = """1. ONE PAGE. The resume fills one page: a header, three summary bullets, the most
-   relevant experience, and education. Select, do not pad. Every line earns its place.
+RESUME_FORMAT = """1. ONE FULL PAGE. The resume fills one whole page, top to bottom: a header, three
+   summary bullets, the experience, and education. Aim for about 18 to 24 experience
+   bullets in total. Every line must earn its place with real, relevant content.
 2. HEADLINE. Set `headline` to the target job title exactly as posted. It prints
    beside the candidate's name.
 3. CAREER SUMMARY. `summaryPoints` holds exactly 3 bullets of 15 to 25 words each,
@@ -29,8 +30,10 @@ RESUME_FORMAT = """1. ONE PAGE. The resume fills one page: a header, three summa
    date: the most relevant role comes first.
 6. JOB TITLES. For each role use its profile title or ONE of its listed
    alternative titles, whichever fits the posting best. Never write any other title.
-7. BULLETS. The most relevant role gets 4 to 6 bullets; other relevant roles get 2 to
-   3; ALWAYS_INCLUDE roles that are not relevant get 1. Each bullet:
+7. BULLETS. Every role you include gets AT LEAST 4 bullets; the most relevant role
+   gets 5 to 6. For a role that is less related to the posting, pick its 4 facts that
+   transfer best (communication, tools, accuracy, deadlines, stakeholders) and say how
+   they relate. Each bullet:
    - starts with a strong action verb, in present tense for a current role and past
      tense for a finished one;
    - says what was done, with which tool or method, for whom or to what end, using

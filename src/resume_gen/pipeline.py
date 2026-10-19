@@ -210,8 +210,21 @@ def _run(
     # an estimate of the rendered height, so it runs in fast mode too. Trims only
     # remove content and are listed in the QA report.
     from .render.length import fit_length
+    untrimmed = resume
     resume, resume_density, qa["length"] = fit_length(resume, profile)
     from .render.pdf_export import is_fast as _pdf_is_fast
+    # The estimate errs on the safe side, so it can trim content that would
+    # have fit. With a real converter, check the untrimmed resume at the
+    # smallest type first and keep everything if it is still one page.
+    if make_pdf and qa["length"].get("trimmed") and qa["length"].get("pages_target") == 1 and _pdf_is_fast():
+        from .render.autofit import render_pages
+        from .render.length import MIN_K
+        pages, _fill_real = render_pages(untrimmed, profile, MIN_K)
+        if pages == 1:
+            resume, resume_density = untrimmed, MIN_K
+            qa["length"]["trimmed_by_estimate_but_fits"] = qa["length"].pop("trimmed")
+            qa["length"]["trimmed"] = []
+            qa["length"]["density"] = MIN_K
     if make_pdf and (not settings.hermes_fast_mode or _pdf_is_fast()):
         # Refine the density against real renders (only font/spacing/margins scale).
         # Fast mode skips this only when the converter is slow (Word, LibreOffice).

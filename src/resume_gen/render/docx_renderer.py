@@ -424,15 +424,23 @@ def render_resume(resume: Resume, out_path: Path, profile: dict | None = None,
 
     if resume.education:
         _heading(doc, "Education", t)
+        page_w = 595.276 if (settings.page_size or "letter").lower() == "a4" else 612.0
+        usable = page_w - 2 * t["margin_in"] * 72.0
         for ed in resume.education:
             p = doc.add_paragraph()
             p.paragraph_format.space_after = Pt(1)
             _tab_right(p)
-            _run(p, ed.credential, bold=True, size=t["body"])
-            _run(p, f"  |  {ed.institution}", size=t["body"])
-            if ed.year:
-                year = _re.sub(r"\s*[-\u2013\u2014]\s*", " to ", ed.year)
-                _run(p, f"\t{year}", size=t["small_size"], italic=True)
+            year = _re.sub(r"\s*[-\u2013\u2014]\s*", " to ", ed.year or "")
+            # A long credential and school would push the year onto a second
+            # line; shrink just this line (by up to 1.5pt) so it stays on one.
+            size = t["body"]
+            text_len = len(ed.credential) * 0.52 + len(ed.institution) * 0.47 + 4
+            while size > t["body"] - 1.5 and (text_len * size + len(year) * 0.5 * t["small_size"] + 30) > usable:
+                size -= 0.25
+            _run(p, ed.credential, bold=True, size=size)
+            _run(p, f"  |  {ed.institution}", size=size)
+            if year:
+                _run(p, f"\t{year}", size=min(t["small_size"], size), italic=True)
         if resume.licences:
             p = doc.add_paragraph()
             p.paragraph_format.space_before = Pt(2)

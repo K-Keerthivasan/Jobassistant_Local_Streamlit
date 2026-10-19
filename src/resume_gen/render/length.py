@@ -35,10 +35,15 @@ _LINE_H = 1.15
 _SAFETY = 0.97
 # A two-page resume must fill at least this share of page two.
 TWO_PAGE_MIN_FILL = 0.5
-# Minimum content kept while trimming toward one page.
-_LEAD_MIN_BULLETS = 3
-_OTHER_MIN_BULLETS = 2
+# Minimum content kept while trimming toward one page: every role keeps at least
+# 4 bullets. Type shrinks (down to 10pt) before anything is trimmed.
+_LEAD_MIN_BULLETS = 4
+_OTHER_MIN_BULLETS = 4
 _MIN_ROLES = 3
+# A one-page resume should reach this share of the page; a shorter one is grown
+# with more real bullets and roles from the profile.
+TARGET_FILL = 0.92
+_GROW_MAX_BULLETS = 6
 
 
 def _page_dims() -> tuple[float, float]:
@@ -161,6 +166,55 @@ def _trim_steps(resume: Resume, profile: dict | None):
         yield f"role omitted to fit one page: {e.company}", r.model_copy(deep=True)
 
 
+def _tokens(text: str) -> set[str]:
+    return {t for t in re.findall(r"[a-z0-9#.+]+", (text or "").lower().replace("**", "")) if len(t) >= 4}
+
+
+def _grow(resume: Resume, profile: dict | None) -> tuple[Resume, list[str]]:
+    """Add real content until the page fills at the loosest density: first more
+    bullets from each included role's own profile facts (up to 6 a role), then
+    roles left out, with 4 facts each. Only profile facts are used, never new text."""
+    from ..models import ExperienceItem
+
+    norm = lambda s: re.sub(r"[^a-z0-9]+", " ", (s or "").lower()).strip()
+    r = resume.model_copy(deep=True)
+    added: list[str] = []
+    prof_exp = (profile or {}).get("experience", []) or []
+    by_company = {norm(p.get("company", "")): p for p in prof_exp}
+
+    def full() -> bool:
+        return _fill(r, MAX_K, profile) >= TARGET_FILL
+
+    for e in r.experience:
+        if full():
+            break
+        p = by_company.get(norm(e.company))
+        if not p:
+            continue
+        have = [_tokens(b) for b in e.bullets]
+        for fact in p.get("facts", []) or []:
+            if full() or len(e.bullets) >= _GROW_MAX_BULLETS:
+                break
+            ft = _tokens(fact)
+            if any(len(ft & h) >= 3 for h in have):
+                continue                      # already said in another bullet
+            e.bullets.append(fact)
+            have.append(ft)
+            added.append(f"bullet from profile added to {e.company}")
+    present = {norm(e.company) for e in r.experience}
+    for p in prof_exp:
+        if full():
+            break
+        if norm(p.get("company", "")) in present or not p.get("facts"):
+            continue
+        r.experience.append(ExperienceItem(
+            company=p.get("company", ""), role=p.get("role", ""), location=p.get("location", ""),
+            start=p.get("start", ""), end=p.get("end", ""), dates=p.get("dates", "") or "",
+            bullets=list(p["facts"])[:4]))
+        added.append(f"role added from profile to fill the page: {p.get('company', '')}")
+    return r, added
+
+
 def fit_length(resume: Resume, profile: dict | None = None) -> tuple[Resume, float, dict]:
     """Return ``(resume, density, report)``: the resume (trimmed only if it had to
     be, to fit one page), the density to render it at, and a report with the
@@ -169,6 +223,14 @@ def fit_length(resume: Resume, profile: dict | None = None) -> tuple[Resume, flo
 
     k = _best_k(resume, profile, 1)
     if k is not None:
+        # Fits one page. If it can't fill the page even at the loosest type, add
+        # real content from the profile until it does (or nothing is left).
+        if k == MAX_K and _fill(resume, MAX_K, profile) < TARGET_FILL and profile:
+            grown, added = _grow(resume, profile)
+            gk = _best_k(grown, profile, 1)
+            if added and gk is not None:
+                resume, k = grown, gk
+                report["grown"] = added
         report.update(pages_target=1, density=k,
                       estimated_fill=round(_fill(resume, k, profile), 3))
         return resume, k, report
