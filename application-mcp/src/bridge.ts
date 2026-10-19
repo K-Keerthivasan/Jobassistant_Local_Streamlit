@@ -7,7 +7,7 @@ export interface Browser {
 }
 /** The extension version this service expects (extension/manifest.json). When
  * Chrome runs an older one, page-reading fixes don't apply until it's reloaded. */
-export const EXPECTED_EXTENSION_VERSION = "0.3.2";
+export const EXPECTED_EXTENSION_VERSION = "0.3.3";
 
 export class ChromeBridge implements Browser {
   socket?: WebSocket;

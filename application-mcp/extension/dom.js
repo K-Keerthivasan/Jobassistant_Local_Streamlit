@@ -23,7 +23,14 @@ export async function domTask(task) {
   // Indeed Easy Apply review page: each part (Contact information, Resume,
   // Supporting documents) is a heading with an Edit or Add control and, for the
   // documents, the file name Indeed will send.
-  const indeedApply = /(^|\.)smartapply\.indeed\.com$/.test(location.hostname);
+  // A blank/srcdoc frame has no address but carries its parent's origin, which
+  // is how Indeed's review sections are rendered.
+  const pageHost = (() => {
+    if (location.hostname) return location.hostname;
+    try { return new URL(self.origin).hostname; } catch { /* opaque origin */ }
+    try { return window.parent.location.hostname; } catch { return ""; }
+  })();
+  const indeedApply = /(^|\.)smartapply\.indeed\.com$/.test(pageHost);
   const INDEED_PARTS = ["Contact information", "Resume", "Supporting documents", "Relevant experience", "Employer questions"];
   // Text lines of a subtree, including content inside shadow roots (innerText
   // stops at a shadow boundary).
@@ -404,7 +411,15 @@ export async function domTask(task) {
       educationSection,
       // What the page is made of, so a site layout the app can't read yet can
       // be diagnosed from the saved snapshot.
-      diagnostics: { closedShadowRoots, shadowRoots: roots.length - 1, iframes: queryAll("iframe").map((f) => { try { return new URL(f.src, location.href).hostname; } catch { return ""; } }) },
+      diagnostics: { closedShadowRoots, shadowRoots: roots.length - 1, pageHost,
+        iframes: queryAll("iframe").map((f) => { try { return new URL(f.src, location.href).hostname; } catch { return ""; } }),
+        // Every CAPTCHA-looking frame, with the facts the CAPTCHA rule uses.
+        captchaFrames: queryAll("iframe").filter((f) => /captcha|turnstile/i.test((f.src || "") + " " + (f.title || ""))).map((f) => {
+          const r = f.getBoundingClientRect(), cs = getComputedStyle(f);
+          let path = ""; try { const u = new URL(f.src, location.href); path = u.hostname + u.pathname + (/size=\w+/.exec(u.search + u.hash)?.[0] || ""); } catch { /* none */ }
+          return { path, title: (f.title || "").slice(0, 40), w: Math.round(r.width), h: Math.round(r.height), top: Math.round(r.top),
+            hidden: cs.display === "none" || cs.visibility === "hidden" || Number(cs.opacity) === 0, counted: realCaptcha(f) };
+        }) },
       reviewText: !blockers.length && buttons.some(b=>/^submit(?: your)? application$/i.test(b.label.trim())) ? (document.querySelector('main')?.innerText || body).slice(0,16000) : '',
       attachments,
     };
