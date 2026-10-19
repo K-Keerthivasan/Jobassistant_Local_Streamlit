@@ -34,6 +34,9 @@ data/profile/personas.yaml
 data/apply_profile.json
 data/repeat_companies.json
 data/usage.json
+# AI Engine: activity log (holds prompts with profile text) and runtime AI settings.
+data/ai_activity.jsonl
+data/ai_settings.json
 data/companies/*
 !data/companies/.gitkeep
 
