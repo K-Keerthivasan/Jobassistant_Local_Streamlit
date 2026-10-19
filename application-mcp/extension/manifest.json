@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Resume Studio Application Bridge",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Connect your regular Chrome profile to your local Resume Studio application service.",
   "permissions": [
     "tabs",

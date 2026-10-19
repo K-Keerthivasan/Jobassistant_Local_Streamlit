@@ -292,6 +292,31 @@ test("Indeed review page reports the resume it would send and finds its Edit con
   await page.evaluate(domTask, { op: "indeedPart", part: "Supporting documents", action: "Add" });
   expect(await page.getAttribute("#add-docs", "data-clicked")).toBe("1");
 });
+test("Indeed review sections inside nested shadow roots are still read and clicked", async ({
+  page,
+}) => {
+  await page.route("https://smartapply.indeed.com/**", (route) =>
+    route.fulfill({
+      contentType: "text/html",
+      body:
+        '<main><h1>Review your application</h1><review-sections id="host"></review-sections>' +
+        '<button>Submit your application</button></main><script>' +
+        'const host=document.getElementById("host").attachShadow({mode:"open"});' +
+        'host.innerHTML=`<section><div><h2>Contact information</h2><button>Edit</button></div></section>' +
+        '<section id="resume"><div><h2>Resume</h2><button id="edit">Edit</button></div><file-card id="card"></file-card></section>' +
+        '<section><div><h2>Supporting documents</h2><button id="add">Add</button></div></section>`;' +
+        'host.getElementById("card").attachShadow({mode:"open"}).innerHTML="<span>kk_DWS_StructuredCablingTechnician.pdf</span>";' +
+        'host.getElementById("edit").onclick=()=>document.body.dataset.edit=1;' +
+        '</script>',
+    }),
+  );
+  await page.goto("https://smartapply.indeed.com/beta/indeedapply/form/review-module");
+  const s = await page.evaluate(domTask, { op: "scan" });
+  expect(s.attachments.map((a: any) => [a.kind, a.name])).toEqual([["resume", "kk_DWS_StructuredCablingTechnician.pdf"]]);
+  expect(s.diagnostics.shadowRoots).toBe(2);
+  await page.evaluate(domTask, { op: "indeedPart", part: "Resume", action: "Edit" });
+  expect(await page.getAttribute("body", "data-edit")).toBe("1");
+});
 test("Apply in same tab and popup both navigate with observable application forms", async ({
   page,
   context,

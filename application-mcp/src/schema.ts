@@ -33,6 +33,13 @@ export const Snapshot = z.object({
   ),
   blockers: z.array(z.string()),
   confirmation: z.string().default(""),
+  diagnostics: z.object({
+    closedShadowRoots: z.number().default(0),
+    shadowRoots: z.number().default(0),
+    iframes: z.array(z.string()).default([]),
+    frames: z.array(z.string()).default([]),
+    scannedFrames: z.number().default(0),
+  }).partial().optional(),
   reviewText: z.string().default(""),
   supportsFocus:z.boolean().default(false),
   supportsByteUploads:z.boolean().default(false),

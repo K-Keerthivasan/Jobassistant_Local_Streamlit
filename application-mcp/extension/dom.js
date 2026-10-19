@@ -1,10 +1,23 @@
 // Self-contained so chrome.scripting and Playwright can execute the same code.
 export async function domTask(task) {
   // UKG and other web components keep their public controls in open shadow roots.
+  // Closed shadow roots are reachable only through chrome.dom (extension
+  // scripts); Playwright and pages fall back to open roots.
+  let closedShadowRoots = 0;
+  const shadowOf = (el) => {
+    if (el.shadowRoot) return el.shadowRoot;
+    try {
+      const sr = globalThis.chrome?.dom?.openOrClosedShadowRoot?.(el);
+      if (sr) closedShadowRoots++;
+      return sr || null;
+    } catch { return null; }
+  };
   const roots = [document];
   for (let i = 0; i < roots.length; i++)
-    for (const el of roots[i].querySelectorAll("*"))
-      if (el.shadowRoot) roots.push(el.shadowRoot);
+    for (const el of roots[i].querySelectorAll("*")) {
+      const sr = shadowOf(el);
+      if (sr) roots.push(sr);
+    }
   const queryAll = (css) => roots.flatMap(root => [...root.querySelectorAll(css)]);
 
   // Indeed Easy Apply review page: each part (Contact information, Resume,
@@ -12,26 +25,42 @@ export async function domTask(task) {
   // documents, the file name Indeed will send.
   const indeedApply = /(^|\.)smartapply\.indeed\.com$/.test(location.hostname);
   const INDEED_PARTS = ["Contact information", "Resume", "Supporting documents", "Relevant experience", "Employer questions"];
+  // Text lines of a subtree, including content inside shadow roots (innerText
+  // stops at a shadow boundary).
+  const deepLines = (node, out = []) => {
+    const sr = node.nodeType === 1 ? shadowOf(node) : null;
+    for (const k of [...(sr ? sr.childNodes : []), ...node.childNodes]) {
+      if (k.nodeType === 3) { const t = k.textContent.trim(); if (t) out.push(t); }
+      else if (k.nodeType === 1 && !["SCRIPT", "STYLE", "TEMPLATE"].includes(k.tagName)) deepLines(k, out);
+    }
+    return out;
+  };
+  const deepAll = (node, css, out = []) => {
+    if (node.nodeType === 1 && node.matches(css)) out.push(node);
+    const sr = node.nodeType === 1 ? shadowOf(node) : null;
+    for (const k of [...(sr ? sr.children : []), ...(node.children || [])]) deepAll(k, css, out);
+    return out;
+  };
+  const up = (el) => el.parentElement || (el.getRootNode() instanceof ShadowRoot ? el.getRootNode().host : null);
   const indeedPart = (title) => {
-    const head = queryAll("h1,h2,h3,h4,h5,h6,span,div,p,legend").find(
-      (e) => visible(e) && e.childElementCount === 0 && (e.innerText || "").trim() === title,
+    const head = queryAll("h1,h2,h3,h4,h5,h6,span,div,p,legend,label").find(
+      (e) => visible(e) && e.childElementCount === 0 && (e.textContent || "").trim() === title,
     );
     if (!head) return null;
-    let box = head.parentElement, best = null;
-    while (box && box !== document.body) {
-      const lines = (box.innerText || "").split("\n").map((s) => s.trim());
+    let box = up(head), best = null;
+    while (box && box !== document.body && box !== document.documentElement) {
+      const lines = deepLines(box);
       if (INDEED_PARTS.some((t) => t !== title && lines.includes(t))) break;
       best = box;
-      box = box.parentElement;
+      box = up(box);
     }
     return best;
   };
   const indeedFiles = (part) =>
-    part ? (part.innerText || "").split("\n").map((s) => s.trim())
-      .filter((s) => s.length <= 255 && !/[\\/]/.test(s) && /\.(pdf|docx?|txt|rtf)$/i.test(s)) : [];
+    part ? deepLines(part).filter((s) => s.length <= 255 && !/[\\/]/.test(s) && /\.(pdf|docx?|txt|rtf)$/i.test(s)) : [];
   const indeedControl = (part, action) =>
-    part ? [...part.querySelectorAll("a,button,[role=button],[role=link]")].find((e) => {
-      const t = (e.innerText || e.getAttribute("aria-label") || "").trim();
+    part ? deepAll(part, "a,button,[role=button],[role=link]").find((e) => {
+      const t = (e.textContent || e.getAttribute("aria-label") || "").trim();
       return visible(e) && (t === action || new RegExp("^" + action + "\\b", "i").test(t));
     }) : null;
   const visible = (el) =>
@@ -373,6 +402,9 @@ export async function domTask(task) {
       supportsFocus:true,
       supportsByteUploads:true,
       educationSection,
+      // What the page is made of, so a site layout the app can't read yet can
+      // be diagnosed from the saved snapshot.
+      diagnostics: { closedShadowRoots, shadowRoots: roots.length - 1, iframes: queryAll("iframe").map((f) => { try { return new URL(f.src, location.href).hostname; } catch { return ""; } }) },
       reviewText: !blockers.length && buttons.some(b=>/^submit(?: your)? application$/i.test(b.label.trim())) ? (document.querySelector('main')?.innerText || body).slice(0,16000) : '',
       attachments,
     };

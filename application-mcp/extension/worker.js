@@ -62,6 +62,17 @@ function permitted(url) {
     return false;
   }
 }
+// Indeed's apply site embeds parts of its pages from other indeed.com hosts.
+// Those frames are read (never navigated) while the application is on Indeed.
+function indeedFrame(url) {
+  try {
+    const u = new URL(url);
+    return u.protocol === "https:" && /(^|\.)indeed\.com$/.test(u.hostname) &&
+      session?.domains.includes("smartapply.indeed.com");
+  } catch {
+    return false;
+  }
+}
 chrome.tabs.onCreated.addListener(async (tab) => {
   await ready;
   if (session && tab.openerTabId === session.tabId && tab.id) {
@@ -225,7 +236,7 @@ async function command(op, args) {
       // CAPTCHA frames are judged by the page scan, which sees whether the frame
       // is actually on screen; a frame's URL alone can't tell an invisible
       // verification frame (Indeed) from a challenge you must solve.
-      if (!permitted(frame.url)) continue;
+      if (!permitted(frame.url) && !indeedFrame(frame.url)) continue;
       const [r] = await chrome.scripting.executeScript({
         target: { tabId: session.tabId, frameIds: [frame.frameId] },
         func: domTask,
@@ -250,7 +261,27 @@ async function command(op, args) {
       ],
       attachments: results.flatMap((r) => r.attachments || []),
       confirmation: results.find((r) => r.confirmation)?.confirmation || "",
+      diagnostics: {
+        ...(top.diagnostics || {}),
+        frames: frames.map((f) => { try { return new URL(f.url).hostname; } catch { return ""; } }),
+        scannedFrames: results.length,
+      },
     };
+  }
+  if (op === "indeedPart") {
+    const frames = await chrome.webNavigation.getAllFrames({ tabId: session.tabId });
+    let last = "Indeed control not found.";
+    for (const frame of frames.filter((f) => permitted(f.url) || indeedFrame(f.url))) {
+      try {
+        const [r] = await chrome.scripting.executeScript({
+          target: { tabId: session.tabId, frameIds: [frame.frameId] },
+          func: domTask,
+          args: [{ ...args, op }],
+        });
+        if (r?.result?.clicked) { await new Promise((res) => setTimeout(res, 1200)); return r.result; }
+      } catch (e) { last = e.message; }
+    }
+    throw new Error(last);
   }
   const frame = await chrome.webNavigation.getFrame({
     tabId: session.tabId,
