@@ -97,6 +97,8 @@ def chat_structured(system: str, user: str, schema: Type[T], *, model: str | Non
             from . import hermes_client
             try:
                 return hermes_client.chat_structured(system, user, schema, model=model, **kw)
+            except hermes_client.HermesRateLimitError:
+                raise  # a quota wait is not permission to switch providers
             except Exception as e:
                 # Hermes failed mid-call → fall back to local Ollama so the run still
                 # completes, and record it for the UI notice. Without a reachable

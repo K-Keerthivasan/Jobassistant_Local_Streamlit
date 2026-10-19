@@ -176,3 +176,13 @@ test("a run can be stopped and refuses a finished application", async () => {
     cleanup();
   }
 });
+
+
+test("Dayforce language search does not turn the posting Apply button into submission", () => {
+  const s = Snapshot.parse({...posting(),fields:[{selector:'#language',label:'Language',type:'search',required:false}],buttons:[{selector:'#apply',label:'Apply',frameId:0}]});
+  assert.equal(pickFinal(s), undefined);
+  assert.equal(pickNav(s)?.selector, '#apply');
+  s.fields = form().fields;
+  assert.equal(pickFinal(s)?.selector, '#apply');
+  assert.equal(pickNav(s), undefined);
+});

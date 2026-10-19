@@ -4,7 +4,7 @@ import { defaultSettings, type NotifySettings } from "./notify.js";
 
 /** Called after every save with the previous state and reason (undefined for a new application). */
 export type SaveListener = (
-  previous: Pick<Application, "state" | "reason"> | undefined,
+  previous: Pick<Application, "state" | "reason" | "preparationStage"> | undefined,
   next: Application,
 ) => void;
 
@@ -20,6 +20,7 @@ export class Store {
       CREATE UNIQUE INDEX IF NOT EXISTS active_url ON applications(url) WHERE state NOT IN ('failed','rejected');
       CREATE TABLE IF NOT EXISTS events (id INTEGER PRIMARY KEY, application_id TEXT, at TEXT, kind TEXT, data TEXT);
       CREATE TABLE IF NOT EXISTS templates (host TEXT PRIMARY KEY, data TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS form_formats (id TEXT PRIMARY KEY, data TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS site_mappings (host TEXT NOT NULL, label TEXT NOT NULL, data TEXT NOT NULL, PRIMARY KEY(host,label));
       CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, data TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS migrations (version INTEGER PRIMARY KEY);
@@ -55,7 +56,7 @@ export class Store {
       .run(a.id, a.input.jobUrl, a.state, JSON.stringify(a));
     try {
       this.onSave?.(
-        previous && { state: previous.state, reason: previous.reason },
+        previous && { state: previous.state, reason: previous.reason,preparationStage:previous.preparationStage },
         a,
       );
     } catch {
@@ -78,6 +79,17 @@ export class Store {
         .run(JSON.stringify(current));
     }
     return current;
+  }
+  queueEnabled(update?: boolean): boolean {
+    if (update !== undefined)
+      this.db.prepare("INSERT INTO settings VALUES ('queue',?) ON CONFLICT(key) DO UPDATE SET data=excluded.data").run(JSON.stringify(update));
+    const row = this.db.prepare("SELECT data FROM settings WHERE key='queue'").get() as { data: string } | undefined;
+    return row ? JSON.parse(row.data) === true : false;
+  }
+  queueScope(update?: 'all'|'indeed'|'company'): 'all'|'indeed'|'company' {
+    if(update!==undefined)this.db.prepare("INSERT INTO settings VALUES ('queueScope',?) ON CONFLICT(key) DO UPDATE SET data=excluded.data").run(JSON.stringify(update));
+    const row=this.db.prepare("SELECT data FROM settings WHERE key='queueScope'").get() as {data:string}|undefined;
+    const value=row?JSON.parse(row.data):'all';return ['all','indeed','company'].includes(value)?value:'all';
   }
   get(id: string): Application {
     const row = this.db
@@ -130,6 +142,12 @@ export class Store {
         "INSERT INTO site_mappings VALUES (?,?,?) ON CONFLICT(host,label) DO UPDATE SET data=excluded.data",
       )
       .run(host, mapping.label, JSON.stringify(mapping));
+  }
+  rememberFormat(id: string, data: unknown): boolean {
+    return this.db.prepare('INSERT OR IGNORE INTO form_formats VALUES (?,?)').run(id, JSON.stringify(data)).changes > 0;
+  }
+  formats(): unknown[] {
+    return this.db.prepare('SELECT data FROM form_formats ORDER BY id').all().map((r:any) => JSON.parse(r.data));
   }
   template(host: string, data?: unknown): unknown {
     if (data)

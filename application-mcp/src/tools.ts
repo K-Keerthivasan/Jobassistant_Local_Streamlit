@@ -37,7 +37,28 @@ export function toolset(s: Service) {
     selector: z.string(),
     frameId: z.number().int().min(0).default(0),
   });
+  const preparation = IdInput.extend({
+    allowPendingCaptcha: z.boolean().default(false),
+  });
+  const preparationUpload = upload.extend({
+    allowPendingCaptcha: z.boolean().default(false),
+  });
   return {
+    sync_recorded_application_result: {
+      schema: IdInput,
+      description: "Release a completed Chrome session only when Resume Studio already records submitted with verified_success=true. Never clicks Submit.",
+      run: (v: any) => s.syncRecordedResult(v.applicationId),
+    },
+    defer_application: {
+      schema: IdInput,
+      description: "Preserve a blocked application and its unanswered questions as pending, release its tab, and allow the next job. Ask the missing questions in chat; never invent answers or record failure for missing facts.",
+      run: (v: any) => s.defer(v.applicationId),
+    },
+    reopen_deferred_application: {
+      schema: IdInput,
+      description: "Reopen pending work after confirmed answers arrive. Rescan and refill from saved facts; documents and submission approval must be verified again.",
+      run: (v: any) => s.reopenDeferred(v.applicationId),
+    },
     apply_to_job: {
       schema: ApplyInput,
       description:
@@ -60,10 +81,16 @@ export function toolset(s: Service) {
       run: (v: any) => s.inspect(v.applicationId),
     },
     fill_application: {
-      schema: IdInput,
+      schema: preparation,
       description:
         "Fill exact verified profile and answer-bank matches. Unknown and sensitive answers stay manual.",
-      run: (v: any) => s.fill(v.applicationId),
+      run: (v: any) => s.fill(v.applicationId, v.allowPendingCaptcha),
+    },
+    prepare_application_page: {
+      schema: preparation,
+      description:
+        "Prepare the current page in one call: fill verified facts, attach exact generated documents, wait for asynchronous upload receipts, then return all missing facts together. allowPendingCaptcha requires the user to authorize preparation before their manual CAPTCHA. Never submits.",
+      run: (v: any) => s.preparePage(v.applicationId, v.allowPendingCaptcha),
     },
     answer_screening_questions: {
       schema: IdInput,
@@ -72,17 +99,29 @@ export function toolset(s: Service) {
       run: (v: any) => s.fill(v.applicationId),
     },
     upload_resume: {
-      schema: upload,
+      schema: preparationUpload,
       description:
         "Upload the supplied tailored resume to an observed file input and verify its filename.",
       run: (v: any) =>
-        s.upload(v.applicationId, "resume", v.selector, v.frameId),
+        s.upload(
+          v.applicationId,
+          "resume",
+          v.selector,
+          v.frameId,
+          v.allowPendingCaptcha,
+        ),
     },
     upload_cover_letter: {
-      schema: upload,
+      schema: preparationUpload,
       description: "Upload the supplied cover letter and verify attachment.",
       run: (v: any) =>
-        s.upload(v.applicationId, "cover_letter", v.selector, v.frameId),
+        s.upload(
+          v.applicationId,
+          "cover_letter",
+          v.selector,
+          v.frameId,
+          v.allowPendingCaptcha,
+        ),
     },
     advance_application: {
       schema: upload,
@@ -253,6 +292,8 @@ export function toolset(s: Service) {
         "Stop future browser operations globally. Resume explicitly when ready.",
       run: async () => {
         s.stopped = true;
+        s.runCancel = true;
+        s.store.queueEnabled(false);
         return { stopped: true };
       },
     },

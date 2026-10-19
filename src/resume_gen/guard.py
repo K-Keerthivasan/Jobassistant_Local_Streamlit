@@ -40,8 +40,7 @@ def _profile_skill_text(profile: dict) -> str:
 
 
 def _display_location(profile: dict, target_location: str = "") -> str:
-    """Show the home address only for local jobs. GTA, remote and out-of-town
-    applications show no location at all (the document standard)."""
+    """Broaden the real home location for non-local jobs; never claim relocation."""
     c = profile.get("contact", {})
     full = c.get("location", "")
     tl = (target_location or "").lower()
@@ -50,7 +49,17 @@ def _display_location(profile: dict, target_location: str = "") -> str:
         return full
     if home_city and home_city in tl:   # job is in the home city -> show it
         return full
-    return ""                       # remote / elsewhere -> no location line
+    if re.search(r"\b(?:ontario|on)\b", tl):
+        return "Ontario, Canada"
+    provinces = {"alberta": "AB", "british columbia": "BC", "manitoba": "MB",
+                 "saskatchewan": "SK", "quebec": "QC", "nova scotia": "NS",
+                 "new brunswick": "NB", "newfoundland and labrador": "NL",
+                 "prince edward island": "PE", "yukon": "YT",
+                 "northwest territories": "NT", "nunavut": "NU"}
+    for province, abbreviation in provinces.items():
+        if re.search(rf"\b(?:{re.escape(province)}|{abbreviation.lower()})\b", tl):
+            return f"Canada · Applying in {province.title()}"
+    return "Canada"
 
 
 def _profile_skills_flat(profile: dict) -> list[str]:

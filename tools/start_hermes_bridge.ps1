@@ -7,10 +7,9 @@ if ($listeners | Where-Object { $_.Port -eq 8642 }) {
     exit 0
 }
 
-# Docker Desktop's host.docker.internal gateway does not always target the WSL
-# adapter address. Listen on all host interfaces so that route remains stable;
-# hermes_cli_bridge.py requires the shared HERMES_API_KEY from .env.
-$bridgeHost = '0.0.0.0'
+# Keep the bridge local. A caller may explicitly select a private virtual
+# adapter address when its Docker setup cannot forward to loopback.
+$bridgeHost = if ($env:HERMES_BRIDGE_HOST) { $env:HERMES_BRIDGE_HOST } else { '127.0.0.1' }
 $env:HERMES_BRIDGE_HOST = $bridgeHost
 $process = Start-Process `
     -FilePath 'python' `

@@ -18,7 +18,8 @@ export const BARRIERS = [
   { id: "documents", label: "Resume or cover letter attachment", on: true },
   { id: "domain", label: "New domain to approve", on: true },
   { id: "unavailable", label: "Job no longer available", on: true },
-  { id: "review", label: "Ready for your submit decision", on: true },
+  { id: "review", label: "Application filled — ready for your final review", on: true },
+  { id: "learned", label: "Manual answer detected and saved", on: true },
   { id: "uncertain", label: "Uncertain submission to verify", on: true },
   { id: "other", label: "Any other pause", on: true },
   { id: "result", label: "Final result (submitted, failed, rejected)", on: false },
@@ -31,7 +32,8 @@ export function defaultSettings(): NotifySettings {
 }
 
 /** Which barrier an application state represents, or null when it needs nobody. */
-export function classify(a: Pick<Application, "state" | "reason">): BarrierId | null {
+export function classify(a: Pick<Application, "state" | "reason" | "deferredAt">): BarrierId | null {
+  if (a.deferredAt) return null;
   const reason = a.reason || "";
   if (a.state === "review") return "review";
   if (a.state === "uncertain") return "uncertain";
@@ -56,6 +58,7 @@ const TITLES: Record<BarrierId, string> = {
   domain: "New domain to approve",
   unavailable: "Job no longer available",
   review: "Ready to submit?",
+  learned: "Answer saved",
   uncertain: "Submission uncertain",
   other: "Application paused",
   result: "Application finished",
@@ -85,13 +88,14 @@ export function payloadFor(a: Application, barrier: BarrierId): NotifyPayload {
  * and the state or reason actually changed since the previous save.
  */
 export function shouldNotify(
-  previous: Pick<Application, "state" | "reason"> | undefined,
+  previous: Pick<Application, "state" | "reason" | "preparationStage"> | undefined,
   next: Application,
   settings: NotifySettings,
 ): BarrierId | null {
   const barrier = classify(next);
   if (!barrier || !settings[barrier]) return null;
-  if (previous && previous.state === next.state && (previous.reason || "") === (next.reason || ""))
+  if(next.preparationStage && next.preparationStage!=='needs_user' && ['fields','documents','captcha'].includes(barrier))return null;
+  if (previous && previous.state === next.state && previous.preparationStage===next.preparationStage && (previous.reason || "") === (next.reason || ""))
     return null;
   return barrier;
 }

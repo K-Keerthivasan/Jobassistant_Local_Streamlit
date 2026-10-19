@@ -2098,3 +2098,13 @@ _register_upgrade_routes(app)
 from api.application_engine_routes import router as _application_engine_router  # noqa: E402
 
 app.include_router(_application_engine_router)
+
+from api.generation_batch_routes import register as _register_generation_batches  # noqa: E402
+
+def _generate_batch_item(spec):
+    options = GenerateOptions(**spec.get('options', {}))
+    if spec.get('key_id'):
+        return generate_queued_job(spec['key_id'], options)
+    return generate(GenerateRequest(**(spec.get('target') or {}), **options.model_dump()))
+
+_register_generation_batches(app, _generate_batch_item)

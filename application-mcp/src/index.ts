@@ -8,6 +8,7 @@ import { payloadFor, shouldNotify } from "./notify.js";
 import { Service } from "./service.js";
 import { Studio } from "./studio.js";
 import { makeMcp } from "./tools.js";
+import { containerDocumentPath } from "./security.js";
 import { httpServer } from "./http.js";
 
 const root = path.resolve(fileURLToPath(new URL("../..", import.meta.url)));
@@ -44,6 +45,11 @@ async function lock() {
       throw new Error(
         "Invalid engine service.lock; inspect it before restarting.",
       );
+    // Container restarts reuse PID 1; a lock naming this new process is stale.
+    if (pid === process.pid) {
+      await unlink(lockPath);
+      return lock();
+    }
     try {
       process.kill(pid, 0);
     } catch (error) {
@@ -60,16 +66,37 @@ async function lock() {
 }
 await lock();
 const store = new Store(path.join(data, "applications.sqlite"));
+if (process.env.APP_WINDOWS_WORKSPACE) {
+  for (const a of store.list()) {
+    const local = (file: string) => containerDocumentPath(file, root, process.env.APP_WINDOWS_WORKSPACE);
+    a.input.resumePath = local(a.input.resumePath);
+    if (a.input.coverLetterPath) a.input.coverLetterPath = local(a.input.coverLetterPath);
+    a.documents.forEach(doc => { doc.path = local(doc.path); });
+    a.evidence?.forEach(item => { item.path = local(item.path); });
+    store.save(a);
+  }
+}
 const bridge = new ChromeBridge();
 // One desktop notification per barrier change, for the kinds switched on in
 // the dashboard's notification settings.
 store.onSave = (previous, next) => {
+  if ((next.deferredAt && !/Required blank:/.test(next.reason)) || ["submitted", "failed", "rejected"].includes(next.state))
+    bridge.notify({ applicationId: next.id, clear: true });
   const barrier = shouldNotify(previous, next, store.notifySettings());
   if (barrier) bridge.notify({ ...payloadFor(next, barrier) });
 };
 const service = new Service(store, bridge, new Studio(), root, [
   path.join(root, "data/job-applications"),
 ]);
+// Run independently of the dashboard, including after a Docker restart.
+const queueTimer = setInterval(() => {
+  if (bridge.socket?.readyState !== 1) { service.queueMessage = "Waiting for Chrome extension to connect."; return; }
+  void service.observeDocumentRetries().then(()=>service.observeManualAnswers()).then(()=>service.observeCompletion()).then(() => service.driveQueue()).catch(error => {
+    service.queueMessage = error.message;
+    store.event("queue", "advance_error", { reason: error.message });
+  });
+}, 5000);
+queueTimer.unref();
 const server = httpServer(service, bridge, configuredExtensionId);
 server.on("error", async () => {
   process.stderr.write(
@@ -78,7 +105,7 @@ server.on("error", async () => {
   await unlink(lockPath);
   process.exit(1);
 });
-server.listen(8091, "127.0.0.1", () =>
+server.listen(8091, process.env.APP_LISTEN_HOST || "127.0.0.1", () =>
   process.stderr.write(
     JSON.stringify({
       event: "ready",
@@ -90,6 +117,7 @@ server.listen(8091, "127.0.0.1", () =>
 if (process.argv.includes("--stdio"))
   await makeMcp(service).connect(new StdioServerTransport());
 const shutdown = async () => {
+  clearInterval(queueTimer);
   bridge.socket?.close();
   server.close();
   store.db.close();

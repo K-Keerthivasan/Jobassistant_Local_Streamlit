@@ -12,8 +12,15 @@ export const adapters: Adapter[] = [
   ["lever", /(^|\.)lever\.co$/],
   ["ashby", /(^|\.)ashbyhq\.com$/],
   ["workday", /(^|\.)myworkdayjobs\.com$/],
+  ["indeed", /(^|\.)indeed\.com$/],
   ["smartrecruiters", /(^|\.)smartrecruiters\.com$/],
   ["icims", /(^|\.)icims\.com$/],
+  ["bamboohr", /(^|\.)bamboohr\.com$/],
+  ["dayforce", /(^|\.)(dayforcehcm\.com|dayforce\.com)$/],
+  ["ukg", /(^|\.)(ultipro\.com|ukg\.com|ukg\.net)$/],
+  ["workable", /(^|\.)workable\.com$/],
+  ["jobvite", /(^|\.)jobvite\.com$/],
+  ["taleo", /(^|\.)taleo\.net$/],
 ].map(([name, pattern]) => ({
   name: String(name),
   matches: (host: string) => (pattern as RegExp).test(host),
@@ -34,6 +41,8 @@ const identity: Record<string, string> = {
   "email address": "email",
   phone: "phone",
   "phone number": "phone",
+  "mobile phone number": "phone",
+  "mobile phone": "phone",
   address: "address",
   "street address": "address",
   city: "city",
@@ -44,8 +53,13 @@ const identity: Record<string, string> = {
   "zip code": "postalCode",
   linkedin: "linkedin",
   "linkedin profile": "linkedin",
+  "linkedin url": "linkedin",
   portfolio: "portfolio",
   website: "portfolio",
+  "website, blog or portfolio": "portfolio",
+  "date available": "availableStartDate",
+  "available start date": "availableStartDate",
+  "earliest start date": "availableStartDate",
   github: "github",
 };
 export function plan(
@@ -57,12 +71,56 @@ export function plan(
     options: string[];
     profilePath: string;
   }[] = [],
+  context: { title?: string; now?: Date } = {},
 ) {
   const bank = (profile.commonAnswers as Record<string, string>) || {};
+  const questionKey = (label: string, field?: Field) => {
+    let key = normalize(label).replace(/^\*\s*|\s*\*$/g, "").trim();
+    if (field?.type === "custom-select") {
+      const value = normalize(field.value);
+      if (value && key.endsWith(" " + value)) key = key.slice(0, -value.length).trim();
+      else key = key.replace(/\s+[–—-]?\s*(?:select|choose)(?:\s*(?:one|an option))?\s*[–—-]?$/, "").trim();
+    }
+    return key;
+  };
   return fields.map((field) => {
-    const q = normalize(field.label).replace(/\s*\*$/, "");
+    if (field.history) {
+      const confirmed = bank[field.label];
+      if (confirmed && !sensitive(field.label) && !['checkbox','file'].includes(field.type) && (!field.options.length || field.options.includes(confirmed)))
+        return {field,value:confirmed,source:'apply_profile.commonAnswers.'+field.label};
+      const h = field.history;
+      const rows = ((profile.tailoredResume as any)?.[h.section] || []) as Record<string, any>[];
+      const peers = fields.filter(f => f.history?.section === h.section && f.history.index === h.index);
+      const anchorKey = h.section === 'experience' ? 'company' : 'institution';
+      const anchor = peers.find(f => f.history?.key === anchorKey)?.value;
+      const matched = anchor ? rows.filter(r => normalize(r[anchorKey] || '') === normalize(anchor)) : [];
+      const identityKey=h.section==='education'?'credential':'role';
+      const identity=peers.find(f=>f.history?.key===identityKey)?.value;
+      const identityMatches=identity?rows.filter(r=>normalize(r[identityKey] || '')===normalize(identity)):[];
+      const groups = [...new Set(fields.filter(f => f.history?.section === h.section).map(f => f.history!.index))];
+      const anchors = fields.filter(f => f.history?.section === h.section && f.history.key === anchorKey && f.value);
+      const aligned = groups.length === rows.length && anchors.length >= 2 && anchors.every(f => normalize(rows[f.history!.index]?.[anchorKey] || '') === normalize(f.value));
+      const row = identityMatches.length===1?identityMatches[0]:matched.length === 1 ? matched[0] : aligned || (h.orderedBlankRow && !anchor && !identity) ? rows[h.index] : undefined;
+      let value = row?.[h.key];
+      if(row && /^(?:start|end)Date$/.test(h.key)){
+        const raw=String(row[h.key==='startDate'?'start':'end'] || '');
+        value=/^\d{4}-\d{2}-\d{2}$/.test(raw)?raw:undefined;
+      }
+      if (h.key === 'bullets' && Array.isArray(value)) value = value.map((s:string) => s.replace(/\*\*/g,'')).join('\n');
+      if (row && /^(start|end)(Month|Year)$/.test(h.key)) {
+        const [,side,part] = h.key.match(/^(start|end)(Month|Year)$/)!;
+        const date = String(row[side] || '');
+        const month = /^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\b/i.exec(date);
+        value = part === 'Year' ? date.match(/\b(?:19|20)\d{2}\b/)?.[0] : month ? String(['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'].indexOf(month[1].toLowerCase())+1) : undefined;
+      }
+      // A year-only resume date does not authorize inventing January.
+      if (typeof value === 'string' && value.trim() && (!field.options.length || field.options.includes(value)))
+        return {field,value,source:'tailored_resume.'+h.section+'.'+rows.indexOf(row!)+'.'+h.key};
+      return {field,reason:'No unambiguous tailored-resume value for this history field'};
+    }
+    const q = questionKey(field.label, field);
     if (
-      fields.filter((f) => normalize(f.label).replace(/\s*\*$/, "") === q)
+      fields.filter((f) => questionKey(f.label, f) === q)
         .length !== 1
     )
       return {
@@ -71,23 +129,47 @@ export function plan(
       };
     if (sensitive(q) || ["checkbox", "file"].includes(field.type))
       return { field, reason: "Manual choice or document control" };
-    const key = identity[q];
+    let key = identity[q];
+    if (key === "portfolio" && /\b(developer|software|engineer|data scientist|qa|systems analyst)\b/i.test(context.title || "") && profile.github)
+      key = "github";
     const mapping = mappings.find(
       (m) =>
         m.label === field.label &&
         m.type === field.type &&
         JSON.stringify(m.options) === JSON.stringify(field.options),
     );
+    const equivalent: Record<string, string> = {
+      "where did you hear about us?": "how did you hear about us?",
+      "how did you hear about this position?": "how did you hear about us?",
+      "how did you hear about this job?": "how did you hear about us?",
+      "are you currently eligible to work in canada?":
+        "are you legally authorized to work in canada?",
+    };
     const answer = Object.entries(bank).find(
-      ([question]) => normalize(question) === q,
+      ([question]) => (equivalent[questionKey(question)] || questionKey(question)) === (equivalent[q] || q),
     );
-    const value = mapping
+    let value = mapping
       ? mapping.profilePath.split(".").reduce((v: any, k) => v?.[k], profile)
       : key
         ? profile[key]
         : answer?.[1];
+    if (key === "province" && value === "ON" && profile.country === "Canada" &&
+      (field.type === "custom-select" || field.options.includes("Ontario"))) value = "Ontario";
+    if (!mapping && key === "availableStartDate" && value === "Two weeks from application date") {
+      const local = new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" }).format(context.now || new Date());
+      const date = new Date(local + "T12:00:00Z");
+      date.setUTCDate(date.getUTCDate() + 14);
+      const iso = date.toISOString().slice(0, 10);
+      value = field.type === "date" ? iso : `${iso.slice(5, 7)}/${iso.slice(8, 10)}/${iso.slice(0, 4)}`;
+    }
     if (typeof value !== "string" || !value.trim())
       return { field, reason: "No confirmed exact answer" };
+    if ((equivalent[q] || q) === "how did you hear about us?" && normalize(value) === "indeed" && field.options.length) {
+      const exact = field.options.filter(option => /\bindeed\b/i.test(option));
+      const board = field.options.filter(option => /^(?:online )?job boards?$/i.test(option.trim()));
+      if (exact.length === 1) value = exact[0];
+      else if (!exact.length && board.length === 1) value = board[0];
+    }
     if (field.options.length && !field.options.includes(value))
       return {
         field,
@@ -107,8 +189,11 @@ export function plan(
 export function reviewProblems(snapshot: Snapshot) {
   return [
     ...snapshot.blockers,
+    ...snapshot.buttons.filter(b => /^[–—-]?\s*(?:select|choose)(?:\s*(?:one|an option))?\s*[–—-]?$/i.test(b.label.trim()) &&
+      !snapshot.fields.some(f => f.selector === b.selector && f.frameId === b.frameId))
+      .map(() => "Unverified custom dropdown: update the Chrome bridge and inspect this control before submission."),
     ...snapshot.fields
-      .filter((f) => (f.required && !f.value && !f.files.length) || f.invalid)
+      .filter((f) => (f.required && !f.value && !f.files.length && !(f.type === 'file' && snapshot.attachments.some(r => r.frameId === f.frameId && (r.kind === 'cover_letter' ? /cover.?letter/i.test(f.label) : /resume|résumé|\bcv\b/i.test(f.label))))) || f.invalid)
       .map((f) => `${f.invalid ? "Invalid" : "Required blank"}: ${f.label}`),
   ];
 }
@@ -116,30 +201,34 @@ export function reviewProblems(snapshot: Snapshot) {
 // Controls the auto-run may click to move toward the form: the posting's own
 // apply link and in-form Next/Continue steps. Never a submit control.
 const NAV =
-  /^(next|continue|save and continue|save & continue|apply|apply now|apply online|click here to apply(?: online)?|apply for this (?:job|position|role)|apply to this (?:job|position|role)|start(?: your| my)? application|begin application|i'?m interested)$/i;
+  /^(next|continue|continue application|review your application|review application|apply on company site|save and continue|save & continue|apply|apply now|apply online|click here to apply(?: online)?|apply for this (?:job|position|role)|apply to this (?:job|position|role)|autofill with resume|apply manually|apply without an account|start(?: your| my)? application|begin application|i'?m interested)$/i;
 export const isNavLabel = (label: string) =>
   NAV.test(label.trim().replace(/\s+/g, " ")) && !/submit|send/i.test(label);
 // Final submission controls. Only clicked after a fresh yes on the review.
-export const FINAL = /^(submit application|submit|send application|apply now|apply)$/i;
+export const FINAL =
+  /^(submit your application|submit application|submit|send application|apply now|apply)$/i;
 
 /** Pick the next navigation control: in-form steps first, then apply links. */
+export const hasApplicationFields = (snapshot: Snapshot) => snapshot.fields.some(f =>
+  f.type !== "search" && !/^(?:language|search(?: jobs)?|link to this job)$/i.test(f.label.trim()));
 export function pickNav(snapshot: Snapshot) {
   const candidates = snapshot.buttons.filter(
     (b) =>
       isNavLabel(b.label) &&
       (!b.href || /^https:/i.test(b.href)) &&
       // A non-link "Apply" on a page with form fields is the final submit.
-      !(!b.href && /apply/i.test(b.label) && snapshot.fields.length > 0),
+      !(!b.href && /^(apply|apply now)$/i.test(b.label.trim()) && hasApplicationFields(snapshot)),
   );
   const rank = (label: string) =>
-    /^(next|continue|save)/i.test(label.trim()) ? 0 : 1;
+    /^(next|continue|save|autofill with resume)/i.test(label.trim()) ? 0 : 1;
   return candidates.sort((x, y) => rank(x.label) - rank(y.label))[0];
 }
 
 /** The final submit control of a form page, if one is visible. */
 export function pickFinal(snapshot: Snapshot) {
-  if (!snapshot.fields.length) return undefined;
+  if (!hasApplicationFields(snapshot) && !snapshot.buttons.some(b=>!b.href && /^submit(?: your)? application$/i.test(b.label.trim()))) return undefined;
   return snapshot.buttons.find(
     (b) => !b.href && FINAL.test(b.label.trim().replace(/\s+/g, " ")),
   );
 }
+

@@ -1,6 +1,6 @@
 import { test, expect, chromium } from "@playwright/test";
 import path from "node:path";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, writeFile,readFile } from "node:fs/promises";
 import { Store } from "../../src/store.js";
 import { ChromeBridge } from "../../src/bridge.js";
 import { Service } from "../../src/service.js";
@@ -11,7 +11,7 @@ import { documentInfo } from "../../src/security.js";
 import { createServer } from "node:https";
 import selfsigned from "selfsigned";
 
-test("real MV3 bridge follows popups, fills and uploads, then consumes approval exactly once", async ({}, info) => {
+test("real MV3 bridge follows popups, fills and uploads, then observes user submission exactly once", async ({}, info) => {
   test.setTimeout(60000);
   const extensionPath = path.resolve("extension");
   const certificates = await selfsigned.generate(
@@ -25,7 +25,7 @@ test("real MV3 bridge follows popups, fills and uploads, then consumes approval 
       res.end(
         req.url === "/job"
           ? '<a id="apply" href="https://fixture.example:9443/form" target="_blank">Apply</a>'
-          : `<form onsubmit="event.preventDefault();document.body.innerHTML='<h1>Your application has been received</h1>'"><label for="first">First name</label><input id="first" required><label for="resume">Resume</label><input id="resume" type="file" required accept=".pdf"><button id="submit">Submit application</button></form>`,
+          : `<form onsubmit="event.preventDefault();document.body.innerHTML='<h1>Your application has been received</h1>'"><label for="first">First name</label><input id="first" required><div><p>Resume</p><input id="resume" type="file" required accept=".pdf" onchange="const name=this.files[0].name;setTimeout(()=>{this.outerHTML='<span>'+name+'</span><button type=button aria-label=\"remove file\">Remove</button>'},350)"></div><button id="submit">Submit application</button></form>`,
       );
     },
   );
@@ -55,7 +55,13 @@ test("real MV3 bridge follows popups, fills and uploads, then consumes approval 
     store = new Store(":memory:");
     let confirmations = 0;
     let logs = 0;
+    let learned=0;
     class LocalStudio extends Studio {
+      override async request(route:string,body?:any){
+        if(route!=='/application-engine/answers')throw new Error('Unexpected fixture API request');
+        learned++;const file=info.outputPath('data/apply_profile.json');const profile=JSON.parse(await readFile(file,'utf8'));
+        profile.applicationAnswers={test:{[body.question]:body.answer}};await writeFile(file,JSON.stringify(profile));return {saved:true};
+      }
       override async validate() {
         return {};
       }
@@ -124,22 +130,44 @@ test("real MV3 bridge follows popups, fills and uploads, then consumes approval 
     });
     let a = await service.inspect("fixture-app");
     expect(a.snapshot!.buttons[0].label).toBe("Apply");
+    await context.pages().find(p=>p.url()===input.jobUrl)!.close();
+    a=await service.resume(a.id);
+    expect(context.pages().filter(p=>p.url()===input.jobUrl)).toHaveLength(1);
+    expect(a.snapshot!.url).toBe(input.jobUrl);
+    await bridge.command('restart',{applicationId:a.id,url:input.jobUrl,domains:input.allowedDomains});
+    expect(context.pages().filter(p=>p.url()===input.jobUrl)).toHaveLength(1);
     a = await service.navigate(a.id, a.snapshot!.buttons[0].selector);
     expect(a.snapshot!.fields[0].label).toBe("First name");
-    a = await service.fill(a.id);
+    a = await service.preparePage(a.id);
     expect(a.snapshot!.fields[0].value).toBe("Jordan");
-    a = await service.upload(a.id, "resume", "#resume");
     expect(a.documents[0].attached).toBe(true);
-    a = await service.review(a.id);
     expect(a.state).toBe("review");
     expect(a.evidence).toHaveLength(1);
-    a = await service.submit(a.id, a.reviewHash!, true, "#submit");
+    const manualPage=context.pages().find(p=>p.url().includes('/form'))!;
+    await manualPage.evaluate(()=>{const input=document.createElement('input');input.id='supervisor';const label=document.createElement('label');label.htmlFor='supervisor';label.textContent='Supervisor';document.querySelector('form')!.append(label,input);});
+    a=await service.inspect(a.id);
+    await service.watchManualAnswer(a.id,'#supervisor',0,false);
+    await manualPage.locator('#supervisor').fill('Fixture Manager');await manualPage.locator('#first').click();
+    await expect.poll(()=>store!.get(a.id).state,{timeout:20000}).toBe('review');
+    expect(learned).toBe(1);expect(store.get(a.id).manualWatches?.[0].saved).toBe(true);
+    a=store.get(a.id);
+    const approvalPopup = await context.newPage();
+    approvalPopup.on('pageerror', error => console.log('Popup error:', error.message));
+    await approvalPopup.goto(`chrome-extension://${extensionId}/popup.html`);
+    await expect(approvalPopup.locator('#review-status')).toContainText('Ready for your final Submit click');
+    await expect(approvalPopup.getByRole('button', { name: 'Click final Submit yourself in Chrome' })).toBeDisabled();
+    await expect(approvalPopup.locator('#review-details')).toContainText('Fixture — Test');
+    const employer=context.pages().find(p=>p.url().includes('fixture.example') && p.url()!==input.jobUrl)!;
+    await employer.locator('#submit').click();
+    await service.observeCompletion();
+    await expect.poll(() => store!.get(a.id).state).toBe('submitted');
+    a = store.get(a.id);
     expect(a.state).toBe("submitted");
-    expect(a.evidence).toHaveLength(2);
-    expect(confirmations).toBe(1);
-    const managed = context
-      .pages()
-      .find((p) => p.url().includes("fixture.example"))!;
+    expect(a.evidence!.length).toBeGreaterThanOrEqual(2);
+    await expect(approvalPopup.getByRole('button', { name: 'Click final Submit yourself in Chrome' })).toBeDisabled();
+    expect(confirmations).toBe(0);
+    expect(context.pages().filter(p => p.url().includes('fixture.example'))).toHaveLength(0);
+    expect(context.pages().some(p => p.url().startsWith('http://127.0.0.1:8088'))).toBe(true);
     await bridge.command("open", {
       applicationId: "next-fixture",
       url: input.jobUrl,
@@ -148,12 +176,12 @@ test("real MV3 bridge follows popups, fills and uploads, then consumes approval 
     expect(
       context.pages().filter((p) => p.url().includes("fixture.example")),
     ).toHaveLength(1);
-    expect(managed.url()).toBe(input.jobUrl);
+    expect(context.pages().find(p => p.url().includes('fixture.example'))!.url()).toBe(input.jobUrl);
     expect(logs).toBe(1);
     await expect(
       service.submit(a.id, a.reviewHash!, true, "#submit"),
     ).rejects.toThrow();
-    expect(confirmations).toBe(1);
+    expect(confirmations).toBe(0);
   } finally {
     await context.close();
     if (server) await new Promise<void>((r) => server!.close(() => r()));

@@ -1,134 +1,15 @@
 <!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Resume Studio · Applications</title>
-    <style>
-      body {
-        font: 16px system-ui;
-        background: #f4f6f9;
-        color: #172335;
-        margin: 0 auto;
-        max-width: 1150px;
-        padding: 32px;
-      }
-      h1 {
-        margin: 0;
-      }
-      header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-      }
-      button,
-      input,
-      select {
-        font: inherit;
-        padding: 9px;
-        margin: 4px;
-        border: 1px solid #bac5d4;
-        border-radius: 6px;
-      }
-      button {
-        cursor: pointer;
-        background: white;
-      }
-      button.primary {
-        background: #244ecd;
-        color: white;
-      }
-      section,
-      article {
-        background: white;
-        border: 1px solid #d9e0e9;
-        padding: 22px;
-        margin: 20px 0;
-        border-radius: 12px;
-      }
-      pre {
-        white-space: pre-wrap;
-        overflow-wrap: anywhere;
-        background: #f1f4f8;
-        padding: 14px;
-        max-height: 500px;
-        overflow: auto;
-      }
-      table {
-        width: 100%;
-        border-collapse: collapse;
-      }
-      td,
-      th {
-        text-align: left;
-        padding: 10px;
-        border-bottom: 1px solid #e1e5ec;
-      }
-      .muted {
-        color: #526074;
-      }
-      #error {
-        color: #a31525;
-      }
-      a {
-        color: #244ecd;
-      }
-      .badge {
-        border-radius: 20px;
-        padding: 4px 10px;
-        background: #e4ebfc;
-      }
-    </style>
-  </head>
-  <body>
-    <header>
-      <div>
-        <h1>Application workspace</h1>
-        <p class="muted">
-          Regular Chrome · One job at a time · Approval before submission
-        </p>
-      </div>
-      <a href="http://127.0.0.1:8088">Resume Studio ↗</a>
-    </header>
-    <p id="health"></p>
-    <p id="error" role="alert"></p>
-    <section>
-      <h2>Generated jobs from the past seven days</h2>
-      <button id="queue">Refresh queue</button>
-      <label
-        ><input type="checkbox" id="auto-queue" /> Keep going through the
-        queue: after each application is submitted or cancelled, start the
-        next one</label
-      >
-      <div id="candidates"></div>
-    </section>
-    <section>
-      <h2>Current application</h2>
-      <select id="applications"></select
-      ><button id="refresh">Refresh</button><button id="stop">Stop all</button>
-      <div id="current"></div>
-    </section>
-    <section>
-      <h2>Confirmed reusable answer</h2>
-      <p class="muted">
-        Enter only an answer you have personally confirmed. Consent and
-        demographic choices are never reused.
-      </p>
-      <input id="question" placeholder="Exact question" /><input
-        id="answer"
-        placeholder="Confirmed answer"
-      /><button id="save-answer">Save confirmed answer</button>
-    </section>
-    <section>
-      <h2>Notifications</h2>
-      <p class="muted">
-        Chrome shows a desktop notification when an application stops at a
-        barrier you switch on here. Clicking it brings the application tab to
-        the front.
-      </p>
-      <div id="notify"></div>
-      <button id="notify-test">Send test notification</button>
-    </section>
-    <script src="/dashboard.js"></script>
-  </body>
-</html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Resume Studio · Application workspace</title><link rel="stylesheet" href="/dashboard.css"></head>
+<body>
+<header class="page-header"><div><p class="eyebrow">RESUME STUDIO</p><h1>Application workspace</h1><p class="muted">Your progress, saved one application at a time.</p></div><div class="header-actions"><label>Theme <select id="theme" aria-label="Theme"><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></label><a href="http://127.0.0.1:8088">Resume Studio ↗</a></div></header>
+<div class="connection"><span id="health" role="status">Checking Chrome…</span><span class="muted">You review and click the final Submit</span></div><p id="error" role="alert"></p>
+<div class="metrics" aria-label="Application progress"><div><strong id="count-active">0</strong><span>In progress</span></div><div><strong id="count-pending">0</strong><span>Saved for later</span></div><div><strong id="count-review">0</strong><span>Ready for approval</span></div><div><strong id="count-submitted">0</strong><span>Submitted</span></div></div>
+<section class="queue-picker"><div><p class="eyebrow">AUTOMATION QUEUES</p><h2>Choose where to apply</h2><p class="muted">Run one application at a time. Review the final page and click Submit yourself.</p></div><div class="scope-tabs" aria-label="Application website queues"><button id="scope-indeed" aria-pressed="false">Indeed</button><button id="scope-company" aria-pressed="false">Company websites</button><button id="scope-all" aria-pressed="true">All jobs</button></div><p id="scope-description" class="hint"></p></section><div class="workspace-grid"><section class="current-panel"><div class="section-heading"><h2>Application in focus</h2><button id="refresh">Refresh status</button></div><label class="muted" for="applications">Choose an application</label><select id="applications"></select><div id="current"><p class="muted">Choose a job to begin.</p></div></section>
+<aside><section><h2>AI application answers</h2><p id="ai-answer-status" class="muted">Checking Hermes…</p><p class="hint">Indeed Easy Apply and company websites use the same flow: fill confirmed facts, draft written answers from your tailored resume, then stop for your final review and Submit click. Missing facts appear in the extension.</p></section><section><h2>Queue controls</h2><p class="muted">Prepare each job, fill confirmed answers, and pause for your actions.</p><button class="primary full" id="start-queue">Run selected queue</button><button class="full" id="stop">Pause automation</button><p id="queue-status" role="status"></p><label class="toggle"><input type="checkbox" id="auto-queue"> Continue with the next eligible job when this one is finished or saved for later</label><p class="hint">Missing answers appear in the Chrome extension’s Questions &amp; actions section.</p></section></aside></div>
+<section><div class="section-heading"><h2>Application list</h2><label>Status <select id="application-filter"><option value="all">All applications</option><option value="active">In progress</option><option value="pending">Saved for later</option><option value="submitted">Submitted</option><option value="cancelled">Cancelled</option></select></label></div><p class="muted">Test one job on its own, or start the queue to prepare jobs one at a time. Workday final submission is yours.</p><div id="application-list" class="table-scroll"></div></section><section><div class="section-heading"><div><h2>Saved applications</h2><p class="muted">Resume the last observed step. The site may ask you to sign in or verify again.</p></div><span id="pending-count" class="badge">0 pending</span></div><div id="pending-questions" class="saved-grid"></div></section>
+<section><div class="section-heading"><div><h2>Ready to prepare</h2><p class="muted">Generated jobs found in the past seven days.</p></div><button id="queue">Refresh jobs</button></div><input id="job-filter" type="search" placeholder="Filter by company or role" aria-label="Filter jobs"><div id="candidates"><p class="muted">Loading jobs…</p></div></section>
+<details class="settings"><summary>Workspace settings</summary><section><h2>Confirmed reusable answer</h2><p class="muted">You can also answer and remember questions directly in the Chrome extension.</p><label>Exact question<input id="question" placeholder="Question"></label><label>Confirmed answer<input id="answer" placeholder="Answer"></label><button id="save-answer">Save confirmed answer</button></section><section><h2>Notifications</h2><p class="muted">Click a Chrome notification to open Questions &amp; actions in the extension.</p><div id="notify"></div><button id="notify-test">Send test notification</button></section></details>
+<script src="/dashboard.js"></script></body></html>
+
+
+

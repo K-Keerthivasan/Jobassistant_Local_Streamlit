@@ -57,6 +57,10 @@ test("payload names the job and the barrier", () => {
   assert.match(p.title, /Ready to submit\?: Loblaw/);
   assert.match(p.message, /Associate Product Manager/);
 });
+test("deferred applications do not send another action notification", () => {
+  const pending = { ...app("paused", "CAPTCHA"), deferredAt: new Date().toISOString() };
+  assert.equal(shouldNotify(undefined, pending, defaultSettings()), null);
+});
 
 test("store persists settings and reports state changes to its listener", () => {
   const dir = mkdtempSync(path.join(tmpdir(), "notify-"));

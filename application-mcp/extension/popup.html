@@ -3,15 +3,44 @@
   <head>
     <meta charset="utf-8" />
     <title>Resume Studio Bridge</title>
+    <link rel="stylesheet" href="popup.css" />
   </head>
-  <body style="font: 14px system-ui; width: 330px; padding: 12px">
-    <h2>Resume Studio Bridge</h2>
+  <body>
+    <header><h2>Resume Studio Bridge</h2><label class="theme-label">Theme <select id="theme" aria-label="Theme"><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></label></header>
     <p>
       Use this extension in your main Chrome profile. Sign in and save passwords
       directly in Chrome.
     </p>
     <pre id="status" style="white-space: pre-wrap"></pre>
     <button id="connect">Connect</button>
+    <button id="reload">Reload updated bridge</button>
+    <button id="chrome-autofill">Use Chrome saved autofill</button>
+    <p id="autofill-status" role="status"></p>
+    <button id="retry-documents">Documents are missing — retry uploads</button>
+    <section id="questions-section" aria-labelledby="questions-heading">
+      <div class="section-heading"><h3 id="questions-heading">Questions &amp; actions <span id="question-count" class="badge">0</span></h3><button id="refresh-questions" type="button">Refresh</button></div>
+      <p class="muted">Answer here, or fill it once in Chrome and confirm the value below. Choose whether the answer can be reused.</p>
+      <p id="questions-status" role="status" aria-live="polite"></p>
+      <div id="questions-list"></div>
+    </section>
+    <section aria-labelledby="review-heading">
+      <h3 id="review-heading">Application approval</h3>
+      <p id="review-status" role="status">Checking current application…</p>
+      <div id="review-details"></div>
+      <p><strong>Submit this exact application: yes or no?</strong></p>
+      <button id="submit-yes" disabled>Yes — submit application</button>
+      <button id="submit-no" disabled>No — keep pending</button>
+      <p><button id="refresh-review">Check after CAPTCHA</button></p>
+      <button id="report-submitted" disabled>I already submitted in Chrome — verify</button>
+      <button id="cancel-automation" disabled>Cancel this automation</button>
+      <details id="manual-confirmation">
+        <summary>Confirm submitted manually — tab closed</summary>
+        <p class="muted">Record your own confirmation without reopening the site. This is separate from employer-verified success.</p>
+        <label class="reuse"><input type="checkbox" id="manual-confirm-check"><span id="manual-confirm-label">I personally submitted this application and closed its tab.</span></label>
+        <input id="manual-confirm-note" aria-label="Manual confirmation note" placeholder="Optional confirmation note">
+        <button id="manual-confirm-save" disabled>Confirm manual submission</button>
+      </details>
+    </section>
     <p>
       To recover a moved or reopened application, select its tab, enter its
       dashboard ID and adopt it.

@@ -26,6 +26,7 @@ export function httpServer(
   port = 8091,
 ) {
   const origin = `http://127.0.0.1:${port}`;
+  const extensionOrigin = `chrome-extension://${extensionId}`;
   const tools = toolset(s);
   const server = createServer(async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
@@ -41,25 +42,77 @@ export function httpServer(
     };
     if (
       req.headers.host !== `127.0.0.1:${port}` ||
-      (req.headers.origin && req.headers.origin !== origin)
+      (req.headers.origin && ![origin, extensionOrigin].includes(req.headers.origin))
     ) {
       json({ error: "Host or Origin refused." }, 403);
       return;
     }
+    if (req.headers.origin === extensionOrigin) {
+      res.setHeader("Access-Control-Allow-Origin", extensionOrigin);
+      res.setHeader("Vary", "Origin");
+      if (req.method === "OPTIONS") {
+        res.setHeader("Access-Control-Allow-Methods", "GET, POST");
+        res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+        res.writeHead(204).end();
+        return;
+      }
+    }
     try {
       const u = new URL(req.url || "/", origin);
-      if (req.method === "GET" && ["/", "/dashboard.js"].includes(u.pathname)) {
+      if (u.pathname === '/form-formats' && req.method === 'GET') { json(s.store.formats()); return; }
+      if (u.pathname === "/questions" && req.method === "GET") {
+        json(await s.questions()); return;
+      }
+      if (u.pathname === "/questions/answer" && req.method === "POST") {
+        const v = z.object({applicationId:z.string(), selector:z.string(), frameId:z.number().int(), answer:z.string().max(20000),
+          reuse:z.boolean(), userConfirmed:z.literal(true)}).parse(await body(req));
+        json(await s.confirmQuestion(v.applicationId, v.selector, v.frameId, v.answer, v.reuse)); return;
+      }
+      if(u.pathname==='/questions/blank' && req.method==='POST'){
+        const v=z.object({applicationId:z.string(),selector:z.string(),frameId:z.number().int(),reuse:z.boolean().default(false),userConfirmed:z.literal(true)}).parse(await body(req));
+        json(await s.leaveBlank(v.applicationId,v.selector,v.frameId,v.reuse));return;
+      }
+      if(u.pathname==='/questions/watch' && req.method==='POST'){
+        const v=z.object({applicationId:z.string(),selector:z.string(),frameId:z.number().int(),reuse:z.boolean(),userConfirmed:z.literal(true)}).parse(await body(req));
+        json(await s.watchManualAnswer(v.applicationId,v.selector,v.frameId,v.reuse));return;
+      }
+      if (u.pathname === "/questions/learn" && req.method === "POST") {
+        const v = z.object({applicationId:z.string(), selector:z.string(), frameId:z.number().int(), reuse:z.boolean(),
+          userConfirmed:z.literal(true)}).parse(await body(req));
+        json(await s.learnQuestion(v.applicationId, v.selector, v.frameId, v.reuse)); return;
+      }
+      if (u.pathname === '/queue' && req.method === 'GET') {
+        json({ enabled: s.store.queueEnabled(), scope:s.store.queueScope(), message: s.queueMessage, running: s.running || null }); return;
+      }
+      if (u.pathname === '/queue' && req.method === 'POST') {
+        const value = z.object({ enabled: z.boolean(), resumeActive: z.boolean().optional(),scope:z.enum(['all','indeed','company']).optional() }).parse(await body(req));
+        if(value.scope)s.store.queueScope(value.scope);
+        s.store.queueEnabled(value.enabled);
+        if (value.enabled) s.stopped = false;
+        if (value.enabled && value.resumeActive && !s.running) {
+          const active = s.store.list().find(a => !a.deferredAt && a.state === "paused");
+          if (active) {
+            const kind=/(^|\.)indeed\.com$/.test(new URL(active.input.jobUrl).hostname)?'indeed':'company';
+            if(value.scope && value.scope!=='all' && kind!==value.scope)await s.saveCheckpoint(active.id);
+            else await s.resume(active.id);
+          }
+        }
+        json({ enabled: value.enabled });
+        if (value.enabled) void s.driveQueue().catch(error => s.store.event('queue', 'advance_error', { reason: error.message }));
+        return;
+      }
+      if (req.method === "GET" && ["/", "/dashboard.js", "/dashboard.css"].includes(u.pathname)) {
         res.setHeader(
           "Content-Type",
           u.pathname === "/"
             ? "text/html; charset=utf-8"
-            : "text/javascript; charset=utf-8",
+            : u.pathname.endsWith(".css") ? "text/css; charset=utf-8" : "text/javascript; charset=utf-8",
         );
         res.end(
           await readFile(
             new URL(
               "../public/" +
-                (u.pathname === "/" ? "index.html" : "dashboard.js"),
+                (u.pathname === "/" ? "index.html" : u.pathname.slice(1)),
               import.meta.url,
             ),
           ),
@@ -73,6 +126,7 @@ export function httpServer(
           chromeConnected: bridge.socket?.readyState === 1,
           extensionConfigured: !!extensionId,
           stopped: s.stopped,
+          aiAnswersConfigured: !!process.env.APP_HERMES_BASE_URL,
         });
         return;
       }
@@ -137,7 +191,7 @@ export function httpServer(
         return;
       }
       const match = u.pathname.match(
-        /^\/applications\/([^/]+)(?:\/(history|required-action|resume|approval|cancel|run|stop-run))?$/,
+        /^\/applications\/([^/]+)(?:\/(history|required-action|resume|resume-checkpoint|save-checkpoint|restart|report-submitted|manual-confirmation|approval|cancel|run|stop-run))?$/,
       );
       if (match) {
         const id = decodeURIComponent(match[1]);
@@ -157,6 +211,25 @@ export function httpServer(
           await body(req);
           json(s.startRun(id));
           return;
+        }
+        if (req.method === "POST" && action === "report-submitted") {
+          z.object({userReportedSubmitted:z.literal(true)}).parse(await body(req));
+          json(await s.reportSubmitted(id)); return;
+        }
+        if (req.method === "POST" && action === "manual-confirmation") {
+          const v = z.object({userConfirmed:z.literal(true), tabClosed:z.literal(true), note:z.string().max(2000).default("")}).parse(await body(req));
+          json(await s.confirmManualSubmission(id, v.note)); return;
+        }
+        if (req.method === "POST" && action === "resume-checkpoint") {
+          await body(req);
+          json(await s.resumeCheckpoint(id)); return;
+        }
+        if(req.method==='POST' && action==='restart'){
+          z.object({userConfirmed:z.literal(true)}).parse(await body(req));json(await s.restartApplication(id));return;
+        }
+        if (req.method === "POST" && action === "save-checkpoint") {
+          await body(req);
+          json(await s.saveCheckpoint(id)); return;
         }
         if (req.method === "POST" && action === "stop-run") {
           await body(req);
@@ -208,6 +281,12 @@ export function httpServer(
         });
         json({ sent }, sent ? 200 : 409);
         return;
+      }
+      const retryDocuments=u.pathname.match(/^\/applications\/([^/]+)\/retry-documents$/);
+      if(req.method==='POST' && retryDocuments){const v=z.object({userConfirmedMissing:z.literal(true),includeCoverLetter:z.boolean().default(false)}).parse(await body(req));json(await s.requestMissingDocumentRetry(decodeURIComponent(retryDocuments[1]),v.includeCoverLetter));return;}
+      if(req.method==='POST' && u.pathname==='/questions/education'){
+        const v=z.object({applicationId:z.string(),userConfirmed:z.literal(true),rows:z.array(z.object({index:z.number().int().min(0),startDate:z.string(),endDate:z.string()})).min(1).max(30)}).parse(await body(req));
+        json(await s.confirmEducationBatch(v.applicationId,v.rows));return;
       }
       const toolMatch = u.pathname.match(/^\/tools\/([a-z_]+)$/);
       if (req.method === "POST" && toolMatch && toolMatch[1] in tools) {

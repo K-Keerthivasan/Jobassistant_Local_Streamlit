@@ -73,6 +73,22 @@ export async function documentInfo(file: string, roots: string[]) {
 }
 export const digest = (value: unknown) =>
   createHash("sha256").update(JSON.stringify(value)).digest("hex");
+
+/** Translate only a validated local artifact beneath the shared workspace. */
+export function chromeDocumentPath(file: string, root: string, windowsRoot?: string) {
+  if (!windowsRoot) return file;
+  if (!/^[A-Za-z]:[\\/]/.test(windowsRoot)) throw new Error('Windows workspace must be an absolute drive path.');
+  const relative = path.relative(path.join(root, 'data/job-applications'), file);
+  if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) throw new Error('Upload is outside the shared application directory.');
+  return path.win32.join(windowsRoot, 'data', 'job-applications', ...relative.split(path.sep));
+}
+
+export function containerDocumentPath(file: string, root: string, windowsRoot?: string) {
+  if (!windowsRoot || !path.win32.isAbsolute(file) || file.startsWith('/')) return file;
+  const relative = path.win32.relative(path.win32.join(windowsRoot, 'data/job-applications'), file);
+  if (!relative || relative.startsWith('..') || path.win32.isAbsolute(relative)) throw new Error('Stored document is outside the shared application directory.');
+  return path.join(root, 'data/job-applications', ...relative.split(path.win32.sep));
+}
 export const normalize = (s: string) =>
   s.normalize("NFKC").toLowerCase().replace(/\s+/g, " ").trim();
 export const sensitive = (s: string) =>

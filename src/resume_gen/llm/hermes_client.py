@@ -29,6 +29,9 @@ T = TypeVar("T", bound=BaseModel)
 class HermesError(RuntimeError):
     pass
 
+class HermesRateLimitError(HermesError):
+    pass
+
 
 # id -> friendly label, shown in the picker. Hermes is one agent; the id maps to
 # the gateway's served model (API_SERVER_MODEL_NAME), defaulting to "hermes".
@@ -92,6 +95,10 @@ def _chat(messages: list[dict], *, model: str, timeout: float,
         payload["temperature"] = temperature
     try:
         resp = httpx.post(url, json=payload, headers=_headers(), timeout=timeout)
+        if resp.status_code == 429:
+            delay = resp.headers.get('Retry-After', '900')
+            delay = delay if delay.isdigit() else '900'
+            raise HermesRateLimitError(f'Hermes usage limit reached; retry_after={delay}. Batch will wait for the provider reset.')
         resp.raise_for_status()
     except httpx.TimeoutException as e:
         raise HermesError(
@@ -158,6 +165,8 @@ def chat_structured(
             if not content.strip():
                 raise HermesError("Hermes returned an empty response.")
             return schema.model_validate(json.loads(_extract_json_object(content)))
+        except HermesRateLimitError:
+            raise
         except HermesError as e:
             if "timed out" in str(e):
                 raise  # don't multiply the wait on a timeout
@@ -175,7 +184,7 @@ def health() -> bool:
     try:
         r = httpx.get(f"{settings.hermes_base_url.rstrip('/')}/models",
                       headers=_headers(), timeout=5.0)
-        return r.status_code < 500
+        return 200 <= r.status_code < 300
     except httpx.HTTPError:
         return False
 

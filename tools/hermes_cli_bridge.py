@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -169,11 +170,13 @@ class Handler(BaseHTTPRequestHandler):
         sys.stdout.write("[hermes-bridge] " + (fmt % args) + "\n")
         sys.stdout.flush()
 
-    def _send(self, status: int, payload: dict) -> None:
+    def _send(self, status: int, payload: dict, retry_after: int | None = None) -> None:
         body = json.dumps(payload).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(body)))
+        if retry_after is not None:
+            self.send_header('Retry-After', str(retry_after))
         self.end_headers()
         self.wfile.write(body)
 
@@ -221,7 +224,13 @@ class Handler(BaseHTTPRequestHandler):
             })
         except Exception as exc:
             _log(f"request failed: {type(exc).__name__}: {exc}\n{traceback.format_exc()}")
-            self._send(502, {"error": {"message": str(exc)}})
+            message = str(exc)
+            if re.search(r'rate.limit|usage limit|HTTP 429', message, re.I):
+                minutes = re.search(r'(?:~|in\s+)(\d+)\s*(?:min|m\b)', message, re.I)
+                delay = max(60, int(minutes.group(1)) * 60 + 60) if minutes else 900
+                self._send(429, {"error": {"message": message}}, retry_after=delay)
+            else:
+                self._send(502, {"error": {"message": message}})
 
 
 def main() -> None:

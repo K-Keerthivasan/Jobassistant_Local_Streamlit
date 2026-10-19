@@ -58,6 +58,36 @@ class Observed(BaseModel):
     review_hash: str
 
 
+@router.get("/{session_id}/resume-history")
+def resume_history(session_id: str, request: Request):
+    """Use the very same generated structured resume that renders the uploaded PDF."""
+    local_only(request)
+    session = apply_sessions.get_session(session_id)
+    if not session or session.get("status") != "prepared":
+        raise HTTPException(409, "A prepared session is required.")
+    run = runs.get_run(session.get("run_id", ""))
+    resume = (run or {}).get("resume") or {}
+    return {"experience": resume.get("experience", []), "education": resume.get("education", [])}
+
+
+@router.get("/{session_id}/answer-context")
+def answer_context(session_id: str, request: Request):
+    local_only(request)
+    session = apply_sessions.get_session(session_id)
+    if not session or session.get("status") != "prepared":
+        raise HTTPException(409, "A prepared session is required.")
+    run = runs.get_run(session.get("run_id", ""))
+    job = store.get_job(session.get("job_key", ""))
+    if not run or not job or job.applied:
+        raise HTTPException(409, "An unapplied job and its generated resume are required.")
+    resume = run.get("resume") or {}
+    # No credentials, browser state, contact details or unrelated application data.
+    return {"company": session.get("company"), "title": session.get("title"),
+            "description": job.description,
+            "resume": {key: resume.get(key, []) for key in
+                       ("summaryPoints", "experience", "education", "skills", "certifications")}}
+
+
 @router.get("/{session_id}/validate")
 def validate_session(session_id: str, request: Request):
     local_only(request)
@@ -101,6 +131,7 @@ class ConfirmedAnswer(BaseModel):
     answer: str = Field(min_length=1, max_length=20000)
     confirmed: bool
     reuse: bool
+    session_id: str | None = None
 
 
 @router.post("/answers")
@@ -108,16 +139,24 @@ def save_answer(req: ConfirmedAnswer, request: Request):
     local_only(request)
     if not req.confirmed or SENSITIVE.search(req.question):
         raise HTTPException(400, "Only user-confirmed non-sensitive answers can be saved.")
-    if not req.reuse:
+    if not req.reuse and not req.session_id:
         return {"saved": False, "reason": "Reuse was not authorized."}
+    if req.session_id and not apply_sessions.get_session(req.session_id):
+        raise HTTPException(400, "An existing application session is required.")
     profile_path = ROOT / "data" / "apply_profile.json"
     with _profile_lock:
         profile = json.loads(profile_path.read_text(encoding="utf-8"))
-        profile.setdefault("commonAnswers", {})[req.question] = req.answer
-        profile.setdefault("answerProvenance", {})[req.question] = {
+        answers = profile.setdefault("commonAnswers", {}) if req.reuse else profile.setdefault("applicationAnswers", {}).setdefault(req.session_id, {})
+        answers[req.question] = req.answer
+        if req.reuse:
+            profile.setdefault('blankAnswers', {}).pop(req.question, None)
+        if req.session_id:
+            profile.setdefault('applicationBlankAnswers', {}).setdefault(req.session_id, {})[req.question] = False
+        provenance_key = req.question if req.reuse else f"{req.session_id}:{req.question}"
+        profile.setdefault("answerProvenance", {})[provenance_key] = {
             "originalQuestion": req.question, "normalizedQuestion": " ".join(req.question.casefold().split()),
             "source": "user_confirmed", "confirmedAt": datetime.now(timezone.utc).isoformat(),
-            "reuseAllowed": True, "confidence": 1.0, "dataType": "string",
+            "reuseAllowed": req.reuse, "sessionId": req.session_id, "confidence": 1.0, "dataType": "string",
         }
         temporary = profile_path.with_suffix(".json.tmp")
         temporary.write_text(json.dumps(profile, ensure_ascii=False, indent=2)+"\n", encoding="utf-8")
@@ -125,8 +164,31 @@ def save_answer(req: ConfirmedAnswer, request: Request):
     return {"saved": True}
 
 
+class BlankChoice(BaseModel):
+    question: str = Field(min_length=1, max_length=2000)
+    session_id: str
+    confirmed: Literal[True]
+    reuse: bool = False
+
+
+@router.post('/blank-answer')
+def save_blank_choice(req: BlankChoice, request: Request):
+    local_only(request)
+    if SENSITIVE.search(req.question) or not apply_sessions.get_session(req.session_id):
+        raise HTTPException(400, 'An existing session and non-sensitive optional question are required.')
+    profile_path = ROOT / 'data' / 'apply_profile.json'
+    with _profile_lock:
+        profile = json.loads(profile_path.read_text(encoding='utf-8'))
+        blanks = profile.setdefault('blankAnswers', {}) if req.reuse else profile.setdefault('applicationBlankAnswers', {}).setdefault(req.session_id, {})
+        blanks[req.question] = True
+        temporary = profile_path.with_suffix('.json.tmp')
+        temporary.write_text(json.dumps(profile, ensure_ascii=False, indent=2)+'\n', encoding='utf-8')
+        temporary.replace(profile_path)
+    return {'saved': True}
+
+
 class ConfirmedFact(BaseModel):
-    key: Literal['firstName', 'lastName', 'fullName', 'preferredName', 'email', 'phone',
+    key: Literal['firstName', 'lastName', 'fullName', 'preferredName', 'middleName', 'homePhone', 'omitGpa', 'omitOptionalSupervisor', 'email', 'phone',
                  'address', 'city', 'province', 'country', 'postalCode', 'linkedin', 'portfolio',
                  'github', 'workAuthorization', 'requiresSponsorship', 'experienceYears',
                  'education', 'salaryExpectation', 'availableStartDate', 'noticePeriod',
@@ -147,9 +209,11 @@ def save_fact(req: ConfirmedFact, request: Request):
     profile_path = ROOT / 'data' / 'apply_profile.json'
     with _profile_lock:
         profile = json.loads(profile_path.read_text(encoding='utf-8'))
+        previous = profile.get(req.key)
         profile[req.key] = req.value
         profile.setdefault('factProvenance', {})[req.key] = {
             'source': 'user_confirmed', 'confirmedAt': datetime.now(timezone.utc).isoformat(),
+            **({'previousValue': previous} if previous is not None and previous != req.value else {}),
         }
         temporary = profile_path.with_suffix('.json.tmp')
         temporary.write_text(json.dumps(profile, ensure_ascii=False, indent=2)+'\n', encoding='utf-8')

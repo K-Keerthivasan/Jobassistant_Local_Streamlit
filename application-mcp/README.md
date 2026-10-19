@@ -4,6 +4,20 @@ This local TypeScript service extends the existing Python Resume Studio app. It 
 
 ## Install and start on Windows
 
+### Shared Docker stack
+
+`docker compose -f docker/docker-compose.yml up -d --build` now starts the API, MCP,
+and the Chrome application workspace at `http://127.0.0.1:8091`. The application
+service restarts with Docker and retains its database in the existing `data` mount.
+Chrome still runs in your main Windows profile through the installed extension.
+The configured public extension ID is mounted read-only from `config/local.json`.
+`RESUME_STUDIO_WINDOWS_ROOT` can override the Windows workspace root used for
+Chrome file uploads; it defaults to this project's current Windows directory.
+The local gateway publishes only on `127.0.0.1`, and the app service talks to
+Studio over the API container's loopback network without loosening its origin checks.
+
+### Native alternative
+
 Requirements: Node.js 22+, installed regular Google Chrome, and the existing Resume Studio API running on `http://127.0.0.1:8088` **with the new API routes loaded**. The API must run natively on Windows to materialize upload paths for this initial version. Docker `/app/...` paths are not supported by this service.
 
 ```powershell
@@ -30,7 +44,7 @@ The Python environment currently checked into this workspace may reference an ol
 3. Inspect the form. Follow an observed Apply/Next/Continue button. New tabs whose opener is the active application become the tracked application tab. The bridge closes an old tab it created only after the approved new page loads. It never closes unrelated or manually adopted tabs. Same-tab transitions continue normally. The completed managed tab can be reused for the next job if you have not changed it.
 4. Fill confirmed fields. Only exact identity labels, exact confirmed question matches and explicitly confirmed site mappings are used. There is no speculative or model-generated answer fallback.
 5. Attach each supplied document to its correct file control. The server checks canonical upload paths, extension, size (20 MB server limit), file hash, the HTML accept restriction and attached filename. A different document cannot overwrite an already-used control. A supplied optional cover letter can be explicitly omitted with a recorded reason if the portal does not accept one.
-6. At login, CAPTCHA, consent, unknown answers or demographics, complete the needed step directly in Chrome and click **Resume after manual action**. Save non-sensitive reusable answers separately only after personally confirming them. Blank fields never go to an LLM.
+  6. Ask missing factual questions in the chat and use `defer_application` to keep the blocked application pending while the next job is prepared. Never mark missing facts as failed or rejected. Save confirmed reusable replies through Studio, then use `reopen_deferred_application` and prepare again. Reopening rechecks documents and requires a fresh review approval. Login and CAPTCHA stay personal actions in Chrome; optional consent and demographics stay explicit choices. Blank fields never go to an LLM.
 7. Inspect each new form step, repeat verified filling and uploads as needed, and click **Review exact application**. The dashboard shows the exact job URL, documents and hashes, observed answers, blanks, warnings and audit events. The packet is also saved into the existing Studio approval session under `browser_evidence`.
 8. Answer **Submit this exact application: yes or no?** A Yes button identifies the final control it will click. The service re-inspects the form, compares its hash, checks required fields, checks unchanged documents, requires a fresh Studio `may_submit=true`, persists the submission intent, and clicks once. It verifies a visible employer confirmation before marking applied in Studio.
 9. A timeout or missing confirmation becomes **uncertain**. Inspect the open page and use **Verify uncertain submission**. It never blindly retries. If the Studio sync failed after verified success, **Sync verified result** retries only tracking, never the submission.
@@ -129,3 +143,8 @@ Python integration tests: `python -m unittest tests.test_application_engine_rout
 - [Chrome remote-debugging restrictions](https://developer.chrome.com/blog/remote-debugging-port), which are why regular-profile operation uses an extension instead of remote-debugging flags.
 - [Chrome debugger API](https://developer.chrome.com/docs/extensions/reference/api/debugger) for file attachment; [Playwright API](https://playwright.dev/docs/api/class-browsertype) for synthetic test automation.
 - [better-sqlite3 API](https://github.com/WiseLibs/better-sqlite3/blob/master/docs/api.md) and [Zod API](https://zod.dev/api).
+
+### AI-written answers and shared application flow
+
+Indeed Easy Apply and direct employer pages use the same queue and preparation engine. Indeed generated jobs are eligible and prioritized. The engine drafts only open narrative questions from the current generated resume and job description through Hermes, checks cited evidence and numerical claims, and requires a separate support check before filling. Missing facts and unsupported answers go to extension questions. Drafts are application-scoped and are never added to the confirmed answer bank. Final review displays the drafts, evidence, and employer review text. New sessions require the user to click the final Submit on every platform. Live portal compatibility still requires checking actual employer forms; saved formats alone are not tested adapters.
+

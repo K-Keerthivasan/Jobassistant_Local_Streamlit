@@ -32,7 +32,7 @@ from __future__ import annotations
 import re
 from datetime import datetime
 from pathlib import Path
-from urllib.parse import urlsplit
+from urllib.parse import urlsplit, urlunsplit, parse_qsl, urlencode
 
 from ..config import settings
 from ..intake import answers as answers_bank
@@ -208,8 +208,12 @@ def _snap_to_option(value: str, options: list[str]) -> tuple[str, bool]:
 # Job resolution — reuse the existing review queue, never a second tracker
 # --------------------------------------------------------------------------- #
 def _norm_url(url: str) -> str:
-    u = (url or "").strip().rstrip("/")
-    return u.split("?")[0].lower()
+    # Query parameters often ARE the posting identity (jid, jk, jobId).
+    # Removing the entire query merged different employers' aggregator jobs.
+    u = urlsplit((url or "").strip())
+    query = sorted((key, value) for key, value in parse_qsl(u.query, keep_blank_values=True)
+                   if not key.lower().startswith("utm_") and key.lower() not in {"gclid", "fbclid"})
+    return urlunsplit((u.scheme.lower(), u.netloc.lower(), u.path.rstrip("/"), urlencode(query), ""))
 
 
 def resolve_job(*, job_url: str, company: str = "", title: str = "",

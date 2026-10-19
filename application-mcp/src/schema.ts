@@ -5,15 +5,20 @@ export const Field = z.object({
   selector: z.string(),
   label: z.string(),
   type: z.string(),
+  uploadRole:z.enum(['resume_import','resume','cover_letter']).optional(),
   required: z.boolean(),
   value: z.string().default(""),
   options: z.array(z.string()).default([]),
   files: z.array(z.string()).default([]),
   accept: z.string().default(""),
   invalid: z.boolean().default(false),
+  maxLength: z.number().int().positive().optional(),
+  focused:z.boolean().default(false),
+  history: z.object({ section: z.enum(["experience", "education"]), index: z.number().int().min(0), key: z.string(), orderedBlankRow:z.boolean().optional() }).optional(),
 });
 export type Field = z.infer<typeof Field>;
 export const Snapshot = z.object({
+  educationSection: z.object({text:z.string(),hasRecords:z.boolean()}).optional(),
   url: z.string(),
   title: z.string(),
   fields: z.array(Field),
@@ -23,10 +28,23 @@ export const Snapshot = z.object({
       selector: z.string(),
       label: z.string(),
       href: z.string().optional(),
+      educationIndex:z.number().int().min(0).optional(),
     }),
   ),
   blockers: z.array(z.string()),
   confirmation: z.string().default(""),
+  reviewText: z.string().default(""),
+  supportsFocus:z.boolean().default(false),
+  supportsByteUploads:z.boolean().default(false),
+  attachments: z
+    .array(
+      z.object({
+        kind: z.enum(["resume", "cover_letter"]),
+        name: z.string(),
+        frameId: z.number(),
+      }),
+    )
+    .default([]),
 });
 export type Snapshot = z.infer<typeof Snapshot>;
 export const ApplyInput = z.object({
@@ -58,6 +76,8 @@ export const ApplicationSchema = z.object({
   input: ApplyInput,
   state: State,
   ats: z.string(),
+  formFormat: z.string().optional(),
+  finalSubmitBy: z.enum(["user", "approved_agent"]).optional(),
   snapshot: Snapshot.optional(),
   documents: z.array(
     z.object({
@@ -69,19 +89,31 @@ export const ApplicationSchema = z.object({
       frameId: z.number().optional(),
       selector: z.string().optional(),
       omissionReason: z.string().optional(),
+      uploadAttemptedAt: z.string().optional(),
     }),
   ),
   filled: z.array(
     z.object({ label: z.string(), value: z.string(), source: z.string() }),
   ),
+  answerDrafts: z.array(z.object({question:z.string(),answer:z.string(),evidence:z.array(z.string()),sourceHash:z.string(),createdAt:z.string()})).optional(),
+  manualWatches:z.array(z.object({label:z.string(),selector:z.string(),frameId:z.number(),reuse:z.boolean(),baseline:z.string(),contextKey:z.string().optional(),candidate:z.string().optional(),seenAt:z.number().optional(),saved:z.boolean().default(false)})).optional(),
   reason: z.string(),
+  preparationStage:z.enum(['preparing','uploading','needs_user']).optional(),
+  educationBatchSourceHash:z.string().optional(),
+  retryMissingDocumentsRequested:z.boolean().optional(),
   createdAt: z.string(),
   updatedAt: z.string(),
   reviewHash: z.string().optional(),
   approvedHash: z.string().optional(),
   approvedAt: z.string().optional(),
   confirmation: z.string().optional(),
+  manualSubmissionReportedAt: z.string().optional(),
+  manuallyConfirmedAt: z.string().optional(),
+  verificationSource: z.enum(["employer_confirmation", "user_confirmation"]).optional(),
   synced: z.boolean().optional(),
+  deferredAt: z.string().optional(),
+  cancelledAt: z.string().optional(),
+  linkHealth: z.enum(['available','session_expired','unavailable']).optional(),
   evidence: z
     .array(
       z.object({

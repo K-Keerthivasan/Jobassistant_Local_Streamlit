@@ -17,6 +17,19 @@ $env:APP_CHROME_EXTENSION_ID = $config.chromeExtensionId
 function Test-LocalService([string]$Url) {
     try { $response = Invoke-WebRequest -Uri $Url -UseBasicParsing -TimeoutSec 2; return $response.StatusCode -eq 200 } catch { return $false }
 }
+if ((Get-Command docker -ErrorAction SilentlyContinue) -and (Test-LocalService 'http://127.0.0.1:8088/openapi.json')) {
+    & docker compose -f (Join-Path $projectRoot 'docker/docker-compose.yml') up -d --no-deps --no-build chrome-applications chrome-gateway
+    if ($LASTEXITCODE -ne 0) { throw 'Docker application workspace could not start. Build docker/Dockerfile.applications first.' }
+    $deadline = (Get-Date).AddSeconds(30)
+    do {
+        if (Test-LocalService 'http://127.0.0.1:8091/health') {
+            Write-Output 'Docker Chrome applications ready: http://127.0.0.1:8091'
+            return
+        }
+        Start-Sleep -Milliseconds 500
+    } while ((Get-Date) -lt $deadline)
+    throw 'Docker application workspace did not become ready; inspect docker compose logs chrome-applications chrome-gateway.'
+}
 if (-not (Test-LocalService 'http://127.0.0.1:8088/openapi.json')) {
     Start-Process -FilePath $runtimePython -ArgumentList @('-m','uvicorn','api.server:app','--host','127.0.0.1','--port','8088') -WorkingDirectory $projectRoot -WindowStyle Hidden -RedirectStandardOutput (Join-Path $logDirectory 'studio.stdout.log') -RedirectStandardError (Join-Path $logDirectory 'studio.stderr.log') | Out-Null
 }

@@ -38,12 +38,12 @@ export class Studio {
       note: "User approved this exact application from the engine review screen.",
     });
   }
-  result(id: string, status: string, note: string, success: boolean) {
+  result(id: string, status: string, note: string, success: boolean, submittedBy: "agent" | "me" = "agent") {
     return this.request("/apply/" + encodeURIComponent(id) + "/log", {
       status,
       note,
       verified_success: success,
-      submitted_by: "agent",
+      submitted_by: submittedBy,
     });
   }
 }

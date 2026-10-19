@@ -35,6 +35,27 @@ class ApplicationEngineRoutesTests(unittest.TestCase):
             self.assertEqual(saved['answerProvenance']['Notice period?']['source'], 'user_confirmed')
             self.assertEqual(saved['firstName'], 'Jordan')
 
+    def test_application_only_answer_is_scoped_and_not_reused(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'data').mkdir()
+            profile = root / 'data' / 'apply_profile.json'
+            profile.write_text('{}', encoding='utf-8')
+            with patch.object(routes, 'ROOT', root), patch.object(routes.apply_sessions, 'get_session', return_value={'session_id':'one'}):
+                response = self.client.post('/application-engine/answers', json={
+                    'question':'Expected pay?', 'answer':'85000', 'confirmed':True, 'reuse':False, 'session_id':'one'})
+            self.assertEqual(response.status_code, 200)
+            saved = json.loads(profile.read_text(encoding='utf-8'))
+            self.assertEqual(saved['applicationAnswers']['one']['Expected pay?'], '85000')
+            self.assertNotIn('Expected pay?', saved.get('commonAnswers', {}))
+            self.assertFalse(saved['answerProvenance']['one:Expected pay?']['reuseAllowed'])
+
+    def test_application_only_answer_requires_a_real_session(self):
+        with patch.object(routes.apply_sessions, 'get_session', return_value=None):
+            response = self.client.post('/application-engine/answers', json={
+                'question':'Expected pay?', 'answer':'85000', 'confirmed':True, 'reuse':False, 'session_id':'missing'})
+        self.assertEqual(response.status_code, 400)
+
     def test_sensitive_and_unconfirmed_answers_are_never_banked(self):
         for question, confirmed in [('Gender', True), ('I agree to terms', True), ('Notice period?', False)]:
             response = self.client.post('/application-engine/answers', json={
@@ -97,5 +118,43 @@ class ApplicationEngineRoutesTests(unittest.TestCase):
                 self.assertEqual(self.client.get('/application-engine/one/validate').status_code, expected)
 
 
-if __name__ == '__main__':
-    unittest.main()
+
+    def test_resume_history_uses_this_sessions_generated_run(self):
+        with patch.object(routes.apply_sessions, 'get_session', return_value={'status': 'prepared', 'run_id': 'this-run'}), patch.object(routes.runs, 'get_run', return_value={'resume': {'experience': [{'company': 'Example', 'role': 'Tailored role'}], 'education': []}}) as read_run:
+            response = self.client.get('/application-engine/session/resume-history')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['experience'][0]['role'], 'Tailored role')
+        read_run.assert_called_once_with('this-run')
+
+
+    def test_answer_context_is_scoped_and_omits_contact_details(self):
+        from types import SimpleNamespace
+        with patch.object(routes.apply_sessions, 'get_session', return_value={'status': 'prepared', 'run_id': 'run', 'job_key': 'job', 'company': 'Example', 'title': 'Engineer'}), patch.object(routes.runs, 'get_run', return_value={'resume': {'contact': {'email': 'private@example.com'}, 'experience': [{'role': 'Developer'}]}}), patch.object(routes.store, 'get_job', return_value=SimpleNamespace(applied=False, description='SQL role')):
+            response = self.client.get('/application-engine/session/answer-context')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['description'], 'SQL role')
+        self.assertNotIn('private@example.com', response.text)
+
+    def test_answer_context_refuses_already_applied_jobs(self):
+        from types import SimpleNamespace
+        with patch.object(routes.apply_sessions, 'get_session', return_value={'status': 'prepared', 'run_id': 'run', 'job_key': 'job'}), patch.object(routes.runs, 'get_run', return_value={'resume': {}}), patch.object(routes.store, 'get_job', return_value=SimpleNamespace(applied=True)):
+            self.assertEqual(self.client.get('/application-engine/session/answer-context').status_code, 409)
+
+    def test_blank_choice_saves_intent_without_saving_a_fake_answer(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'data').mkdir()
+            profile = root / 'data' / 'apply_profile.json'
+            profile.write_text('{}', encoding='utf-8')
+            with patch.object(routes, 'ROOT', root), patch.object(routes.apply_sessions, 'get_session', return_value={'session_id': 'one'}):
+                response = self.client.post('/application-engine/blank-answer', json={'question': 'Middle Name', 'session_id': 'one', 'confirmed': True, 'reuse': False})
+            self.assertEqual(response.status_code, 200)
+            saved = json.loads(profile.read_text(encoding='utf-8'))
+            self.assertTrue(saved['applicationBlankAnswers']['one']['Middle Name'])
+            self.assertNotIn('commonAnswers', saved)
+            self.assertNotIn('blankAnswers', saved)
+
+    def test_blank_choice_rejects_credentials_and_missing_session(self):
+        with patch.object(routes.apply_sessions, 'get_session', return_value=None):
+            self.assertEqual(self.client.post('/application-engine/blank-answer', json={'question': 'Middle Name', 'session_id': 'missing', 'confirmed': True}).status_code, 400)
+        self.assertEqual(self.client.post('/application-engine/blank-answer', json={'question': 'Password', 'session_id': 'one', 'confirmed': True}).status_code, 400)

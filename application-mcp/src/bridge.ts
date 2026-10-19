@@ -3,6 +3,7 @@ import type { WebSocket } from "ws";
 
 export interface Browser {
   command(op: string, args: Record<string, unknown>): Promise<unknown>;
+  notify?(payload:Record<string,unknown>):boolean;
 }
 export class ChromeBridge implements Browser {
   socket?: WebSocket;

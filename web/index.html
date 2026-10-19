@@ -2309,21 +2309,13 @@ async function runBulk() {
   const btn = $('b-run'); btn.disabled = true; btn.textContent = 'Generating…';
   const prog = $('b-progress'); prog.className = 'progress show'; prog.firstElementChild.style.width = '0%';
   const opts = bulkOpts();
-  let done = 0;
-  for (const j of jobs) {
-    j.status = 'running'; j.error = ''; bulkRender();
-    await bulkGenOne(j, opts);
-    done++; prog.firstElementChild.style.width = Math.round(done/jobs.length*100) + '%';
-    bulkRender();
-  }
-  bulkRunning = false; btn.disabled = false;
-  const ok = jobs.filter(j => j.status==='done').length;
-  bulkRender();   // refresh the dynamic button label
-  const aiCalls = jobs.reduce((n, j) => n + Number((j.result && j.result.performance && j.result.performance.calls) || 0), 0);
-  const aiTokens = jobs.reduce((n, j) => n + Number((j.result && j.result.performance && j.result.performance.total_tokens) || 0), 0);
-  toast(`Done — ${ok}/${jobs.length} generated${aiCalls ? ` · ${aiCalls} AI calls · ${aiTokens.toLocaleString()} tokens` : ''}.`);
-  if (jobs.some(j => j.result && j.result.hermes_fallback)) notifyFallback({ hermes_fallback: true });
-  loadJobs(); loadLibrary();
+  try {
+    const batch = await queueGenerationItems(jobs.map(j => ({ key_id: j.key_id || null,
+      target: {company:j.company, title:j.title, location:j.location || '', description:j.description}, options:opts })));
+    jobs.forEach((j, index) => { j.batchId = batch.id; j.batchIndex = index; });
+    toast(`Saved ${jobs.length} jobs. Generation continues in the app even if this page closes.`);
+  } catch (error) { toast(error.message, true); }
+  finally { bulkRunning = false; btn.disabled = false; bulkRender(); }
 }
 $('b-run').onclick = runBulk;
 
@@ -2970,6 +2962,60 @@ $('jl-all').onclick = () => {
 };
 
 /* bulk generate selected, sequentially — engine per job priority */
+let generationBatchPolling = false;
+let generationBatchId = '';
+let generationBatchFinished = '';
+async function showGenerationBatch(batch) {
+  if (!batch) return;
+  generationBatchId = batch.id;
+  lsSet('generation-batch-id', batch.id);
+  let banner = $('generation-batch-status');
+  if (!banner) {
+    banner = document.createElement('div'); banner.id = 'generation-batch-status';
+    banner.className = 'card';
+    banner.style.cssText = 'position:fixed;bottom:18px;right:18px;z-index:900;max-width:440px;padding:14px';
+    document.body.append(banner);
+  }
+  const counts = batch.counts || {};
+  banner.replaceChildren();
+  const message = document.createElement('div');
+  message.textContent = `Resume batch: ${counts.done || 0}/${batch.total} completed · ${counts.failed || 0} failed · ${counts.running || 0} running · ${counts.pending || 0} queued. ${batch.complete ? 'Finished.' : 'Saved in the app; you can leave this page.'}`;
+  if (batch.waiting_until > Date.now()/1000)
+    message.textContent += ` Waiting for Hermes usage limit to reset; automatically retrying after ${new Date(batch.waiting_until*1000).toLocaleTimeString()}.`;
+  banner.append(message);
+  if (counts.failed) {
+    const error = document.createElement('p');
+    error.textContent = batch.items.find(item => item.state === 'failed')?.error || '';
+    const retry = document.createElement('button'); retry.className = 'btn sm'; retry.textContent = 'Retry failed only';
+    retry.onclick = async () => showGenerationBatch(await api(`/generation-batches/${batch.id}/retry`, { method: 'POST' }));
+    banner.append(error, retry);
+  }
+  for (const row of bulk) {
+    if (row.batchId !== batch.id) continue;
+    const item = batch.items[row.batchIndex];
+    if (!item) continue;
+    row.status = item.state === 'pending' ? 'pending' : item.state;
+    row.result = item.result || null; row.error = item.error || '';
+  }
+  if (bulk.some(row => row.batchId === batch.id)) bulkRender();
+  if (batch.complete && generationBatchFinished !== batch.id) {
+    generationBatchFinished = batch.id; loadJobs(); loadLibrary(); loadUsage();
+  }
+}
+async function queueGenerationItems(items) {
+  const batch = await api('/generation-batches', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({items}) });
+  await showGenerationBatch(batch);
+  return batch;
+}
+setInterval(async () => {
+  if (generationBatchPolling) return;
+  generationBatchPolling = true;
+  try {
+    const batch = await api(generationBatchId ? `/generation-batches/${generationBatchId}` : '/generation-batches/latest');
+    if (batch) await showGenerationBatch(batch);
+  } catch (error) { /* A restart does not clear the persisted batch. Poll again. */ }
+  finally { generationBatchPolling = false; }
+}, 5000);
 $('jl-bulk').onclick = async () => {
   const picked = [...jl.sel]; if (!picked.length) return;
   const byId = Object.fromEntries(jl.all.map(j => [j.id, j]));
@@ -2982,20 +3028,12 @@ $('jl-bulk').onclick = async () => {
     return;
   }
   const btn = $('jl-bulk'); btn.disabled = true;
-  let ok = 0, fail = 0;
-  for (let i = 0; i < keys.length; i++) {
-    const model = resolveModel((byId[keys[i]] || {}).priority_level === 'high');
-    btn.textContent = `⏳ Generating ${i+1}/${keys.length}${usesHermes(model)?' 🤖':''}…`;
-    try {
-      await api(`/jobs/${keys[i]}/generate`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ persona: activePersona(), strict: true, pdf: true, model }),
-      });
-      ok++;
-    } catch { fail++; }
-  }
-  toast(`Bulk done: ${ok} generated${fail?`, ${fail} failed`:''}${skipped?`, ${skipped} skipped (already generated)`:''}.`);
-  jl.sel.clear(); loadJobs(); loadLibrary(); loadUsage();
+  try {
+    await queueGenerationItems(keys.map(key_id => ({key_id, options: {persona: activePersona(), strict: true, pdf: true, model: resolveModel((byId[key_id] || {}).priority_level === 'high')}})));
+    toast(`Saved ${keys.length} jobs to the background generation queue. Completed jobs are skipped.`);
+    jl.sel.clear();
+  } catch (error) { toast(error.message, true); }
+  finally { btn.disabled = false; loadJobs(); }
 };
 
 /* Jobs: delete all selected jobs (and any generated applications). */
