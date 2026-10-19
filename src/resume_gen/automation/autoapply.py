@@ -518,11 +518,13 @@ def candidates(*, limit: int = 50, since: str = "", company: str = "",
     Ordered by priority pin, then repeat-company (portals you already have logins
     and saved details for), then newest.
     """
-    attempted: set[str] = set()
+    # A finished attempt only retires the generation it was made with: after you
+    # regenerate a cancelled or failed job, the new documents queue again.
+    attempted: set[tuple[str, str]] = set()
     if not include_attempted:
         for s in apply_sessions.list_sessions(limit=1000):
             if s.get("status") in apply_sessions.TERMINAL and s.get("job_key"):
-                attempted.add(s["job_key"])
+                attempted.add((s["job_key"], s.get("run_id", "")))
 
     from ..intake.companies import is_repeat
 
@@ -535,7 +537,7 @@ def candidates(*, limit: int = 50, since: str = "", company: str = "",
             continue
         if not (job.notes or "").strip():
             continue                     # nothing generated for it yet
-        if job.key_id in attempted:
+        if (job.key_id, (job.notes or "").strip()) in attempted:
             continue
         if since and (job.found_at or "") < since:
             continue
@@ -1035,15 +1037,19 @@ def log_outcome(session_id: str, *, status: str, note: str = "",
     }
 
     if job_key:
-        # Submitted marks the job applied; a decline or failure leaves it in the
-        # queue (still generated) so it can be retried — but is logged either way.
+        # Submitted marks the job applied. A cancel or decline marks it skipped so
+        # the job list shows it; regenerating it queues it again. A failure keeps
+        # its status so it can be retried. Every attempt is logged either way.
         store.record_apply_outcome(
             job_key, entry,
-            status="applied" if status == "submitted" else "",
+            status={"submitted": "applied", "rejected": "skipped"}.get(status, ""),
             applied=True if status == "submitted" else None,
         )
 
-    if status != "rejected":       # rejection already stamped by confirm()
+    # A decline at review was already stamped by confirm(); a cancel from the Chrome
+    # workspace arrives here first and must close the session too, or Studio keeps
+    # treating the job as an open attempt.
+    if status != "rejected" or session.get("status") != apply_sessions.REJECTED:
         apply_sessions.set_status(session_id, status, note=note,
                                   outcome_logged_at=now,
                                   submitted_by=entry["submitted_by"],

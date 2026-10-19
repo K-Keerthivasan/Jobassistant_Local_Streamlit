@@ -94,7 +94,7 @@ const service = new Service(store, bridge, new Studio(), root, [
 // Run independently of the dashboard, including after a Docker restart.
 const queueTimer = setInterval(() => {
   if (bridge.socket?.readyState !== 1) { service.queueMessage = "Waiting for Chrome extension to connect."; return; }
-  void service.observeDocumentRetries().then(()=>service.observeManualAnswers()).then(()=>service.observeCompletion()).then(() => service.driveQueue()).catch(error => {
+  void service.observeStudio().then(()=>service.observeDocumentRetries()).then(()=>service.observeManualAnswers()).then(()=>service.observeCompletion()).then(() => service.driveQueue()).catch(error => {
     service.queueMessage = error.message;
     store.event("queue", "advance_error", { reason: error.message });
   });

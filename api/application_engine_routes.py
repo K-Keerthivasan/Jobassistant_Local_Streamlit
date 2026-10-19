@@ -88,6 +88,50 @@ def answer_context(session_id: str, request: Request):
                        ("summaryPoints", "experience", "education", "skills", "certifications")}}
 
 
+@router.get("/{session_id}/status")
+def session_status(session_id: str, request: Request):
+    """What Resume Studio currently says about the job behind an engine
+    application, so the engine can follow changes made in Studio: the job was
+    marked applied, dismissed or deleted, or regenerated with new documents."""
+    local_only(request)
+    session = apply_sessions.get_session(session_id)
+    if not session:
+        raise HTTPException(404, "Unknown application session.")
+    job = store.get_job(session.get("job_key", "")) if session.get("job_key") else None
+    current_run = (job.notes or "").strip() if job else ""
+    return {
+        "session_id": session_id,
+        "session_status": session.get("status", ""),
+        "job_key": session.get("job_key", ""),
+        "job_exists": job is not None,
+        "job_status": job.status if job else "",
+        "applied": bool(job and (job.applied or job.status in {"applied", "sent"})),
+        "dismissed": bool(job and job.irrelevant),
+        "session_run_id": session.get("run_id", ""),
+        "current_run_id": current_run,
+        "regenerated": bool(job and current_run and current_run != session.get("run_id", "")),
+    }
+
+
+class AppliedByMe(BaseModel):
+    note: str = Field("", max_length=500)
+
+
+@router.post("/jobs/{job_key}/applied-by-me")
+def applied_by_me(job_key: str, req: AppliedByMe, request: Request):
+    """You applied to this job yourself, outside the app. Mark it applied and log
+    the attempt so it leaves the queue and shows in the tracker."""
+    local_only(request)
+    job = store.get_job(job_key)
+    if job is None:
+        raise HTTPException(404, "Job not found.")
+    entry = {"status": "submitted", "submitted_by": "me", "url": job.apply_url,
+             "run_id": (job.notes or "").strip(), "verified_success": None,
+             "note": req.note or "Applied directly on the employer site."}
+    store.record_apply_outcome(job_key, entry, status="applied", applied=True)
+    return {"job_key": job_key, "applied": True}
+
+
 @router.get("/{session_id}/validate")
 def validate_session(session_id: str, request: Request):
     local_only(request)

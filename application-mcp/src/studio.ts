@@ -20,6 +20,18 @@ export class Studio {
   get(id: string) {
     return this.request("/apply/" + encodeURIComponent(id));
   }
+  /** What Studio currently says about this application's job. */
+  status(id: string) {
+    return this.request(
+      "/application-engine/" + encodeURIComponent(id) + "/status",
+    );
+  }
+  appliedByMe(jobKey: string, note = "") {
+    return this.request(
+      "/application-engine/jobs/" + encodeURIComponent(jobKey) + "/applied-by-me",
+      { note },
+    );
+  }
   validate(id: string) {
     return this.request(
       "/application-engine/" + encodeURIComponent(id) + "/validate",

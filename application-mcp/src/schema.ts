@@ -56,6 +56,8 @@ export const ApplyInput = z.object({
   company: z.string().min(1),
   title: z.string().min(1),
   studioSessionId: z.string().min(1),
+  // Studio run (generation) the documents came from; a newer run means regenerated.
+  runId: z.string().optional(),
   allowedDomains: z.array(z.string()).default([]),
 });
 export type ApplyInput = z.infer<typeof ApplyInput>;
@@ -109,7 +111,7 @@ export const ApplicationSchema = z.object({
   confirmation: z.string().optional(),
   manualSubmissionReportedAt: z.string().optional(),
   manuallyConfirmedAt: z.string().optional(),
-  verificationSource: z.enum(["employer_confirmation", "user_confirmation"]).optional(),
+  verificationSource: z.enum(["employer_confirmation", "user_confirmation", "studio_record"]).optional(),
   synced: z.boolean().optional(),
   deferredAt: z.string().optional(),
   cancelledAt: z.string().optional(),

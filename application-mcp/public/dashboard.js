@@ -19,7 +19,7 @@ function renderScope(){
 const terminal = a => ["submitted", "failed", "rejected"].includes(a.state);
 const currentActive = () => applications.find(a => !a.deferredAt && !terminal(a));
 const node = (tag, text, className) => { const e=document.createElement(tag);if(text!==undefined)e.textContent=text;if(className)e.className=className;return e; };
-const statusText = a => a.cancelledAt ? "Cancelled by you" : a.manualSubmissionReportedAt && a.state!=="submitted" ? "Submitted by you · confirmation pending" : a.deferredAt ? "Saved for later" : a.state === "review" ? "Ready for approval" : a.state === "submitted" ? a.verificationSource === "user_confirmation" ? "Submitted · manually confirmed" : "Submitted · employer verified" : a.state === "paused" ? /CAPTCHA/i.test(a.reason) ? "Needs CAPTCHA" : /login|sign.in|verification/i.test(a.reason) ? "Needs sign-in" : "Needs attention" : a.state === "working" || a.state === "opening" ? "Preparing" : a.state;
+const statusText = a => a.cancelledAt ? "Cancelled by you" : a.manualSubmissionReportedAt && a.state!=="submitted" ? "Submitted by you · confirmation pending" : a.deferredAt ? "Saved for later" : a.state === "review" ? "Ready for approval" : a.state === "submitted" ? a.verificationSource === "user_confirmation" ? "Submitted · manually confirmed" : a.verificationSource === "studio_record" ? "Applied · recorded in Resume Studio" : "Submitted · employer verified" : a.state === "paused" ? /CAPTCHA/i.test(a.reason) ? "Needs CAPTCHA" : /login|sign.in|verification/i.test(a.reason) ? "Needs sign-in" : "Needs attention" : a.state === "working" || a.state === "opening" ? "Preparing" : a.state;
 const $ = (id) => document.getElementById(id);
 async function api(url, body) {
   const r = await fetch(
@@ -237,10 +237,18 @@ function renderCandidates(){
     } else {
       const start=button('Start in Chrome',async()=>{
         const packet=await api('/prepare',{job_key:job.key_id,run_id:job.run_id});
-        const a=await api('/applications',{jobUrl:packet.job_url,company:packet.company,title:packet.title,studioSessionId:packet.session_id,resumePath:packet.documents.resume.path,coverLetterPath:packet.documents.cover_letter?.path || null,mode:'review'});
+        const a=await api('/applications',{jobUrl:packet.job_url,company:packet.company,title:packet.title,studioSessionId:packet.session_id,resumePath:packet.documents.resume.path,coverLetterPath:packet.documents.cover_letter?.path || null,mode:'review',runId:job.run_id});
         selected=a.id;await api(`/applications/${a.id}/run`,{});await refresh();
       });
       start.disabled=!!currentActive();if(start.disabled)start.title='Finish or save the current application before starting another.';row.append(start);
+    }
+    if(!existing || !terminal(existing)){
+      const mine=button('I applied myself',async()=>{
+        if(!confirm(`Record ${job.company} · ${job.title} as applied by you? It leaves the queue and shows as applied in Resume Studio.`))return;
+        await api(`/jobs/${encodeURIComponent(job.key_id)}/applied-by-me`,{note:'Applied directly on the employer site.'});
+        await loadQueue();await refresh();
+      });
+      mine.title='You submitted this on the employer site yourself.';row.append(mine);
     }
     list.append(row);
   }
@@ -308,7 +316,10 @@ act(async () => { $("auto-queue").checked = (await api("/queue")).enabled; });
 setInterval(async () => {
   if (acting || document.hidden || ["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement?.tagName)) return;
   try { await refresh(); } catch (error) { $("error").textContent = error.message; }
+  // New generations in Resume Studio appear without pressing Refresh jobs.
+  if (++queueTick % 4 === 0) { try { await loadQueue(); } catch { /* shown on the next manual refresh */ } }
 }, 4000);
+let queueTick = 0;
 act(refresh);
 act(loadNotifications);
 

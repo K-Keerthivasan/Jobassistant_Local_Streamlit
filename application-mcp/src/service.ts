@@ -35,6 +35,7 @@ export class Service {
   private answerAttempts=new Set<string>();
   busy = false;
   stopped = false;
+  studioCheckedAt = 0;
   /** Application id the auto-run is driving, if any. */
   running?: string;
   runCancel = false;
@@ -268,10 +269,13 @@ export class Service {
     try {
       const since = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
       const response = await this.studio.request('/apply/candidates?limit=10000&since=' + since);
-      const attempted = new Set(this.store.list().map(a => a.input.jobUrl));
+      // A cancelled attempt only blocks the generation it was made with; after
+      // you regenerate the job in Studio it can be applied to again.
+      const blocking = this.store.list().filter(a => !(a.cancelledAt && a.input.runId));
+      const cancelledRuns = new Set(this.store.list().filter(a => a.cancelledAt && a.input.runId).map(a => `${a.input.jobUrl}|${a.input.runId}`));
       const candidates = (response.candidates || []).filter((job: any) => {
         try { return (this.queueRetry.get(job.key_id) || 0) < Date.now() &&
-          job.key_id && (this.store.queueScope()==='all' || (detectAts(job.apply_url)==='indeed' ? 'indeed':'company')===this.store.queueScope()) && !/canada\s*life/i.test(job.company || '') && !attempted.has(job.apply_url) &&
+          job.key_id && (this.store.queueScope()==='all' || (detectAts(job.apply_url)==='indeed' ? 'indeed':'company')===this.store.queueScope()) && !/canada\s*life/i.test(job.company || '') && !blocking.some(a => a.input.jobUrl === job.apply_url) && !cancelledRuns.has(`${job.apply_url}|${job.run_id}`) &&
           !/(^|\.)linkedin\.com$/.test(new URL(job.apply_url).hostname);
         } catch { return false; }
       });
@@ -285,7 +289,7 @@ export class Service {
             throw new Error('Prepared job identity mismatch; employer was not opened.');
           const a = await this.apply({ jobUrl: packet.job_url, company: packet.company, title: packet.title,
             studioSessionId: packet.session_id, resumePath: packet.documents.resume.path,
-            coverLetterPath: packet.documents.cover_letter?.path || null, mode: 'review' });
+            coverLetterPath: packet.documents.cover_letter?.path || null, mode: 'review', runId: job.run_id });
           this.startRun(a.id);
           this.store.event(a.id, 'queue_advanced', {});
           return;
@@ -1491,6 +1495,88 @@ export class Service {
       // employer tab or the whole browser has been closed.
       return this.store.save(a);
     });
+  }
+  /**
+   * Follow changes made in Resume Studio. For every open application (active or
+   * saved for later): a job marked applied in Studio closes as applied; a job
+   * deleted, marked not relevant or cancelled in Studio closes as cancelled; a
+   * job regenerated in Studio swaps in the new documents. Runs every 15 seconds
+   * from the service timer; never submits anything and never reopens a site.
+   */
+  async observeStudio() {
+    if (this.stopped || this.busy || this.queueAdvancing) return;
+    if (Date.now() - this.studioCheckedAt < 15000) return;
+    this.studioCheckedAt = Date.now();
+    const open = this.store.list().filter(a => !["submitted", "failed", "rejected", "submitting", "uncertain"].includes(a.state));
+    for (const a of open) {
+      if (this.busy) return;
+      let s: any;
+      try { s = await this.studio.status(a.input.studioSessionId); }
+      catch (error) {
+        if (!/\(404\)/.test((error as Error).message)) continue;
+        s = { job_exists: false };
+      }
+      if (s.applied) await this.closeFromStudio(a.id, "submitted", "Marked applied in Resume Studio.");
+      else if (!s.job_exists || s.dismissed || ["rejected", "failed"].includes(s.session_status))
+        await this.closeFromStudio(a.id, "rejected",
+          !s.job_exists ? "Job removed in Resume Studio." : s.dismissed ? "Marked not relevant in Resume Studio." : "Cancelled in Resume Studio.");
+      else if (s.regenerated && s.job_key && s.current_run_id && this.running !== a.id)
+        await this.refreshDocuments(a.id, s.job_key, s.current_run_id);
+    }
+  }
+  private async closeFromStudio(id: string, state: "submitted" | "rejected", reason: string) {
+    return this.exclusive(async () => {
+      const a = this.store.get(id);
+      if (["submitted", "failed", "rejected", "submitting", "uncertain"].includes(a.state)) return a;
+      const wasActive = !a.deferredAt;
+      a.state = state;
+      a.reason = reason;
+      a.deferredAt = undefined;
+      a.approvedHash = undefined;
+      a.reviewHash = undefined;
+      a.synced = true;
+      if (state === "submitted") a.verificationSource = "studio_record";
+      else a.cancelledAt = new Date().toISOString();
+      this.store.save(a);
+      this.store.event(id, "closed_from_studio", { state, reason });
+      if (wasActive) {
+        try { await this.command(a, "finish", { closeCompleted: true }); }
+        catch { /* The tab may already be gone; the record is what matters. */ }
+      }
+      return this.store.save(a);
+    });
+  }
+  /** The job was regenerated in Studio: use the new resume and cover letter. */
+  private async refreshDocuments(id: string, jobKey: string, runId: string) {
+    return this.exclusive(async () => {
+      const a = this.store.get(id);
+      const packet = await this.studio.request("/application-engine/prepare", { job_key: jobKey, run_id: runId });
+      const documents = [];
+      for (const [kind, file] of [["resume", packet.documents?.resume?.path], ["cover_letter", packet.documents?.cover_letter?.path]] as const) {
+        if (!file) continue;
+        documents.push({ kind, ...(await documentInfo(file, this.uploadRoots)), attached: false });
+      }
+      if (!documents.some(d => d.kind === "resume")) throw new Error("The new generation has no resume file.");
+      a.input.studioSessionId = packet.session_id;
+      a.input.resumePath = packet.documents.resume.path;
+      a.input.coverLetterPath = packet.documents.cover_letter?.path || null;
+      a.input.runId = runId;
+      a.documents = documents;
+      a.reviewHash = undefined;
+      a.approvedHash = undefined;
+      if (a.state === "review") {
+        a.state = "paused";
+        a.reason = "New resume generated in Resume Studio; attach the new documents, then review again.";
+      }
+      this.store.event(id, "documents_refreshed_from_studio", { runId, sessionId: packet.session_id });
+      return this.store.save(a);
+    });
+  }
+  /** You applied to a job yourself, outside the app: record it in Studio. */
+  async appliedByMe(jobKey: string, note = "") {
+    const result = await this.studio.appliedByMe(jobKey, note);
+    this.studioCheckedAt = 0; // close any open application for it on the next tick
+    return result;
   }
   async observeCompletion() {
     if (this.stopped || this.busy || this.running || this.queueAdvancing) return;

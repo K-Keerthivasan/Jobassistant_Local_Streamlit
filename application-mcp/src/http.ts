@@ -157,6 +157,12 @@ export function httpServer(
         json(await s.studio.request("/apply/candidates?since=" + since));
         return;
       }
+      const appliedMatch = u.pathname.match(/^\/jobs\/([^/]+)\/applied-by-me$/);
+      if (req.method === "POST" && appliedMatch) {
+        const v = z.object({ note: z.string().max(500).default("") }).parse(await body(req));
+        json(await s.appliedByMe(decodeURIComponent(appliedMatch[1]), v.note));
+        return;
+      }
       if (req.method === "POST" && u.pathname === "/prepare") {
         const input = z
           .object({ job_key: z.string(), run_id: z.string() })
