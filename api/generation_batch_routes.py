@@ -65,6 +65,17 @@ class GenerationQueue:
             self.wake.set()
             return batch
 
+    @staticmethod
+    def _label(spec):
+        """'Company · Title' for the item, from the job or the inline target."""
+        try:
+            job = store.get_job(spec['key_id']) if spec.get('key_id') else None
+        except Exception:
+            job = None
+        target = spec.get('target') or {}
+        parts = (job.company, job.title) if job else (target.get('company', ''), target.get('title', ''))
+        return ' · '.join(x for x in parts if x)
+
     def step(self):
         with self.lock:
             candidate = next(((batch, index) for batch in reversed(self.list()) for index, item in enumerate(batch['items'])
@@ -75,14 +86,11 @@ class GenerationQueue:
             item = batch['items'][index]
             item['state'] = 'running'
             item['started_at'] = time.time()
+            item['label'] = self._label(item['spec'])   # shown by the progress banner
             self.save(batch)
         try:
             spec = item['spec']
             job = store.get_job(spec['key_id']) if spec.get('key_id') else None
-            # What the progress banner shows while this item runs.
-            target_spec = spec.get('target') or {}
-            item['label'] = ' · '.join(x for x in ((job.company, job.title) if job else
-                                                  (target_spec.get('company', ''), target_spec.get('title', ''))) if x)
             prior = runs.get_run(job.notes.strip()) if job and job.notes else None
             target = (prior or {}).get('target') or {}
             # Skip only a run this batch already produced (a restart mid-batch must
