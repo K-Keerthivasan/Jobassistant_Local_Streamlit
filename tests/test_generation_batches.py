@@ -124,3 +124,29 @@ class RegenerateExistingTests(GenerationBatchTests):
         queue.step()
         self.assertEqual(calls, [])
         self.assertTrue(queue.list()[0]['items'][0]['result']['skipped_existing'])
+
+
+class EngineDownTests(GenerationBatchTests):
+    def test_hermes_down_pauses_the_batch_instead_of_failing_jobs(self):
+        from fastapi import HTTPException
+
+        def generate(spec):
+            raise HTTPException(status_code=503, detail='The Hermes bridge is not answering at http://x and Ollama is not running')
+        queue = GenerationQueue(generate, self.connection)
+        queue.initialize()
+        queue.create([BatchItem(target={'title': 'A'}), BatchItem(target={'title': 'B'})])
+        queue.step()
+        batch = queue.list()[0]
+        self.assertEqual(batch['counts'], {'pending': 2})
+        self.assertEqual(batch['items'][0]['attempts'], 0, 'a wait does not use up retries')
+        self.assertIn('not answering', batch['waiting_reason'])
+        self.assertFalse(queue.step(), 'nothing runs until the wait is over')
+
+    def test_progress_details_are_recorded(self):
+        queue = GenerationQueue(lambda spec: {'folder': 'r'}, self.connection)
+        queue.initialize()
+        queue.create([BatchItem(target={'company': 'Acme', 'title': 'Analyst'})])
+        queue.step()
+        item = queue.list()[0]['items'][0]
+        self.assertEqual(item['label'], 'Acme · Analyst')
+        self.assertLessEqual(item['started_at'], item['finished_at'])

@@ -2945,7 +2945,7 @@ function renderJobs() {
       <td class="muted">${esc(j.location)}</td>
       <td><span class="jl-src">${esc(j.source || '—')}</span></td>
       <td class="muted" title="${j.found && j.found !== j.date ? 'Found '+esc(j.found) : ''}">${esc(j.date)}</td>
-      <td><span class="jl-st ${esc(j.status)}">${esc(j.status)}</span></td>
+      <td><span class="jl-st ${esc(j.status)}">${esc(j.status)}</span>${jlBatchState[j.id] === 'running' ? ' <span class="jl-st new" title="Generating now">⏳ generating</span>' : jlBatchState[j.id] === 'pending' ? ' <span class="jl-st" title="Waiting in the generation queue">queued</span>' : ''}</td>
       <td>${j.id ? `<input type="checkbox" class="jl-applied" data-i="${i}" ${j.applied?'checked':''} title="Mark applied">` : (j.applied?'✓':'')}</td>
       <td><div class="jl-rowbtns">
         ${j.gen ? `<button class="btn ghost sm" data-act="preview" data-i="${i}">Preview</button>` : ''}
@@ -3213,6 +3213,9 @@ $('jl-all').onclick = () => {
 let generationBatchPolling = false;
 let generationBatchId = '';
 let generationBatchFinished = '';
+// key_id -> state in the latest batch, for the Queued / Generating badges in Jobs.
+var jlBatchState = {};
+var generationBatchDone = {};
 async function showGenerationBatch(batch) {
   if (!batch) return;
   generationBatchId = batch.id;
@@ -3228,9 +3231,28 @@ async function showGenerationBatch(batch) {
   banner.replaceChildren();
   const message = document.createElement('div');
   message.textContent = `Resume batch: ${counts.done || 0}/${batch.total} completed · ${counts.failed || 0} failed · ${counts.running || 0} running · ${counts.pending || 0} queued. ${batch.complete ? 'Finished.' : 'Saved in the app; you can leave this page.'}`;
-  if (batch.waiting_until > Date.now()/1000)
-    message.textContent += ` Waiting for Hermes usage limit to reset; automatically retrying after ${new Date(batch.waiting_until*1000).toLocaleTimeString()}.`;
+  // Which job is generating right now, and for how long.
+  const running = (batch.items || []).find(item => item.state === 'running');
+  if (running && !batch.complete) {
+    const secs = running.started_at ? Math.max(0, Math.round(Date.now()/1000 - running.started_at)) : 0;
+    const now = document.createElement('div'); now.className = 'muted'; now.style.marginTop = '4px';
+    now.textContent = `Now generating: ${running.label || 'next job'}${secs ? ` (${secs}s)` : ''}`;
+    message.append(now);
+  }
+  if (batch.waiting_until > Date.now()/1000) {
+    const wait = document.createElement('div'); wait.style.cssText = 'margin-top:4px;color:var(--warn)';
+    wait.textContent = `Paused: ${batch.waiting_reason || 'Hermes usage limit reached'}. Continuing automatically after ${new Date(batch.waiting_until*1000).toLocaleTimeString()}.`;
+    message.append(wait);
+  }
   banner.append(message);
+  // Keep the Jobs list current as each job finishes, not only at the end.
+  jlBatchState = Object.fromEntries((batch.items || []).filter(i => i.spec && i.spec.key_id).map(i => [i.spec.key_id, i.state]));
+  if (generationBatchDone[batch.id] !== (counts.done || 0)) {
+    const first = generationBatchDone[batch.id] === undefined;
+    generationBatchDone[batch.id] = counts.done || 0;
+    if (!first) loadJobs();
+    else if (typeof renderJobs === 'function' && jl.all) renderJobs();
+  }
   if (counts.failed) {
     const error = document.createElement('p');
     error.textContent = batch.items.find(item => item.state === 'failed')?.error || '';
@@ -3267,18 +3289,26 @@ setInterval(async () => {
 $('jl-bulk').onclick = async () => {
   const picked = [...jl.sel]; if (!picked.length) return;
   const byId = Object.fromEntries(jl.all.map(j => [j.id, j]));
-  // Each generation is an AI call. Jobs that already have an application are
-  // skipped; the row's Regenerate button is the deliberate way to redo one.
-  const keys = picked.filter(k => !(byId[k] || {}).gen);
-  const skipped = picked.length - keys.length;
-  if (!keys.length) {
-    toast(`All ${skipped} selected job${skipped === 1 ? ' is' : 's are'} already generated. Use Regenerate on a row to redo one.`);
-    return;
+  // Each generation is an AI call. When some selected jobs already have an
+  // application, ask whether to regenerate them too (they used to be skipped
+  // silently, so regenerating a selection did nothing).
+  const fresh = picked.filter(k => !(byId[k] || {}).gen);
+  const existing = picked.length - fresh.length;
+  let keys = fresh;
+  if (existing) {
+    const all = await uiConfirm({
+      title: `Regenerate ${existing} job${existing === 1 ? '' : 's'} too?`,
+      message: `${existing} of the ${picked.length} selected job${picked.length === 1 ? ' has' : 's have'} a resume already. ` +
+        `Regenerate ${existing === 1 ? 'it' : 'them'} with the current profile and format, or only generate the ${fresh.length} new one${fresh.length === 1 ? '' : 's'}?`,
+      ok: `Regenerate all ${picked.length}`, cancel: fresh.length ? `Only new (${fresh.length})` : 'Cancel',
+    });
+    keys = all ? picked : fresh;
   }
+  if (!keys.length) return;
   const btn = $('jl-bulk'); btn.disabled = true;
   try {
     await queueGenerationItems(keys.map(key_id => ({key_id, options: {persona: activePersona(), strict: true, pdf: true, model: resolveModel((byId[key_id] || {}).priority_level === 'high')}})));
-    toast(`Saved ${keys.length} jobs to the background generation queue. Completed jobs are skipped.`);
+    toast(`Queued ${keys.length} job${keys.length === 1 ? '' : 's'} for generation. Progress shows at the bottom right.`);
     jl.sel.clear();
   } catch (error) { toast(error.message, true); }
   finally { btn.disabled = false; loadJobs(); }

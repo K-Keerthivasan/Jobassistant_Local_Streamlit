@@ -74,10 +74,15 @@ class GenerationQueue:
             batch, index = candidate
             item = batch['items'][index]
             item['state'] = 'running'
+            item['started_at'] = time.time()
             self.save(batch)
         try:
             spec = item['spec']
             job = store.get_job(spec['key_id']) if spec.get('key_id') else None
+            # What the progress banner shows while this item runs.
+            target_spec = spec.get('target') or {}
+            item['label'] = ' · '.join(x for x in ((job.company, job.title) if job else
+                                                  (target_spec.get('company', ''), target_spec.get('title', ''))) if x)
             prior = runs.get_run(job.notes.strip()) if job and job.notes else None
             target = (prior or {}).get('target') or {}
             # Skip only a run this batch already produced (a restart mid-batch must
@@ -93,16 +98,23 @@ class GenerationQueue:
                 result = {'folder': prior['run_id'], 'skipped_existing': True}
             else:
                 result = self.generate(spec)
-            item.update(state='done', result=result, error='')
+            item.update(state='done', result=result, error='', finished_at=time.time())
+            batch.pop('waiting_reason', None)
         except Exception as error:
             item['attempts'] += 1
             item['error'] = str(getattr(error, 'detail', error))[:1500]
             status = getattr(error, 'status_code', 500)
             quota = re.search(r'retry_after=(\d+)', item['error'])
-            if status == 429 or quota:
+            # Hermes not answering (the bridge is down or restarting) is a wait, not
+            # a failure: the batch pauses and carries on once Hermes is back, instead
+            # of failing every remaining job after three quick retries.
+            engine_down = status == 503 or 'Hermes bridge is not answering' in item['error']
+            if status == 429 or quota or engine_down:
                 item['attempts'] -= 1
                 item['state'] = 'pending'
-                delay = int(quota.group(1)) if quota else 900
+                delay = int(quota.group(1)) if quota else (120 if engine_down else 900)
+                batch['waiting_reason'] = ('Hermes is not answering; checking again every 2 minutes'
+                                           if engine_down else 'Hermes usage limit reached')
                 batch['waiting_until'] = time.time() + max(60, delay)
                 for pending in batch['items']:
                     if pending['state'] == 'pending':
