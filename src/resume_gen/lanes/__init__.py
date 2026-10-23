@@ -142,6 +142,10 @@ def get_lane(key: str | int | None) -> Lane | None:
 
 
 _WORD = re.compile(r"[a-z0-9]+")
+# Words in lane titles that say nothing about the field: "VFX artist, junior"
+# must not claim every "Junior ... Analyst" posting.
+_GENERIC = {"a", "an", "and", "or", "the", "of", "for", "in", "with", "junior", "senior",
+            "intermediate", "adjacent", "lead", "level", "i", "ii", "iii"}
 
 
 def resolve_lane(text: str | None) -> Lane | None:
@@ -157,12 +161,13 @@ def resolve_lane(text: str | None) -> Lane | None:
     m = re.fullmatch(r"lane\s*(\d+)", raw)
     if m:
         return get_lane(int(m.group(1)))
-    words = set(_WORD.findall(raw))
+    words = set(_WORD.findall(raw)) - _GENERIC
     if not words:
         return None
     best, best_score = None, 0
     for entry in load_index().lanes:
         cand = set(_WORD.findall(entry.slug.replace("-", " "))) | set(_WORD.findall(entry.title.lower()))
+        cand -= _GENERIC
         cand |= {w.lower() for w in entry.match}
         # phrase match on the whole string beats word overlap
         phrases = [entry.slug.replace("-", " "), entry.title.lower(), *[m.lower() for m in entry.match]]
@@ -178,7 +183,14 @@ def resolve_lane(text: str | None) -> Lane | None:
 
 
 def lane_for_persona(persona_id: str) -> Lane | None:
-    return next((l for l in load_lanes().values() if l.persona == persona_id), None)
+    """The lane whose base resume is this persona, else the lane the persona
+    names (`lane:` in personas.yaml) for versions that share a lane."""
+    found = next((l for l in load_lanes().values() if l.persona == persona_id), None)
+    if found is None and persona_id:
+        from ..personas import get_persona
+        named = (get_persona(persona_id) or {}).get("lane")
+        found = get_lane(named) if named else None
+    return found
 
 
 def portfolio_links_for(lane: Lane | None) -> list[PortfolioLink]:

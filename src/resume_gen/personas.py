@@ -165,8 +165,32 @@ def select_persona(target, override_id: str | None = None, lane=None) -> dict | 
     if lane is not None and getattr(lane, "persona", ""):
         mapped = get_persona(lane.persona)
         if mapped is not None:
+            # A lane is broad (data-analytics holds data analysts and business
+            # analysts alike), so a persona the job title names more strongly
+            # than the lane's own wins; a tie keeps the lane's mapping.
+            titled = title_select(target)
+            if titled is not None and titled.get("id") != mapped.get("id") and \
+                    title_score(titled, target) > title_score(mapped, target):
+                return titled
             return mapped
-    return hermes_select(target) or auto_select(target)
+    # Without a lane, the title decides before the description's keyword counts.
+    return hermes_select(target) or title_select(target) or auto_select(target)
+
+
+def title_score(persona: dict, target) -> int:
+    """Keyword score from the job title alone."""
+    title = (getattr(target, "title", "") or "").lower()
+    return _score(persona, title, "", set(_WORD_RE.findall(title)))
+
+
+def title_select(target) -> dict | None:
+    """The persona the job title names most strongly (None when none match)."""
+    best, best_score = None, 0
+    for p in load_personas():
+        s = title_score(p, target)
+        if s > best_score:
+            best, best_score = p, s
+    return best
 
 
 def persona_directive(persona: dict | None) -> str:
