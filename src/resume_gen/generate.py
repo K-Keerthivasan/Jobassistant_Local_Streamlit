@@ -355,7 +355,7 @@ def generate_email(target: TargetRole, profile: dict | None = None, persona: dic
     at = f" at {company}" if company else ""
     body = "\n\n".join(p for p in [
         _greeting(contact_name),
-        f"I'm applying for the {role} position{at}. My resume and cover letter are attached.",
+        f"I'm applying for the {role} position{at}".rstrip(".") + ". My resume and cover letter are attached.",
         why,
         ("What I'd bring:\n" + "\n".join(f"- {p}" for p in points)) if points else "",
         _portfolio_line(profile, attached=False),
