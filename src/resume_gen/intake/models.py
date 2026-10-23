@@ -53,6 +53,7 @@ class QueuedJob(JobPosting):
     priority_override: str = ""  # manual priority pin: "" (auto) | high | medium | low
     repeatable: bool = False  # 🔁 saved as a recurring-role template (reapply often)
     irrelevant: bool = False  # 🚫 not a relevant job — hidden from the active lists
+    resume_version: str = ""  # pinned persona id for this job; "" = picked automatically
     lane: str = ""            # free-text lane name as the sourcing engine wrote it
     found_at: str = ""
     # --- batch import (jobs_import_<stream>_<date>.csv) ------------------------

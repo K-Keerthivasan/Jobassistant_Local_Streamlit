@@ -84,6 +84,31 @@ COVER LETTER (four paragraphs, no filler opener):
    availability, and that the resume is attached. Nothing about sponsorship.
 Under 260 words. Canadian spelling. No em or en dashes.
 
+APPLICATION EMAIL (the "email" object: "why" and "proof_points"):
+TRUTH ONLY. Use only real facts from CANDIDATE_PROFILE. Never invent employers, tools,
+metrics, years-of-experience figures, team sizes, percentages or titles. Never claim a
+requirement the profile does not show.
+
+The email around these parts is fixed: a greeting, a purpose line saying the candidate is
+applying for this role with the resume and cover letter attached, then WHY, then PROOF
+POINTS under "What I'd bring:", then work links, a request for a short call and the
+sign-off. Write only WHY and PROOF POINTS.
+
+WHY: two sentences that make the reason for writing obvious. Sentence one names what this
+specific posting centres on, in its own terms (the systems, the work, the team's problem),
+not the company's marketing. Sentence two says which real part of the candidate's work is
+the same kind of work and where it was done. It must read as written for this posting
+only. Never "caught my eye", "I came across", "I am writing to", "I am excited",
+"perfect fit", "great fit", "passionate", "I believe".
+
+PROOF POINTS: 2 or 3 lines. Each pairs one requirement the posting names with the real
+evidence for it from the profile: what was built, run or fixed, where, and any number the
+profile states. Lead with the requirement's own words. One sentence each, under 25 words,
+no trait claims ("fast learner", "detail-oriented"), no bullet symbols.
+
+STYLE: first person, contractions, plain words, a peer writing to a professional. No em
+or en dashes, no slashes between words, no semicolons, no exclamation marks.
+
 Return only the single structured object required by the supplied schema."""
 
 # --------------------------------------------------------------------------- #
@@ -210,45 +235,35 @@ SCHEMA:
 # APPLICATION EMAIL — the body is assembled deterministically from a fixed
 # template (see generate.py); the model only writes ONE role-specific "hook" line.
 # --------------------------------------------------------------------------- #
-EMAIL_HOOK_SYSTEM = """You write the two dynamic lines of a short job-application email: an OPENER
-and a HOOK. The rest of the email (greeting, attachments line, sign-off) is added around them.
+EMAIL_HOOK_SYSTEM = """You write the personal parts of a job-application email.
 
 You will be given CANDIDATE_PROFILE and TARGET_ROLE.
 
-RULES:
-1. TRUTH ONLY. Use only real facts from CANDIDATE_PROFILE. Never invent employers, tools,
-   metrics, years-of-experience figures, team sizes, percentages, or titles. If unsure,
-   stay general but truthful.
-2. OPENER: ONE short sentence that starts with the WORK, not with the candidate and not
-   with the posting. Lead with a specific, concrete observation about what this role
-   actually involves, then connect it to what the candidate genuinely does. It must fit
-   THIS field (marketing, IT support, developer, sales, QA, analyst — never assume
-   software unless the role is software), and must read differently for every posting.
-   BANNED openers, they are clichés or read as desperate:
-     "caught my eye", "I came across", "I saw your posting", "I am writing to",
-     "I would like to apply", "I am excited/thrilled/eager", "I hope this finds you well",
-     "As a recent graduate", "I believe I would be a great fit", "Please consider".
-   GOOD: "Most service desk work lives or dies on how cleanly tickets get documented,
-   which is the part I have spent the last year doing at volume."
-3. HOOK: ONE or TWO short sentences of EVIDENCE, not self-assessment. Name the real thing
-   the candidate built, ran, or fixed, and what it produced, in the posting's own
-   terminology. Never claim a trait about yourself, because a trait cannot be checked:
-   write "I built the REST pipelines that fed our reporting dashboards", never "I am a
-   fast learner", "I move fast without dropping quality", "I am detail-oriented", or
-   "I am passionate about". Show the work and let the reader draw the conclusion.
-4. REGISTER: a competent peer writing to another professional, not someone asking for a
-   favour. Confident, warm, straightforward. Never plead, apologise, over-thank, flatter
-   the company, or beg for consideration ("any opportunity", "even a chance", "I would be
-   grateful", "please let me know if there is any way"). Do not oversell either: no
-   superlatives about yourself, no "perfect fit", no exclamation marks.
-5. STYLE: first person, contractions (I'm, I've), plain words, active voice. Each sentence
-   does one job. No corporate filler ("leverage", "synergy", "results-driven",
-   "detail-oriented", "hit the ground running", "wear many hats", "value-add"). NEVER use
-   em dashes or en dashes. Do NOT put a slash between words. No semicolons. Vary sentence
-   length so it reads like a person wrote it.
-6. Write ONLY these two lines. Do NOT greet, do NOT mention attachments, a portfolio, links,
-   a call, or any sign-off. Those are added automatically.
-7. OUTPUT. Return ONE valid JSON object: {"opener": "...", "hook": "..."} and nothing else."""
+TRUTH ONLY. Use only real facts from CANDIDATE_PROFILE. Never invent employers, tools,
+metrics, years-of-experience figures, team sizes, percentages or titles. Never claim a
+requirement the profile does not show.
+
+The email around these parts is fixed: a greeting, a purpose line saying the candidate is
+applying for this role with the resume and cover letter attached, then WHY, then PROOF
+POINTS under "What I'd bring:", then work links, a request for a short call and the
+sign-off. Write only WHY and PROOF POINTS.
+
+WHY: two sentences that make the reason for writing obvious. Sentence one names what this
+specific posting centres on, in its own terms (the systems, the work, the team's problem),
+not the company's marketing. Sentence two says which real part of the candidate's work is
+the same kind of work and where it was done. It must read as written for this posting
+only. Never "caught my eye", "I came across", "I am writing to", "I am excited",
+"perfect fit", "great fit", "passionate", "I believe".
+
+PROOF POINTS: 2 or 3 lines. Each pairs one requirement the posting names with the real
+evidence for it from the profile: what was built, run or fixed, where, and any number the
+profile states. Lead with the requirement's own words. One sentence each, under 25 words,
+no trait claims ("fast learner", "detail-oriented"), no bullet symbols.
+
+STYLE: first person, contractions, plain words, a peer writing to a professional. No em
+or en dashes, no slashes between words, no semicolons, no exclamation marks.
+
+OUTPUT. Return ONE valid JSON object: {"why": "...", "proof_points": ["...", "..."]} and nothing else."""
 
 
 # --------------------------------------------------------------------------- #

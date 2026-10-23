@@ -231,6 +231,15 @@ def set_repeatable(key_id: str, repeatable: bool) -> QueuedJob | None:
     return _save(q)
 
 
+def set_resume_version(key_id: str, persona_id: str) -> QueuedJob | None:
+    """Pin the resume version (persona id) this job is generated with; "" unpins."""
+    q = get_job(key_id)
+    if q is None:
+        return None
+    q.resume_version = (persona_id or "").strip()
+    return _save(q)
+
+
 def set_irrelevant(key_id: str, irrelevant: bool) -> QueuedJob | None:
     """Flag/unflag a job as not relevant. Irrelevant jobs are hidden from the
     active lists (queue, bulk picker, library, scraped list) but kept (and seen),

@@ -36,7 +36,7 @@ TASKS: dict[str, tuple[str, str]] = {
     "ApplicationDraft": ("Write resume and cover letter", "One call writes both documents from your profile and the posting."),
     "Resume": ("Write resume", "Tailors the resume to the posting from your profile facts."),
     "CoverLetter": ("Write cover letter", "Writes the four-paragraph cover letter."),
-    "EmailHook": ("Write email opener", "Writes the two personalised lines of the application email."),
+    "EmailHook": ("Write email", "Writes why this role and the proof points of the application email."),
     "HermesQAResult": ("Truth audit", "Checks every resume claim against your profile and removes what is unsupported."),
     "_PersonaPick": ("Choose resume version", "Picks which resume version (IT Support, Web Developer...) fits the job."),
     "ScreeningAnswer": ("Answer a screening question", "Drafts one application question answer from your profile."),

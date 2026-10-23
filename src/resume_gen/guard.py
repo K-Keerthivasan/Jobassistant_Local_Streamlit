@@ -725,8 +725,10 @@ def enforce_email(email: ApplicationEmail, profile: dict) -> tuple[ApplicationEm
         if _is_signoff(s) or _ENVELOPE_LINE.match(s) or _CONTACT_LINE.search(s):
             out_lines.append(ln)
             continue
-        cleaned, changed = _clean_letter_prose(ln, profile, allowed)
-        out_lines.append(cleaned)
+        # A "- " proof-point line keeps its marker; only the text after it is prose.
+        bullet = "- " if s.startswith("- ") else ""
+        cleaned, changed = _clean_letter_prose(s[len(bullet):] if bullet else ln, profile, allowed)
+        out_lines.append(bullet + cleaned)
         changed_any = changed_any or changed
     email.body = "\n".join(out_lines)
     if changed_any:

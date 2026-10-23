@@ -154,7 +154,8 @@ def hermes_select(target) -> dict | None:
         return None
 
 
-def select_persona(target, override_id: str | None = None, lane=None) -> dict | None:
+def select_persona(target, override_id: str | None = None, lane=None,
+                   use_hermes: bool = True) -> dict | None:
     """Manual override wins; then the job's lane (its base-resume mapping in
     lanes.index.json); then Hermes' semantic pick; then keyword matching.
     'auto'/'' = let the system choose."""
@@ -174,7 +175,22 @@ def select_persona(target, override_id: str | None = None, lane=None) -> dict | 
                 return titled
             return mapped
     # Without a lane, the title decides before the description's keyword counts.
-    return hermes_select(target) or title_select(target) or auto_select(target)
+    return (hermes_select(target) if use_hermes else None) or title_select(target) or auto_select(target)
+
+
+def explain_persona(target, override_id: str | None = None, lane=None,
+                    use_hermes: bool = True) -> tuple[dict | None, str]:
+    """`select_persona` plus where the pick came from: pinned | lane | title |
+    keywords | none."""
+    chosen = select_persona(target, override_id, lane=lane, use_hermes=use_hermes)
+    if chosen is None:
+        return None, "none"
+    cid = chosen.get("id")
+    if override_id and override_id != "auto" and cid == override_id:
+        return chosen, "pinned"
+    if lane is not None and getattr(lane, "persona", "") == cid:
+        return chosen, "lane"
+    return chosen, "title" if title_score(chosen, target) > 0 else "keywords"
 
 
 def title_score(persona: dict, target) -> int:

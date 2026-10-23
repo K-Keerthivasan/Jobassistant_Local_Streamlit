@@ -199,8 +199,11 @@ def generate(req: GenerateRequest):
         _q = _gj(req.key_id)
         if _q is not None:
             lane, grade = lane or _q.lane_slug or None, (_q.grade or None)
+    persona = req.persona
+    if req.key_id and _q is not None and persona in (None, "", "auto"):
+        persona = _planned_persona(_q)
     try:
-        result = run(target, make_pdf=req.pdf, strict=req.strict, persona=req.persona,
+        result = run(target, make_pdf=req.pdf, strict=req.strict, persona=persona,
                      model=req.model, lane=lane, grade=grade)
         if req.key_id:
             from resume_gen.intake.store import update_status
@@ -407,6 +410,9 @@ def jobs(status: str | None = None):
     from resume_gen.intake.repeatable import role_key
     from resume_gen.intake.store import list_queue
 
+    from resume_gen.resume_plan import description_status as _description_status
+    from resume_gen.resume_plan import resume_version as _resume_version
+
     queue = list_queue(status=status)
 
     repeat_names = [(n or "").lower().strip() for n in load_repeat_companies() if n]
@@ -474,6 +480,11 @@ def jobs(status: str | None = None):
         # owns its generated run and can preview or resend it without regenerating.
         d["generated_at"] = runs_created.get(q.notes, "")
         d["has_generated"] = bool(d["generated_at"])
+        try:
+            d["resume_plan"] = _resume_version(q)
+        except Exception:
+            d["resume_plan"] = {}
+        d["description_status"] = _description_status(q)
         # Priority: manual pin wins, else an auto-score bucketed into high/medium/low.
         ov = (q.priority_override or "").strip().lower()
         if ov in ("high", "medium", "low"):
@@ -742,15 +753,30 @@ def capture_browser_job(req: BrowserCapture):
             return {"results": [{"stored": True, "duplicate": True}],
                     "summary": {"file": "review queue", "saved_today": _saved_today()}}
         existing = next((q for q in list_queue() if q.key_id == posting.key), None)
-        return {"results": [{"stored": False, "duplicate": True,
+        refreshed = False
+        if existing is not None and len(posting.description) > len((existing.description or "").strip()) + 20:
+            from resume_gen.intake.store import update_fields
+            existing = update_fields(existing.key_id, {"description": posting.description}) or existing
+            refreshed = True
+        return {"results": [{"stored": False, "duplicate": True, "description_refreshed": refreshed,
                              "existing": {"file": "review queue",
                                           "scraped_at": (existing.found_at if existing else ""),
-                                          "flagged": "no"}}],
+                                          "flagged": "no"},
+                             **(_capture_plan(existing) if existing else {})}],
                 "summary": {"file": "review queue", "saved_today": _saved_today()}}
 
-    commit(new)
-    return {"results": [{"stored": True, "duplicate": False}],
+    saved = commit(new)
+    return {"results": [{"stored": True, "duplicate": False, **(_capture_plan(saved[0]) if saved else {})}],
             "summary": {"file": "review queue", "saved_today": _saved_today()}}
+
+
+def _capture_plan(q) -> dict:
+    """What the collector shows after a save."""
+    from resume_gen.resume_plan import description_status, resume_version
+    try:
+        return {"key_id": q.key_id, "resume_plan": resume_version(q), "description_status": description_status(q)}
+    except Exception:
+        return {"key_id": q.key_id}
 
 
 @app.post("/jobs/{key_id}/status")
@@ -762,6 +788,54 @@ def job_status(key_id: str, req: StatusRequest):
     if q is None:
         raise HTTPException(status_code=404, detail="Job not found.")
     return q.model_dump()
+
+
+def _planned_persona(q) -> str | None:
+    from resume_gen.resume_plan import resume_version
+    try:
+        return resume_version(q)["persona"] or None
+    except Exception:
+        return None   # generation still picks a version itself
+
+
+class ResumeVersionRequest(BaseModel):
+    persona: str = ""   # persona id; "" = pick automatically
+
+
+@app.get("/jobs/{key_id}/resume-plan")
+def job_resume_plan(key_id: str):
+    """The resume version this job will be generated with, and whether its
+    description is complete."""
+    from resume_gen.intake.store import get_job
+    from resume_gen.resume_plan import description_status, resume_version
+
+    q = get_job(key_id)
+    if q is None:
+        raise HTTPException(status_code=404, detail="Job not found.")
+    return {"key_id": key_id, "resume_plan": resume_version(q), "description_status": description_status(q)}
+
+
+@app.post("/jobs/{key_id}/resume-version")
+def pin_resume_version(key_id: str, req: ResumeVersionRequest):
+    """Pin (or unpin with "") the resume version for one job."""
+    from resume_gen.intake.store import set_resume_version
+    from resume_gen.personas import get_persona
+
+    if req.persona and get_persona(req.persona) is None:
+        raise HTTPException(status_code=400, detail=f"Unknown resume version {req.persona!r}.")
+    q = set_resume_version(key_id, req.persona)
+    if q is None:
+        raise HTTPException(status_code=404, detail="Job not found.")
+    return job_resume_plan(key_id)
+
+
+@app.get("/generation/activity")
+def generation_activity():
+    """Resumes generating right now and the last few finished, from every entry
+    point (single Generate, batches, MCP). The collector polls this."""
+    from resume_gen.resume_plan import activity
+
+    return activity()
 
 
 @app.post("/jobs/{key_id}/generate")
@@ -776,6 +850,8 @@ def generate_queued_job(key_id: str, req: GenerateOptions | None = None):
     pdf = True if req is None else req.pdf
     strict = False if req is None else req.strict
     persona = None if req is None else req.persona
+    if persona in (None, "", "auto"):
+        persona = _planned_persona(q)   # exactly the version the Jobs list shows
     model = None if req is None else req.model
     lane = (req.lane if req and req.lane else None) or q.lane_slug or None
     try:

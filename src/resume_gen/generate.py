@@ -219,10 +219,19 @@ def generate_application_draft(
 # Everything else (greeting, opener, work links, sign-off) is deterministic and
 # truth-only, pulled from the profile. No em dashes (humanize_email strips them).
 # --------------------------------------------------------------------------- #
-_HOOK_FALLBACK = (
-    "I have run client projects end to end, from the first brief through to the build that "
-    "goes live and the maintenance after it, so I am used to owning the whole thing."
-)
+def _plain(text: str) -> str:
+    """Resume prose without the **bold** markers."""
+    return re.sub(r"\*\*(.+?)\*\*", r"\1", (text or "").strip()).strip(" -\u2022")
+
+
+def _first_person(line: str) -> str:
+    """'Build LLM apps...' -> 'I build LLM apps...' for a summary bullet."""
+    line = _plain(line).rstrip(".")
+    if not line:
+        return ""
+    if re.match(r"(I|I'm|I've|My)\b", line):
+        return line + "."
+    return "I " + line[0].lower() + line[1:] + "."
 
 
 def _signoff_name(profile: dict) -> str:
@@ -307,40 +316,54 @@ def _uses_hermes(model: str | None) -> bool:
     return settings.default_engine == "hermes" and bool(settings.hermes_api_key)
 
 
+def email_lines(target: TargetRole, profile: dict | None = None, persona: dict | None = None,
+                **kw) -> EmailHook:
+    """The model-written parts of the application email (why this role, proof
+    points). Empty on failure; the email then falls back to the resume."""
+    try:
+        return chat_structured(EMAIL_HOOK_SYSTEM, _context(profile or load_profile(), target, persona),
+                               EmailHook, **kw)
+    except Exception:
+        return EmailHook()
+
+
 def generate_email(target: TargetRole, profile: dict | None = None, persona: dict | None = None,
-                   *, contact_name: str = "", **kw) -> ApplicationEmail:
-    """Application email. Fixed template + one model-written, role-specific hook
-    line (truth-only). Greets the HR contact by name when known."""
+                   *, contact_name: str = "", lines: EmailHook | None = None,
+                   resume: Resume | None = None, **kw) -> ApplicationEmail:
+    """Application email that says plainly why it was sent: the role applied
+    for with documents attached, why this role, two or three proof points
+    matched to the posting, work links and one clear ask. `lines` are the
+    written parts (from the combined draft or `email_lines`); when they are
+    missing, the tailored, truth-guarded `resume` supplies them."""
     profile = profile or load_profile()
     role = (target.title or "the role").strip()
-    # The dynamic, model-generated pieces: a role-appropriate opener + a fit hook.
-    # In Hermes fast mode the application draft already consumed the full profile/JD
-    # context. Do not pay for a second agent session just for two email sentences;
-    # the deterministic, truth-only fallbacks below remain job-specific.
-    opener = hook = ""
-    email_model = kw.get("model")
-    if not (settings.hermes_fast_mode and _uses_hermes(email_model)):
-        try:
-            eh = chat_structured(EMAIL_HOOK_SYSTEM, _context(profile, target, persona), EmailHook, **kw)
-            opener, hook = (eh.opener or "").strip(), (eh.hook or "").strip()
-        except Exception:
-            opener = hook = ""
-    body = "\n\n".join([
+    company = (target.company or "").strip()
+    if lines is None:
+        # In Hermes fast mode the combined draft writes these; never pay for a
+        # second agent session just for the email.
+        lines = EmailHook() if settings.hermes_fast_mode and _uses_hermes(kw.get("model")) \
+            else email_lines(target, profile, persona, **kw)
+    why = _plain(lines.why)
+    points = [_plain(p) for p in (lines.proof_points or []) if _plain(p)][:3]
+    if resume is not None:
+        if not why and resume.summaryPoints:
+            why = _first_person(resume.summaryPoints[0])
+        if len(points) < 2:
+            points += [_plain(e.bullets[0]) for e in (resume.experience or []) if e.bullets][:3 - len(points)]
+    if not why:
+        why = f"The {role} role is the same kind of work I do day to day, and the details are below."
+    at = f" at {company}" if company else ""
+    body = "\n\n".join(p for p in [
         _greeting(contact_name),
-        # Fallback only. Must obey the same rules as the prompt: no "I am writing to",
-        # no "caught my eye", result-oriented rather than pleading.
-        opener or f"The {role} work you have posted is close to what I already do day to day.",
-        hook or _HOOK_FALLBACK,
-        _worklink_line(profile),
-        # Straightforward and low-pressure: one clear next step, offered rather than
-        # begged for. No "whenever suits you", no over-thanking.
-        "If it is worth a conversation, I am easy to reach.",
+        f"I'm applying for the {role} position{at}. My resume and cover letter are attached.",
+        why,
+        ("What I'd bring:\n" + "\n".join(f"- {p}" for p in points)) if points else "",
+        _portfolio_line(profile, attached=False),
+        "Would you be open to a short call to talk about the role? I'm happy to work around your schedule.",
         _signoff_block(profile, "Best regards,"),
-    ])
+    ] if p)
     name = _signoff_name(profile)
-    loc = _short_location(profile)
-    tail = ", ".join(p for p in [name, loc] if p)
-    subject = f"{role} application" + (f" - {tail}" if tail else "")
+    subject = f"Application for {role}{at}" + (f" - {name}" if name else "")
     return humanize_email(ApplicationEmail(subject=subject, body=body))
 
 
@@ -432,7 +455,7 @@ def generate_all(target: TargetRole, profile: dict | None = None, persona: dict 
             target, profile, persona, model=resume_model,
             skills_focus=skills_focus, lane_ctx=lane_ctx, **kw,
         )
-        resume, cover = draft.resume, draft.cover_letter
+        resume, cover, lines = draft.resume, draft.cover_letter, draft.email
     else:
         resume = generate_resume(
             target, profile, persona, model=resume_model,
@@ -441,9 +464,11 @@ def generate_all(target: TargetRole, profile: dict | None = None, persona: dict 
         cover = generate_cover_letter(
             target, profile, persona, model=letters_model, lane_ctx=lane_ctx, **kw,
         )
+        lines = email_lines(target, profile, persona, model=letters_model, **kw)
     return {
         "resume": resume,
         "cover_letter": cover,
-        "email": generate_email(target, profile, persona, model=letters_model,
-                                contact_name=contact_name, **kw),
+        "email_lines": lines,
+        "email": generate_email(target, profile, persona, contact_name=contact_name,
+                                lines=lines, resume=resume),
     }

@@ -81,6 +81,17 @@ class CoverLetter(BaseModel):
     signature: str
 
 
+class EmailHook(BaseModel):
+    """The written parts of the application email; the purpose line, links, ask
+    and sign-off are fixed around them."""
+
+    why: str = Field(default="", validation_alias=AliasChoices("why", "opener"),
+                     description="why this role: what the posting centres on and how it matches the candidate's work")
+    proof_points: list[str] = Field(default_factory=list,
+                                    validation_alias=AliasChoices("proof_points", "proofPoints"),
+                                    description="2 or 3 short lines, each pairing a posting requirement with real evidence")
+
+
 class ApplicationDraft(BaseModel):
     """Fast-path response: one model call produces both long-form artifacts."""
 
@@ -89,19 +100,12 @@ class ApplicationDraft(BaseModel):
     cover_letter: CoverLetter = Field(
         validation_alias=AliasChoices("cover_letter", "coverLetter")
     )
+    email: EmailHook = Field(default_factory=EmailHook)
 
 
 class ApplicationEmail(BaseModel):
     subject: str
     body: str = Field(description="plain-text email body, ready to send")
-
-
-class EmailHook(BaseModel):
-    """The two dynamic lines injected into the application email template:
-    a role-appropriate opening line and one concrete fit line."""
-
-    opener: str = ""
-    hook: str = ""
 
 
 class FollowupNote(BaseModel):

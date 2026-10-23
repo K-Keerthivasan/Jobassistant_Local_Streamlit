@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LinkedIn + Indeed Job Saver
 // @namespace    https://k2digitalmedia.ca
-// @version      2.4
+// @version      2.5
 // @description  Saves LinkedIn and Indeed jobs straight into Resume Studio (resume-api :8088), auto-fills apply fields from your apply-profile, and offers click-to-copy for LinkedIn/portfolio/etc.
 // @author       Keerthi (K2 Digital Media)
 // @match        https://*.linkedin.com/jobs/*
@@ -10,6 +10,8 @@
 // @match        https://*.indeed.com/*
 // @grant        GM_xmlhttpRequest
 // @grant        GM_notification
+// @grant        GM_getValue
+// @grant        GM_setValue
 // @connect      127.0.0.1
 // @connect      localhost
 // @run-at       document-idle
@@ -313,7 +315,7 @@
     const jsonLd = getJsonLdJobPosting();
     const descEl = site ? document.querySelector(site.descriptionSelectors.join(", ")) : null;
     const rawDescription = cleanText(descEl?.innerText || descEl?.textContent || jsonLd.description || "");
-    const description = rawDescription ? rawDescription.slice(0, 800) : "N/A";
+    const description = rawDescription ? rawDescription.slice(0, 20000) : "N/A";
     const applyUrl = site ? getApplyUrl(site) : window.location.href;
     const emails = extractEmails(`${rawDescription} ${document.body.innerText} ${applyUrl}`);
     const channel = inferApplicationChannel(description, emails, applyUrl);
@@ -548,6 +550,7 @@
       bottom: "24px",
       right: "24px",
       maxWidth: "340px",
+      whiteSpace: "pre-line",
       background: "linear-gradient(135deg, rgba(10,18,32,0.98), rgba(18,30,52,0.96))",
       color: "#eef6ff",
       padding: "12px 16px",
@@ -566,6 +569,75 @@
       toast.style.transform = "translateY(8px)";
       setTimeout(() => toast.remove(), 260);
     }, duration);
+  }
+
+  // Which resume version the saved job will be generated with, and a warning
+  // when the saved description is incomplete.
+  function planNote(result) {
+    const plan = result?.resume_plan || {};
+    const desc = result?.description_status || {};
+    let note = plan.label ? `
+Resume version: ${plan.label} (${plan.why})` : "";
+    if (desc.reason) note += `
+⚠ Description incomplete: ${desc.reason}`;
+    return note;
+  }
+
+  // --- Resume generation in Resume Studio -------------------------------------
+  // Polls the app so a resume being generated (from Studio, a batch or an AI
+  // agent) shows here, with a notification when each one finishes.
+  function seenGenerations() {
+    try { return JSON.parse(GM_getValue("tm-lcb-notified", "[]")); } catch (e) { return []; }
+  }
+
+  async function pollGenerations() {
+    let data;
+    try {
+      data = await request("GET", `${COLLECTOR_BASE}/generation/activity`);
+    } catch (error) {
+      return;
+    }
+    state.generation = data;
+    renderGeneration();
+    const seen = seenGenerations();
+    const fresh = (data.recent || []).filter((item) => !seen.includes(item.id) && data.now - item.finished_at < 600);
+    if (!fresh.length) return;
+    // Remembered across tabs so each finished resume notifies once.
+    GM_setValue("tm-lcb-notified", JSON.stringify([...fresh.map((i) => i.id), ...seen].slice(0, 60)));
+    for (const item of fresh) {
+      const name = `${item.company} · ${item.title}`;
+      const text = item.ok
+        ? `Resume ready: ${name}${item.resume_version ? ` (${item.resume_version})` : ""}`
+        : `Resume failed: ${name}. ${item.error || ""}`;
+      try { GM_notification({ title: "Resume Studio", text, timeout: 8000, onclick: () => window.open(DASHBOARD_URL, "_blank") }); } catch (e) { /* notifications blocked */ }
+      showToast(text, 6000);
+    }
+  }
+
+  function renderGeneration() {
+    const node = document.getElementById("tm-lcb-gen");
+    if (!node) return;
+    const data = state.generation || {};
+    const running = data.running || [];
+    const last = (data.recent || [])[0];
+    node.replaceChildren();
+    const line = (text, color) => {
+      const div = document.createElement("div");
+      div.textContent = text;
+      div.style.cssText = `font-size:12px;line-height:1.5;color:${color};margin-top:4px;`;
+      node.append(div);
+    };
+    if (running.length) {
+      for (const item of running) {
+        const secs = Math.max(0, Math.round((data.now || 0) - item.started_at));
+        line(`⏳ Generating ${item.company} · ${item.title} (${secs}s)${item.resume_version ? ` · ${item.resume_version}` : ""}`, "#45d0ff");
+      }
+    } else {
+      line("Nothing generating right now.", "#8ea2c6");
+    }
+    if (last) {
+      line(`${last.ok ? "✓ Last ready" : "✗ Last failed"}: ${last.company} · ${last.title}${last.resume_version ? ` (${last.resume_version})` : ""}`, last.ok ? "#9eb2d1" : "#ff8b8b");
+    }
   }
 
   async function pingCollector() {
@@ -666,9 +738,11 @@
       state.collectorOnline = true;
 
       if (result?.stored && result?.duplicate) {
-        showToast(`Saved second entry to ${summary.file || "today's file"} (${summary.saved_today || 0} today)`);
+        showToast(`Saved second entry to ${summary.file || "today's file"} (${summary.saved_today || 0} today)${planNote(result)}`, 6000);
       } else if (result?.stored) {
-        showToast(`Saved to ${summary.file || "today's file"} (${summary.saved_today || 0} today)`);
+        showToast(`Saved to ${summary.file || "today's file"} (${summary.saved_today || 0} today)${planNote(result)}`, 6000);
+      } else if (result?.duplicate && result?.description_refreshed) {
+        showToast(`Already saved. Its description was incomplete and is now updated with the full posting.${planNote(result)}`, 6000);
       } else if (result?.duplicate) {
         showDuplicateModal(job, result);
       } else {
@@ -838,6 +912,11 @@
           </div>
         </div>
 
+        <div style="padding:12px 14px;border-radius:18px;background:rgba(255,255,255,0.02);border:1px solid rgba(106,194,255,0.12);">
+          <div style="font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#ff8b5e;font-weight:700;">Resume generation</div>
+          <div id="tm-lcb-gen"><div style="font-size:12px;color:#8ea2c6;margin-top:4px;">Checking Resume Studio…</div></div>
+        </div>
+
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
           <button id="tm-lcb-save-btn" type="button" title="Save Job (Alt+Shift+S)" style="padding:12px 14px;border-radius:14px;border:0;background:linear-gradient(135deg,#20b8f0,#45d0ff);color:#04111a;cursor:pointer;font:inherit;font-weight:700;box-shadow:0 12px 28px rgba(32,184,240,0.22);">Save Job</button>
           <button id="tm-lcb-fill-btn" type="button" style="padding:12px 14px;border-radius:14px;border:1px solid rgba(106,194,255,0.14);background:rgba(255,255,255,0.04);color:#eef6ff;cursor:pointer;font:inherit;font-weight:700;">Auto Fill</button>
@@ -945,6 +1024,8 @@
     setTimeout(pingCollector, 2200);
     setTimeout(fetchProfile, 2400);   // pull LinkedIn/portfolio/etc. from the app
     setInterval(pingCollector, 20000);
+    setTimeout(pollGenerations, 2600);
+    setInterval(pollGenerations, 6000);
     setInterval(() => {
       if (window.location.href !== state.currentUrl) {
         state.currentUrl = window.location.href;

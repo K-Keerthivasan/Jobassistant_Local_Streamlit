@@ -817,6 +817,7 @@
           <option value="new">New</option>
           <option value="generated">Generated</option><option value="approved">Approved</option>
           <option value="applied">Applied</option><option value="skipped">Skipped (cancelled)</option>
+          <option value="shortdesc">⚠ Incomplete description</option>
         </select>
         <select id="jl-source" class="jl-inp"><option value="">All sources</option></select>
         <select id="jl-channel" class="jl-inp">
@@ -865,6 +866,7 @@
             <th class="jl-sort" data-sort="location">Location</th>
             <th class="jl-sort" data-sort="source">Source</th>
             <th class="jl-sort" data-sort="date">Date</th>
+            <th title="The resume version this job is generated with. Pick one to pin it.">Resume</th>
             <th>Status</th>
             <th>Applied</th>
             <th></th>
@@ -1212,15 +1214,18 @@ let ollamaUp = null;   // null = unknown, true/false from /health
 function activeModel() { return $('model').value || ''; }
 // Global persona picker. 'auto' (or empty) => let the backend auto-detect.
 function activePersona() { const v = $('persona').value; return v && v !== 'auto' ? v : 'auto'; }
+let personaList = [];   // resume versions, for the Jobs list Resume column
 async function loadPersonas() {
   try {
     const { personas } = await api('/personas');
+    personaList = personas;
     const sel = $('persona');
     sel.innerHTML = '<option value="auto">Auto-detect</option>';
     personas.forEach(p => {
       const o = document.createElement('option');
       o.value = p.id; o.textContent = p.label; sel.appendChild(o);
     });
+    if (typeof jl !== 'undefined' && (jl.all || []).length) renderJobs();   // fill the Resume column
   } catch { /* personas optional; Auto-detect still works */ }
 }
 function renderHealth() {
@@ -2768,7 +2773,8 @@ function jobFromApi(j) {
     priority_level: j.priority_level || 'low', priority_override: j.priority_override || '', priority_score: typeof j.priority_score === 'number' ? j.priority_score : 0,
     // v3.5: lane, matrix grade, seniority guard, pathway tags (batch import)
     lane_slug: j.lane_slug || '', grade: j.grade || {}, seniority: j.seniority || {}, stream: j.stream || '',
-    pathway: j.pathway_type ? `${j.pathway_type}: ${j.pathway_detail}` : '', remote_type: j.remote_type || '', hire_type: j.hire_type || '', noc: j.noc || '' };
+    pathway: j.pathway_type ? `${j.pathway_type}: ${j.pathway_detail}` : '', remote_type: j.remote_type || '', hire_type: j.hire_type || '', noc: j.noc || '',
+    resume_plan: j.resume_plan || {}, desc_status: j.description_status || {} };
 }
 
 // Source-of-truth date for a queue job: the real posted date when it parses to
@@ -2853,7 +2859,7 @@ async function _fetchAndRenderJobs() {
 // the capture app (:8765) is down, so it must never block the table from showing.
 async function loadJobs(_attempt = 0) {
   const body = $('jl-body'), empty = $('jl-empty');
-  if (!_attempt) body.innerHTML = '<tr><td colspan="9" class="empty"><span class="spinner dark"></span></td></tr>';
+  if (!_attempt) body.innerHTML = '<tr><td colspan="11" class="empty"><span class="spinner dark"></span></td></tr>';
   try {
     await _fetchAndRenderJobs();
   } catch (e) {
@@ -2877,6 +2883,7 @@ function jlFiltered() {
     if (relevance === 'active' && j.irrelevant) return false;   // default: hide not-relevant
     if (relevance === 'irrel' && !j.irrelevant) return false;   // only not-relevant
     if (status === 'ungenerated') { if (j.gen) return false; }  // anything not yet generated
+    else if (status === 'shortdesc') { if (j.desc_status.complete !== false) return false; }
     else if (status && j.status !== status) return false;
     if (source && j.source !== source) return false;
     if (channel === 'email' && !j.email) return false;
@@ -2920,6 +2927,22 @@ function jobInfoTitle(j) {
   ].filter(Boolean).join('\n');
 }
 
+// The resume version a job is generated with: the automatic pick (and why), or a
+// version pinned for this job. Generation uses exactly what this shows.
+function resumeCell(j, i) {
+  if (!j.id) return '';
+  const plan = j.resume_plan || {};
+  const auto = plan.pinned ? '' : (plan.label || 'none');
+  const opts = [`<option value="">${plan.pinned ? 'Auto' : 'Auto: ' + esc(auto)}</option>`]
+    .concat(personaList.map(p => `<option value="${esc(p.id)}"${plan.pinned && plan.persona === p.id ? ' selected' : ''}>${plan.pinned && plan.persona === p.id ? '📌 ' : ''}${esc(p.label)}</option>`));
+  return `<select class="jl-inp jl-rv" data-i="${i}" title="${esc(plan.label ? plan.label + ' — ' + plan.why : 'No resume version matched')}" style="max-width:170px;padding:3px 6px;font-size:12px">${opts.join('')}</select>`;
+}
+function descBadge(j) {
+  const d = j.desc_status || {};
+  if (d.complete !== false) return '';
+  return ` <span class="jl-st" style="background:var(--warn-bg,#fff4d6);color:var(--warn,#9a6700);cursor:help" title="${esc(d.reason + ' ' + (d.fix || ''))}">⚠ description</span>`;
+}
+
 const PRIO_TXT = { high: 'High', medium: 'Med', low: 'Low' };
 function prioBadge(j, i) {
   const lv = j.priority_level || 'low', pinned = !!j.priority_override;
@@ -2940,11 +2963,12 @@ function renderJobs() {
     return `<tr${j.irrelevant ? ' style="opacity:.5"' : ''}>
       <td class="jl-ck">${canSelect ? `<input type="checkbox" class="jl-rowck" data-k="${esc(j.id)}" ${jl.sel.has(j.id)?'checked':''}>` : ''}</td>
       <td>${j.id ? prioBadge(j, i) : ''}</td>
-      <td><span class="t" data-act="detail" data-i="${i}" style="cursor:pointer" title="View details">${esc(j.title)}</span>${typeof tierBadge === 'function' ? tierBadge(j) : ''}${j.id?`<span class="jl-emailbtn ${j.email?'on':''}" data-act="email" data-i="${i}" title="${j.email?'Email: '+esc(j.email)+' — click to edit':'Add an HR email (for the n8n email path)'}" style="cursor:pointer">${j.email?'📧':'✉️'}</span><span data-act="repeatable" data-i="${i}" title="${j.repeatable?'Repeatable role — saved. Click to remove':'Mark as a repeatable role (reapply often)'}" style="cursor:pointer;margin-left:4px;opacity:${j.repeatable?1:.3}">🔁</span><span data-act="irrelevant" data-i="${i}" title="${j.irrelevant?'Not relevant — hidden from active lists. Click to restore':'Flag as not relevant (hide it)'}" style="cursor:pointer;margin-left:4px;opacity:${j.irrelevant?1:.3}">🚫</span><span class="jl-info" title="${esc(jobInfoTitle(j))}" style="cursor:help;margin-left:5px;opacity:.55">ℹ️</span>`:''}</td>
+      <td><span class="t" data-act="detail" data-i="${i}" style="cursor:pointer" title="View details">${esc(j.title)}</span>${descBadge(j)}${typeof tierBadge === 'function' ? tierBadge(j) : ''}${j.id?`<span class="jl-emailbtn ${j.email?'on':''}" data-act="email" data-i="${i}" title="${j.email?'Email: '+esc(j.email)+' — click to edit':'Add an HR email (for the n8n email path)'}" style="cursor:pointer">${j.email?'📧':'✉️'}</span><span data-act="repeatable" data-i="${i}" title="${j.repeatable?'Repeatable role — saved. Click to remove':'Mark as a repeatable role (reapply often)'}" style="cursor:pointer;margin-left:4px;opacity:${j.repeatable?1:.3}">🔁</span><span data-act="irrelevant" data-i="${i}" title="${j.irrelevant?'Not relevant — hidden from active lists. Click to restore':'Flag as not relevant (hide it)'}" style="cursor:pointer;margin-left:4px;opacity:${j.irrelevant?1:.3}">🚫</span><span class="jl-info" title="${esc(jobInfoTitle(j))}" style="cursor:help;margin-left:5px;opacity:.55">ℹ️</span>`:''}</td>
       <td class="muted">${esc(j.company)}${j.repeat?` <span class="jl-rep" title="Repeat company — saved details reused">🔁</span>`:''}</td>
       <td class="muted">${esc(j.location)}</td>
       <td><span class="jl-src">${esc(j.source || '—')}</span></td>
       <td class="muted" title="${j.found && j.found !== j.date ? 'Found '+esc(j.found) : ''}">${esc(j.date)}</td>
+      <td>${resumeCell(j, i)}</td>
       <td><span class="jl-st ${esc(j.status)}">${esc(j.status)}</span>${jlBatchState[j.id] === 'running' ? ' <span class="jl-st new" title="Generating now">⏳ generating</span>' : jlBatchState[j.id] === 'pending' ? ' <span class="jl-st" title="Waiting in the generation queue">queued</span>' : ''}</td>
       <td>${j.id ? `<input type="checkbox" class="jl-applied" data-i="${i}" ${j.applied?'checked':''} title="Mark applied">` : (j.applied?'✓':'')}</td>
       <td><div class="jl-rowbtns">
@@ -2969,6 +2993,18 @@ function renderJobs() {
     syncBulkBtn();
   });
   body.querySelectorAll('[data-act="bulk"]').forEach(b => b.onclick = () => bulkAddFromJob(jl.rows[+b.dataset.i]));
+  body.querySelectorAll('.jl-rv').forEach(sel => sel.onchange = async () => {
+    const job = jl.rows[+sel.dataset.i];
+    try {
+      const r = await api(`/jobs/${enc(job.id)}/resume-version`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ persona: sel.value }),
+      });
+      job.resume_plan = r.resume_plan || {};
+      toast(sel.value ? `Pinned ${job.resume_plan.label} for ${job.company}.` : `Back to automatic: ${job.resume_plan.label || 'no version'}.`);
+      renderJobs();
+    } catch (e) { toast('Could not set the resume version: ' + e.message, true); }
+  });
   body.querySelectorAll('[data-act="gen"]').forEach(b => b.onclick = () => genJob(jl.rows[+b.dataset.i], b));
   body.querySelectorAll('[data-act="preview"]').forEach(b => b.onclick = () => {
     const f = jl.rows[+b.dataset.i].folder; if (f) openLibrary(f);
@@ -3175,7 +3211,7 @@ async function genJob(job, btn) {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ persona: activePersona(), strict: true, pdf: true, model }),
     });
-    toast(`Generated${viaHermes ? ' · Hermes' : ''}${result.persona_label ? ' · ' + result.persona_label : ''}${performanceText(result)}.`);
+    toast(`Generated${viaHermes ? ' · Hermes' : ''}${result.persona_label ? ' · Resume: ' + result.persona_label : ''}${performanceText(result)}.`);
     notifyFallback(result);
     // Update this job in place — no full table reload / spinner flash, so the view
     // stays put and you don't lose your place. Library/RSS refresh on their own tab.

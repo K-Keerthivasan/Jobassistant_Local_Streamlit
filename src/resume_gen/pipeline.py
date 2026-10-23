@@ -116,9 +116,17 @@ def run(target: TargetRole, **kw) -> dict:
     """Generate one application. Every AI call made for it is tagged with the
     job in the AI activity log (see `_run` for the options)."""
     from .llm.activity import job_context
+    from . import resume_plan
 
-    with job_context(target.company, target.title):
-        return _run(target, **kw)
+    gid = resume_plan.started(target.company, target.title)
+    try:
+        with job_context(target.company, target.title):
+            result = _run(target, _gid=gid, **kw)
+    except Exception as error:
+        resume_plan.finished(gid, ok=False, error=str(getattr(error, "detail", error)))
+        raise
+    resume_plan.finished(gid, ok=True, run_id=result.get("folder", ""))
+    return result
 
 
 def _run(
@@ -132,6 +140,7 @@ def _run(
     skills_focus: list[str] | None = None,
     lane: str | None = None,
     grade: dict | None = None,
+    _gid: str = "",
 ) -> dict:
     """`lane`: the job's lane slug (from the batch import). It picks the base
     resume (persona), the portfolio links, and the matrix that filters every
@@ -152,6 +161,9 @@ def _run(
     if lane_obj is None:
         lane_obj = lane_data.resolve_lane(target.title)
     chosen = select_persona(target, persona, lane=lane_obj)
+    if _gid:
+        from . import resume_plan
+        resume_plan.chose(_gid, chosen)
     if lane_obj is None and chosen:
         lane_obj = lane_data.lane_for_persona(chosen.get("id", ""))
     if lane_obj is not None and not grade:
@@ -190,6 +202,11 @@ def _run(
     # invented years/metrics, fix name/sign-off. Surface what was scrubbed in QA.
     cover, cover_qa = enforce_cover_letter(cover, profile, target_location=target.location,
                                            lane_ctx=lane_ctx, links=lane_links)
+    # Rebuild the email from the truth-guarded resume, so any fallback proof
+    # points are the checked bullets rather than the raw draft.
+    from .generate import generate_email
+    email = generate_email(target, profile, chosen, contact_name=contact_name,
+                           lines=bundle.get("email_lines"), resume=resume)
     email, email_qa = enforce_email(email, profile)
     if lane_ctx.get("lane"):
         from .lanes.guard import scan_text
