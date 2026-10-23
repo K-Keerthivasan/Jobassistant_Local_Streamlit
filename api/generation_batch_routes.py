@@ -162,7 +162,12 @@ def register(app, generate):
 
     @app.get('/generation-batches/latest')
     def latest_batch():
-        return next(iter(queue.list()), None)
+        # The batch being worked on, not merely the newest: a small batch queued
+        # behind a large one must not hide the large one's progress.
+        batches = queue.list()
+        working = next((b for b in batches if any(i['state'] == 'running' for i in b['items'])), None)
+        waiting = next((b for b in reversed(batches) if not b['complete']), None)
+        return working or waiting or next(iter(batches), None)
 
     @app.get('/generation-batches/{batch_id}')
     def get_batch(batch_id: str):

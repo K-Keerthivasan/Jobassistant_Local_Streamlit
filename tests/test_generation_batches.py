@@ -150,3 +150,25 @@ class EngineDownTests(GenerationBatchTests):
         item = queue.list()[0]['items'][0]
         self.assertEqual(item['label'], 'Acme · Analyst')
         self.assertLessEqual(item['started_at'], item['finished_at'])
+
+
+    def test_latest_follows_the_batch_being_worked_on(self):
+        import time
+        from fastapi import FastAPI
+        from fastapi.testclient import TestClient
+        from api.generation_batch_routes import register
+        app = FastAPI()
+        register(app, lambda spec: {})
+        queue = app.state.generation_queue
+        queue.connection = self.connection
+        queue.initialize()
+        big = queue.create([BatchItem(target={'title': f'job {n}'}) for n in range(3)])
+        big['items'][0]['state'] = 'running'
+        queue.save(big)
+        time.sleep(0.01)
+        queue.create([BatchItem(target={'title': 'redo'})])   # newer, small, waiting
+        client = TestClient(app)
+        self.assertEqual(client.get('/generation-batches/latest').json()['id'], big['id'])
+        big['items'][0]['state'] = 'done'
+        queue.save(big)   # nothing running: the oldest unfinished batch is next in line
+        self.assertEqual(client.get('/generation-batches/latest').json()['id'], big['id'])
