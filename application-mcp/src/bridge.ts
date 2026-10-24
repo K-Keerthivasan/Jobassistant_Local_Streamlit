@@ -2,12 +2,13 @@ import { randomUUID } from "node:crypto";
 import type { WebSocket } from "ws";
 
 export interface Browser {
+  extensionVersion?:string;
   command(op: string, args: Record<string, unknown>): Promise<unknown>;
   notify?(payload:Record<string,unknown>):boolean;
 }
 /** The extension version this service expects (extension/manifest.json). When
  * Chrome runs an older one, page-reading fixes don't apply until it's reloaded. */
-export const EXPECTED_EXTENSION_VERSION = "0.3.3";
+export const EXPECTED_EXTENSION_VERSION = "0.3.8";
 
 export class ChromeBridge implements Browser {
   socket?: WebSocket;

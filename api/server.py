@@ -2160,7 +2160,7 @@ def get_file(path: str):
         raise HTTPException(status_code=403, detail="Path outside output directory.")
     if not p.exists():
         raise HTTPException(status_code=404, detail="Not found.")
-    return FileResponse(str(p), filename=p.name)
+    return FileResponse(str(p), filename=p.name, media_type='application/octet-stream', headers={'X-Content-Type-Options':'nosniff'})
 
 
 # --------------------------------------------------------------------------- #
@@ -2191,3 +2191,6 @@ def _generate_batch_item(spec):
     return generate(GenerateRequest(**(spec.get('target') or {}), **options.model_dump()))
 
 _register_generation_batches(app, _generate_batch_item)
+
+from api.subskilling_routes import register as _register_subskilling
+_register_subskilling(app)

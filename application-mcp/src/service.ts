@@ -12,7 +12,7 @@ import {
 } from "./adapters.js";
 import { digest, documentInfo, safeUrl, sensitive, chromeDocumentPath } from "./security.js";
 import { Store } from "./store.js";
-import type { Browser } from "./bridge.js";
+import { EXPECTED_EXTENSION_VERSION, type Browser } from "./bridge.js";
 import { Studio } from "./studio.js";
 import { adviseNavigation } from "./advisor.js";
 import { draftAnswer, narrativeQuestion } from './answers.js';
@@ -636,7 +636,6 @@ export class Service {
           id,
           "No Apply or Next control found on this page; move the application forward in Chrome.",
         );
-        await this.defer(id);
         return;
       }
       missingNavigation = 0;
@@ -793,6 +792,7 @@ export class Service {
     });
   }
   async resumeCheckpoint(id: string) {
+    this.store.queueEnabled(false);
     const target = this.store.get(id);
     if (["submitted", "failed", "rejected", "submitting", "uncertain"].includes(target.state))
       throw new Error("This application cannot be resumed automatically. Inspect its recorded outcome first.");
@@ -919,6 +919,11 @@ export class Service {
   }
   private syncAttachmentReceipts(a: Application, snapshot: Snapshot) {
     for (const doc of a.documents) {
+      const shown=snapshot.attachments.filter(r=>r.kind===doc.kind && r.shownByIndeed);
+      if(isIndeedApply(snapshot.url) && /review/i.test(snapshot.url) && shown.length && !shown.some(r=>r.name===doc.name)){
+        if(doc.attached)this.store.event(a.id,'indeed_wrong_document_detected',{kind:doc.kind,expected:doc.name,shown:shown.map(r=>r.name)});
+        doc.attached=false;
+      }
       const receipt = snapshot.attachments.find(
         (r) => r.kind === doc.kind && r.name === doc.name,
       );
@@ -952,15 +957,19 @@ export class Service {
     const shown = (kind: string) => s.attachments.filter((r) => r.kind === kind && r.shownByIndeed).map((r) => r.name);
     let part: "Resume" | "Supporting documents" | "" = "";
     let action: "Edit" | "Add" = "Edit";
-    if (resume && !resume.attached && shown("resume").length && !shown("resume").includes(resume.name) && !a.indeedResumeEditAt) {
-      part = "Resume"; action = "Edit"; a.indeedResumeEditAt = new Date().toISOString();
+    if (resume && shown("resume").length && !shown("resume").includes(resume.name) && !a.indeedResumeEditAt) {
+      resume.attached=false;part = "Resume"; action = "Edit";
+    } else if (s.indeedTextCoverLetter && !a.indeedTextCoverEditAt) {
+      part='Supporting documents';action='Edit';
     } else if (cover && !cover.attached && !cover.omissionReason && resume?.attached && !shown("cover_letter").includes(cover.name) && !a.indeedCoverAddAt) {
-      part = "Supporting documents"; action = "Add"; a.indeedCoverAddAt = new Date().toISOString();
+      part = "Supporting documents"; action = "Add";
     }
     if (!part) return false;
     this.store.save(a);
     try {
       await this.command(a, "indeedPart", { part, action });
+      if(s.indeedTextCoverLetter && part==='Supporting documents' && action==='Edit')a.indeedTextCoverEditAt=new Date().toISOString();
+      if(part==='Resume')a.indeedResumeEditAt=new Date().toISOString();else a.indeedCoverAddAt=new Date().toISOString();this.store.save(a);
       this.store.event(id, "indeed_document_step", { part, action, shown: shown(part === "Resume" ? "resume" : "cover_letter") });
       const cur = this.store.get(id);
       if (cur.state === "paused" && !cur.snapshot?.blockers.some((b) => !/^CAPTCHA:/.test(b))) {
@@ -999,11 +1008,21 @@ export class Service {
     }
     return a;
   }
+  private async indeedPdfOnly(id: string) {
+    const a=this.store.get(id);
+    const cover=a.documents.find(d=>d.kind==='cover_letter' && d.attached && !d.omissionReason);
+    if (!cover || !a.snapshot || !isIndeedApply(a.snapshot.url)) return;
+    try {
+      await this.command(a,'indeedPart',{part:'Cover letter',action:'PdfOnly',name:cover.name});
+      this.store.event(id,'indeed_cover_letter_pdf_only',{name:cover.name});
+    } catch (error) { this.store.event(id,'indeed_pdf_only_not_selected',{reason:(error as Error).message}); }
+  }
   async preparePage(id: string, allowPendingCaptcha = false) {
     const initial=this.store.get(id);initial.preparationStage='preparing';this.store.save(initial);
     if (await this.indeedDocuments(id)) return this.store.get(id);
     try {
     let a = await this.uploadResumeFirst(id, allowPendingCaptcha);
+    await this.indeedPdfOnly(id);
     a.preparationStage='preparing';this.store.save(a);
     a = await this.fill(id, allowPendingCaptcha);
     if (a.state === "submitted") return a;
@@ -1045,7 +1064,10 @@ export class Service {
       }
     }
     a = await this.exclusive(() => this.inspectInternal(this.active(id, true)));
+    await this.indeedPdfOnly(id);
+    a = await this.exclusive(() => this.inspectInternal(this.active(id, true)));
     const problems = reviewProblems(a.snapshot!);
+    if(a.snapshot!.indeedTextCoverLetter)problems.push('Indeed still includes a text cover letter. Remove the text letter and retain only the tailored PDF before review.');
     problems.push(...(this.fieldIssues.get(id)?.values() || []));
     for (const doc of a.documents)
       if (!doc.attached && !doc.omissionReason) {
@@ -1121,7 +1143,7 @@ export class Service {
         return this.inspectInternal(a);
       }
       const planned = plan(
-        a.snapshot!.fields,
+        a.snapshot!.fields.filter(f=>!(isIndeedApply(a.snapshot!.url) && a.documents.some(d=>d.kind==='cover_letter' && !d.omissionReason) && f.type!=='file' && /cover letter/i.test(f.label))),
         this.profileFor(a, profile),
         this.store.mappings(new URL(a.snapshot!.url).hostname),
         { title: a.input.title },
@@ -1152,13 +1174,15 @@ export class Service {
         }catch{this.store.event(a.id,'ai_answer_context_unavailable',{});}
       }
       for (const entry of planned) {
+        const repairAvailability=entry.field.invalid && !!entry.field.dateFormat && /^(date available|available start date|earliest start date)\s*\*?$/i.test(entry.field.label.trim()) && profile.availableStartDate==='Two weeks from application date';
+        if(repairAvailability)this.fieldIssues.get(id)?.delete(entry.field.label);
         if(entry.value===entry.field.value)this.fieldIssues.get(id)?.delete(entry.field.label);
         if(this.fieldIssues.get(id)?.has(entry.field.label))continue;
         const profileKey=entry.source?.match(/^apply_profile\.(\w+)$/)?.[1];
         const corrected=profileKey && profile.factProvenance?.[profileKey]?.source==='user_confirmed' && typeof profile.factProvenance[profileKey].previousValue==='string' && entry.field.value.trim().toLowerCase()===profile.factProvenance[profileKey].previousValue.trim().toLowerCase();
         const confirmedHere = corrected || Object.values(profile.answerProvenance || {}).some((p: any) =>
           p.sessionId === a.input.studioSessionId && p.originalQuestion === entry.field.label);
-        if (!entry.value || entry.field.value === entry.value || (entry.field.value && !confirmedHere && !entry.source?.startsWith('tailored_resume.'))) continue;
+        if (!entry.value || entry.field.value === entry.value || (entry.field.value && !confirmedHere && !repairAvailability && !entry.source?.startsWith('tailored_resume.'))) continue;
         await this.command(a, "fill", {
           frameId: entry.field.frameId,
           selector: entry.field.selector,
@@ -1225,10 +1249,14 @@ export class Service {
   async observeDocumentRetries(){
     if(this.running || this.busy)return;
     const a=this.store.list().find(a=>a.retryMissingDocumentsRequested && ['working','paused'].includes(a.state));if(!a)return;
+    if(this.browser.extensionVersion!==undefined && this.browser.extensionVersion!==EXPECTED_EXTENSION_VERSION){
+      a.state='paused';a.reason=`Reload updated bridge ${EXPECTED_EXTENSION_VERSION}; document replacement will resume automatically.`;this.store.save(a);return;
+    }
     let observed:Application;
     try{observed=await this.exclusive(()=>this.inspectInternal(this.active(a.id,true)));}catch{return;}
     if(!observed.snapshot?.supportsByteUploads){observed.reason='Reload updated bridge: missing documents will retry automatically with verified file contents.';this.store.save(observed);return;}
     for(const doc of observed.documents)if(!doc.attached && !doc.omissionReason){this.store.event(a.id,'document_retry_authorized',{kind:doc.kind,previousAttempt:doc.uploadAttemptedAt});doc.uploadAttemptedAt=undefined;}
+    observed.indeedTextCoverEditAt=undefined;
     observed.retryMissingDocumentsRequested=false;this.store.save(observed);this.startRun(a.id);
   }
   async upload(
@@ -1361,6 +1389,13 @@ export class Service {
       if (a.state === "submitted") return a;
       const problems = reviewProblems(a.snapshot!);
       problems.push(...(this.fieldIssues.get(id)?.values() || []));
+      if(isIndeedApply(a.snapshot!.url) && /review/i.test(a.snapshot!.url)){
+        for(const doc of a.documents.filter(d=>!d.omissionReason)){
+          const shown=a.snapshot!.attachments.filter(r=>r.kind===doc.kind && r.shownByIndeed);
+          if(!shown.some(r=>r.name===doc.name))problems.push(`Indeed final document check: expected ${doc.name}; shown: ${shown.map(r=>r.name).join(', ') || 'not verified'}.`);
+          if(a.snapshot!.indeedTextCoverLetter)problems.push('Indeed still includes a text cover letter; PDF-only verification failed.');
+        }
+      }
       if (!a.documents.find((d) => d.kind === "resume")?.attached)
         problems.push("Resume attachment has not been verified.");
       if (
@@ -1627,6 +1662,7 @@ export class Service {
       a.input.resumePath = packet.documents.resume.path;
       a.input.coverLetterPath = packet.documents.cover_letter?.path || null;
       a.input.runId = runId;
+      a.indeedResumeEditAt=undefined;a.indeedCoverAddAt=undefined;a.indeedTextCoverEditAt=undefined;
       a.documents = documents;
       a.reviewHash = undefined;
       a.approvedHash = undefined;

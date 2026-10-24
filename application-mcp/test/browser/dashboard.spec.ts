@@ -2,6 +2,30 @@ import {test,expect} from '@playwright/test';
 import {readFile} from 'node:fs/promises';
 import path from 'node:path';
 
+test('generated jobs refresh while a filter keeps focus and regenerated cancellations are startable',async({page})=>{
+  await page.clock.install();
+  let jobs=Array.from({length:52},(_,i)=>({key_id:`job-${i}`,run_id:`new-run-${i}`,company:`Employer ${i}`,title:'Developer',apply_url:`https://employer.example/jobs/${i}`}));
+  const apps=[{id:'cancelled',state:'rejected',cancelledAt:'now',input:{jobUrl:jobs[0].apply_url,company:jobs[0].company,title:'Developer',runId:'old-run'},documents:[],filled:[],reason:'Cancelled',updatedAt:'now'}];
+  await page.route('http://workspace.test/**',async route=>{
+    const url=new URL(route.request().url());
+    if(['/','/dashboard.js','/dashboard.css'].includes(url.pathname)){
+      const name=url.pathname==='/'?'index.html':url.pathname.slice(1);
+      return route.fulfill({body:await readFile(path.resolve('public',name)),contentType:name.endsWith('.js')?'text/javascript':name.endsWith('.css')?'text/css':'text/html'});
+    }
+    return route.fulfill({json:url.pathname==='/candidates'?{candidates:jobs}:url.pathname==='/applications'?apps:url.pathname==='/queue'?{enabled:false,scope:'all',message:'Stopped'}:url.pathname==='/health'?{chromeConnected:true,extensionConfigured:true}:url.pathname==='/notifications'?{barriers:[],settings:{}}:{events:[]}});
+  });
+  await page.goto('http://workspace.test/');
+  await expect(page.locator('#candidates .job-row')).toHaveCount(52);
+  await expect(page.locator('#candidates .job-row').first().getByRole('button',{name:'Start in Chrome',exact:true})).toBeEnabled();
+  await page.getByLabel('Filter jobs',{exact:true}).fill('Employer');
+  jobs=[...jobs,{key_id:'new',run_id:'latest-resume',company:'New Employer',title:'Developer',apply_url:'https://employer.example/new'}];
+  await page.clock.runFor(16000);
+  await expect(page.locator('#candidates .job-row')).toHaveCount(53);
+  await expect(page.locator('#jobs-sync-status')).toContainText('53 eligible jobs');
+  await expect(page.getByLabel('Filter jobs',{exact:true})).toHaveValue('Employer');
+  await expect(page.locator('#candidates')).toContainText('latest-resume');
+});
+
 test('workspace resumes a pending checkpoint, prevents duplicate starts and remembers themes',async({page},info)=>{
   let resumed='';
   let queued:any;

@@ -72,6 +72,8 @@ def _score(persona: dict, title: str, blob: str, title_words: set[str]) -> int:
 def auto_select(target) -> dict | None:
     """Best-matching persona for a target role, or None if nothing matches."""
     personas = load_personas()
+    if is_visual_ai_role(target):
+        return get_persona('content_video')
     if not personas:
         return None
     title = (getattr(target, "title", "") or "").lower()
@@ -84,6 +86,10 @@ def auto_select(target) -> dict | None:
         if s > best_score:
             best, best_score = p, s
     return best
+
+def is_visual_ai_role(target) -> bool:
+    title = (getattr(target, 'title', '') or '').lower()
+    return bool(re.search(r'\b(?:ai|generative ai)\s+(?:artist|video artist|filmmaker|visual artist)\b', title))
 
 
 class _PersonaPick(BaseModel):
@@ -163,6 +169,8 @@ def select_persona(target, override_id: str | None = None, lane=None,
         forced = get_persona(override_id)
         if forced is not None:
             return forced
+    if is_visual_ai_role(target):
+        return get_persona('content_video')
     if lane is not None and getattr(lane, "persona", ""):
         mapped = get_persona(lane.persona)
         if mapped is not None:

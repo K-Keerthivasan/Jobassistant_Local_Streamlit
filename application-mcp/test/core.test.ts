@@ -179,6 +179,9 @@ test("relative availability uses the application date and relevant websites stay
   const context = { title: "Software Developer", now: new Date("2026-12-25T02:00:00Z") };
   const result = plan(fields, profile, [], context);
   assert.equal(result[0].value, "2027-01-07"); // Dec 24 in New York + 14 days
+  for(const [dateFormat,expected] of [['YYYY-MM-DD','2027-01-07'],['DD/MM/YYYY','07/01/2027'],['MM/DD/YYYY','01/07/2027']] as const){
+    assert.equal(plan([{...fields[0],type:'text',dateFormat}],profile,[],context)[0].value,expected);
+  }
   assert.equal(result[1].value, profile.github);
   assert.equal(plan(fields, profile, [], { ...context, title: "Graphic Designer" })[1].value, profile.portfolio);
 });
@@ -934,6 +937,14 @@ test('education batch exposes future rows together and validates all dates befor
  await service.confirmEducationBatch(a.id,[{index:0,startDate:'2024-09-01',endDate:''},{index:1,startDate:'2020-09-01',endDate:'2022-06-01'}]);
  assert.equal(saved.length,3);assert.equal(starts,1);assert(saved.every(answer=>answer.reuse===false && answer.session_id===a.input.studioSessionId));
  await rm(root,{recursive:true,force:true});store.db.close();
+});
+
+test('Indeed final review rejects a different visible resume even after an earlier verified upload',async()=>{
+ const a=app();a.input.jobUrl='https://smartapply.indeed.com/beta/indeedapply/form/review-module';a.input.allowedDomains=['smartapply.indeed.com'];a.documents[0].attached=true;
+ const {service,store}=setup(a);
+ service.browser.command=async op=>op==='scan'?{...snapshot(),url:a.input.jobUrl,attachments:[{kind:'resume',name:'old-other-job.pdf',frameId:35,shownByIndeed:true}]}:{};
+ const result=await service.review(a.id);assert.equal(result.state,'paused');assert.equal(result.documents[0].attached,false);assert.match(result.reason,/Indeed final document check: expected resume.pdf; shown: old-other-job.pdf/);
+ store.db.close();
 });
 
 test('missing-field notifications wait for the preparation stage to finish',async()=>{

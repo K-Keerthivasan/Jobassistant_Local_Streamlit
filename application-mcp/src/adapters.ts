@@ -35,6 +35,10 @@ const identity: Record<string, string> = {
   "last name": "lastName",
   surname: "lastName",
   "full name": "fullName",
+  "please type your full name.": "fullName",
+  "please type your full name": "fullName",
+  "please enter your full name.": "fullName",
+  "please enter your full name": "fullName",
   "legal name": "fullName",
   "preferred name": "preferredName",
   email: "email",
@@ -155,12 +159,12 @@ export function plan(
         : answer?.[1];
     if (key === "province" && value === "ON" && profile.country === "Canada" &&
       (field.type === "custom-select" || field.options.includes("Ontario"))) value = "Ontario";
-    if (!mapping && key === "availableStartDate" && value === "Two weeks from application date") {
+    if ((key === "availableStartDate" || mapping?.profilePath==='availableStartDate') && value === "Two weeks from application date") {
       const local = new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" }).format(context.now || new Date());
       const date = new Date(local + "T12:00:00Z");
       date.setUTCDate(date.getUTCDate() + 14);
       const iso = date.toISOString().slice(0, 10);
-      value = field.type === "date" ? iso : `${iso.slice(5, 7)}/${iso.slice(8, 10)}/${iso.slice(0, 4)}`;
+      value = field.type === "date" || field.dateFormat==='YYYY-MM-DD' ? iso : field.dateFormat==='DD/MM/YYYY' ? `${iso.slice(8,10)}/${iso.slice(5,7)}/${iso.slice(0,4)}` : `${iso.slice(5, 7)}/${iso.slice(8, 10)}/${iso.slice(0, 4)}`;
     }
     if (typeof value !== "string" || !value.trim())
       return { field, reason: "No confirmed exact answer" };
@@ -212,6 +216,11 @@ export const FINAL =
 export const hasApplicationFields = (snapshot: Snapshot) => snapshot.fields.some(f =>
   f.type !== "search" && !/^(?:language|search(?: jobs)?|link to this job)$/i.test(f.label.trim()));
 export function pickNav(snapshot: Snapshot) {
+  const cisco=ciscoPosting(snapshot);
+  if(cisco)return snapshot.buttons.find(b=>{
+    if(!/^apply now$/i.test(b.label.trim()) || !b.href)return false;
+    try{const u=new URL(b.href);return u.origin==='https://careers.cisco.com' && u.pathname==='/global/en/hvhapply' && u.searchParams.get('jobSeqNo')===`CISCISGLOBAL${cisco}EXTERNALENGLOBAL`;}catch{return false;}
+  });
   const candidates = snapshot.buttons.filter(
     (b) =>
       isNavLabel(b.label) &&
@@ -226,9 +235,14 @@ export function pickNav(snapshot: Snapshot) {
 
 /** The final submit control of a form page, if one is visible. */
 export function pickFinal(snapshot: Snapshot) {
+  if(ciscoPosting(snapshot))return undefined;
   if (!hasApplicationFields(snapshot) && !snapshot.buttons.some(b=>!b.href && /^submit(?: your)? application$/i.test(b.label.trim()))) return undefined;
   return snapshot.buttons.find(
     (b) => !b.href && FINAL.test(b.label.trim().replace(/\s+/g, " ")),
   );
+}
+function ciscoPosting(snapshot:Snapshot){
+  const u=new URL(snapshot.url);
+  return u.origin==='https://careers.cisco.com'?u.pathname.match(/^\/global\/en\/job\/(\d+)\//)?.[1]:undefined;
 }
 

@@ -82,6 +82,7 @@ async function refresh() {
       : "Load the extension in regular Chrome, copy its ID, and start the service with APP_CHROME_EXTENSION_ID.";
   applications = await api("/applications");
   const active = currentActive();
+  renderActivity(h,q,active);
   $("queue-status").textContent = (q.enabled ? "Queue enabled" : "Queue paused") + " · " + (active ? `${active.input.company}: ${active.reason || statusText(active)}` : q.message);
   $("count-active").textContent = applications.filter(a => !a.deferredAt && !terminal(a)).length;
   $("count-pending").textContent = applications.filter(a => a.deferredAt).length;
@@ -233,7 +234,10 @@ function renderCandidates(){
   const eligible=queue.filter(job=>inScope(job.apply_url) && !/canada\s*life/i.test(job.company || '') && `${job.company} ${job.title}`.toLowerCase().includes(filter));
   for(const job of eligible){
     const row=node('div',undefined,'job-row');const info=node('div');info.append(node('h3',job.company),node('p',job.title));row.append(info);
-    const existing=applications.find(a=>a.input.jobUrl===job.apply_url || a.input.company===job.company && a.input.title===job.title);
+    const matches=applications.filter(a=>a.input.jobUrl===job.apply_url || a.input.company===job.company && a.input.title===job.title);
+    const existing=matches.find(a=>a.state==='submitted') || matches.find(a=>!terminal(a)) || matches.find(a=>!a.input.runId || a.input.runId===job.run_id);
+    info.append(node('p',`Resume generation: ${job.run_id}`,'muted'));
+    if(existing && !terminal(existing) && existing.input.runId && existing.input.runId!==job.run_id)info.append(node('p','New resume generation detected in Studio. The saved application will sync when its current operation finishes.','hint'));
     if(existing){
       const btn=button(terminal(existing)?statusText(existing):existing.deferredAt?'Resume saved step':'View current application',async()=>{if(existing.deferredAt)await resumeSaved(existing.id);else{selected=existing.id;await refresh();$('current').scrollIntoView({behavior:'smooth'});}});btn.disabled=terminal(existing);row.append(btn);
     } else {
@@ -256,13 +260,24 @@ function renderCandidates(){
   }
   if(!eligible.length)list.append(node('p',filter?'No jobs match this filter.':'No eligible generated jobs right now. Refresh after generating resumes.','empty'));
 }
-async function loadQueue(){const result=await api('/candidates');queue=result.candidates || [];renderScope();renderCandidates();}
+let candidateLoad;
+async function loadQueue(){
+  if(candidateLoad)return candidateLoad;
+  candidateLoad=(async()=>{
+    const result=await api('/candidates');queue=result.candidates || [];renderScope();renderCandidates();
+    let status=$('jobs-sync-status');
+    if(!status){status=node('p',undefined,'muted');status.id='jobs-sync-status';status.setAttribute('role','status');$('candidates').before(status);}
+    const count=queue.filter(job=>inScope(job.apply_url) && !/canada\s*life/i.test(job.company || '')).length;
+    status.textContent=`${count} jobs in the selected queue · ${queue.length} eligible jobs from Studio · Updated ${new Date().toLocaleTimeString()}`;
+  })();
+  try{await candidateLoad;}finally{candidateLoad=undefined;}
+}
 $("applications").onchange = () =>
   act(async () => {
     selected = $("applications").value;
     await render();
   });
-$("refresh").onclick = () => act(refresh);
+$("refresh").onclick = () => act(async()=>{await loadQueue();await refresh();});
 $("stop").onclick = () => act(() => tool("stop_applications"));
 $("queue").onclick = () => act(loadQueue);
 $("job-filter").oninput = renderCandidates;
@@ -316,12 +331,16 @@ $("auto-queue").onchange = () => act(async () => {
 for(const scope of ['indeed','company','all'])$(`scope-${scope}`).onclick=()=>act(async()=>{queueScope=scope;renderScope();await refresh();renderCandidates();});
 act(async () => { $("auto-queue").checked = (await api("/queue")).enabled; });
 setInterval(async () => {
-  if (acting || document.hidden || ["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement?.tagName)) return;
-  try { await refresh(); } catch (error) { $("error").textContent = error.message; }
+  if (document.hidden) return;
+  if (!acting && !["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement?.tagName)){
+    try { await refresh(); } catch (error) { $("error").textContent = error.message; }
+  }
   // New generations in Resume Studio appear without pressing Refresh jobs.
-  if (++queueTick % 4 === 0) { try { await loadQueue(); } catch { /* shown on the next manual refresh */ } }
+  if (++queueTick % 4 === 0) { try { await loadQueue(); } catch(error) { $('error').textContent='Job sync failed: '+error.message; } }
 }, 4000);
 let queueTick = 0;
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)act(loadQueue);});
+window.addEventListener('focus',()=>act(loadQueue));
 act(refresh);
 act(loadNotifications);
 
@@ -332,3 +351,17 @@ $('theme').onchange=()=>{const theme=$('theme').value;if(theme==='system')delete
 act(loadQueue);
 
 
+
+function renderActivity(health, queueState, active) {
+  let widget=document.getElementById('automation-activity');
+  if(!widget){widget=node('aside',undefined,'automation-activity');widget.id='automation-activity';widget.setAttribute('aria-label','Live automation status');document.body.append(widget);}
+  const job=applications.find(a=>a.id===health.running) || active;
+  const state=!health.chromeConnected?'Chrome disconnected':health.running?'Preparing application':job?statusText(job):'Idle';
+  const heading=node('strong',state);heading.setAttribute('role','status');
+  widget.replaceChildren(heading,node('p',job?`${job.input.company} · ${job.input.title}`:'No active application'));
+  widget.append(node('p',job?.reason || (health.running?`Current step: ${job?.preparationStage || 'Inspecting page and preparing known information'}`:'Waiting for your next action.')));
+  widget.append(node('small',`${queueState.enabled?'Queue enabled':'Queue paused'} · Updated ${new Date().toLocaleTimeString()}`));
+  widget.append(node('p','Login and CAPTCHA are requested when detected. Final Submit is yours.','hint'));
+  if(job){const show=node('button','Show this application');show.onclick=()=>{selected=job.id;document.getElementById('applications').value=job.id;document.getElementById('applications').dispatchEvent(new Event('change'));document.getElementById('current').scrollIntoView({behavior:'smooth'});};widget.append(show);}
+  const pause=node('button','Pause queue');pause.onclick=async()=>{await api('/queue',{enabled:false});document.getElementById('stop').click();};widget.append(pause);
+}

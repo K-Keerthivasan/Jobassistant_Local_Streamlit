@@ -157,6 +157,16 @@ def _context(profile: dict | None, target: TargetRole, persona: dict | None = No
              lane_ctx: dict | None = None, *, for_cover_letter: bool = False) -> str:
     profile = profile or load_profile()
     extra = persona_directive(persona)
+    from .personas import is_visual_ai_role
+    if is_visual_ai_role(target):
+        extra += '''\nVISUAL AI ROLE: This is visual/video production, not LLM application engineering.
+Lead with evidenced editing, compositing, VFX training and creative deliverables. Software,
+n8n, MCP and coding assistants are secondary supporting skills, never substitutes for an
+AI art pipeline. Do not imply experience with LoRA, generative video, character consistency,
+production reels or specific image/video models unless the candidate profile evidences it.
+Select relevant visual portfolio links from the profile. Keep employment titles and facts
+accurate; do not reclassify developer employment as professional AI artist experience.
+'''
     if lane_ctx and lane_ctx.get("lane"):
         from .lanes.guard import directive
         extra += directive(lane_ctx, for_cover_letter=for_cover_letter)

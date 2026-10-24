@@ -11,6 +11,7 @@ from .config import settings
 
 
 def load_profile(path: Path | None = None) -> dict:
+    default_profile = path is None
     path = path or settings.profile_path
     if not path.exists():
         raise FileNotFoundError(
@@ -20,7 +21,14 @@ def load_profile(path: Path | None = None) -> dict:
             f"(or run `python -m resume_gen init`), then try again."
         )
     with path.open("r", encoding="utf-8") as f:
-        return yaml.safe_load(f)
+        profile = yaml.safe_load(f)
+    if default_profile:
+        from .intake.companies import load_apply_profile
+        confirmed = load_apply_profile().get('confirmedSkillEvidence', [])
+        if confirmed:
+            profile.setdefault('skills', {})['user_confirmed'] = [s['skill'] for s in confirmed]
+            profile['skill_evidence'] = confirmed
+    return profile
 
 
 def profile_to_prompt_block(profile: dict) -> str:
@@ -51,6 +59,8 @@ def profile_to_prompt_block(profile: dict) -> str:
     add("\nSKILLS (use only these; select + order by relevance):")
     for group, items in (profile.get("skills") or {}).items():
         add(f"  {group}: {', '.join(items)}")
+    for entry in profile.get('skill_evidence', []):
+        add(f"  Evidence for {entry['skill']}: {entry['evidence']}")
 
     add("\nEXPERIENCE (most recent first; draw bullets only from these facts):")
     for e in profile.get("experience", []):

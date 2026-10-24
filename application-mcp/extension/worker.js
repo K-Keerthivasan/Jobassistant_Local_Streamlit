@@ -76,6 +76,14 @@ function frameAllowed(frame, frames) {
 }
 // Indeed's apply site embeds parts of its pages from other indeed.com hosts.
 // Those frames are read (never navigated) while the application is on Indeed.
+function indeedDocument(frame,frames){
+  const seen=new Set();
+  while(frame && /^(?:about:blank|about:srcdoc)?$/.test(frame.url || '') && frame.parentFrameId>=0){
+    if(seen.has(frame.frameId))return false;seen.add(frame.frameId);
+    frame=frames.find(f=>f.frameId===frame.parentFrameId);
+  }
+  try{return new URL(frame?.url).protocol==='https:' && new URL(frame.url).hostname==='smartapply.indeed.com';}catch{return false;}
+}
 function indeedFrame(url) {
   try {
     const u = new URL(url);
@@ -252,7 +260,7 @@ async function command(op, args) {
       const [r] = await chrome.scripting.executeScript({
         target: { tabId: session.tabId, frameIds: [frame.frameId] },
         func: domTask,
-        args: [{ op: "scan", captchaVerified }],
+        args: [{ op: "scan", captchaVerified, trustedIndeedFrame:indeedDocument(frame,frames) }],
       });
       if (r?.result) {
         r.result.fields.forEach((f) => (f.frameId = frame.frameId));
@@ -272,6 +280,7 @@ async function command(op, args) {
         ...new Set([...blockers, ...results.flatMap((r) => r.blockers)]),
       ],
       attachments: results.flatMap((r) => r.attachments || []),
+      indeedTextCoverLetter: results.some(r=>r.indeedTextCoverLetter),
       confirmation: results.find((r) => r.confirmation)?.confirmation || "",
       diagnostics: {
         ...(top.diagnostics || {}),
@@ -288,7 +297,7 @@ async function command(op, args) {
         const [r] = await chrome.scripting.executeScript({
           target: { tabId: session.tabId, frameIds: [frame.frameId] },
           func: domTask,
-          args: [{ ...args, op }],
+          args: [{ ...args, op, trustedIndeedFrame:indeedDocument(frame,frames) }],
         });
         if (r?.result?.clicked) { await new Promise((res) => setTimeout(res, 1200)); return r.result; }
       } catch (e) { last = e.message; }

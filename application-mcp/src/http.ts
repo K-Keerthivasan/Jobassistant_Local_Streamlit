@@ -158,7 +158,7 @@ export function httpServer(
         const since = new Date(Date.now() - 7 * 86400000)
           .toISOString()
           .slice(0, 10);
-        json(await s.studio.request("/apply/candidates?since=" + since));
+        json(await s.studio.request("/apply/candidates?limit=10000&since=" + since));
         return;
       }
       const appliedMatch = u.pathname.match(/^\/jobs\/([^/]+)\/applied-by-me$/);

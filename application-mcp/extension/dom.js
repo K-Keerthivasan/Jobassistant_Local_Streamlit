@@ -30,7 +30,7 @@ export async function domTask(task) {
     try { return new URL(self.origin).hostname; } catch { /* opaque origin */ }
     try { return window.parent.location.hostname; } catch { return ""; }
   })();
-  const indeedApply = /(^|\.)smartapply\.indeed\.com$/.test(pageHost);
+  const indeedApply = /(^|\.)smartapply\.indeed\.com$/.test(pageHost) || task.trustedIndeedFrame===true;
   const INDEED_PARTS = ["Contact information", "Resume", "Supporting documents", "Relevant experience", "Employer questions"];
   // Text lines of a subtree, including content inside shadow roots (innerText
   // stops at a shadow boundary).
@@ -244,6 +244,11 @@ export async function domTask(task) {
         files: el.type === "file" ? [...el.files].map((f) => f.name) : [],
         accept: el.accept || "",
         maxLength: el.maxLength > 0 ? el.maxLength : undefined,
+        dateFormat: (()=>{
+          if(el.type==='date')return 'YYYY-MM-DD';
+          const hints=[el.placeholder,el.getAttribute('aria-description'),...(el.getAttribute('aria-describedby')||'').split(/\s+/).map(id=>el.getRootNode().getElementById?.(id)?.textContent),el.parentElement?.textContent].filter(Boolean).join(' ');
+          return hints.match(/YYYY-MM-DD|MM\/DD\/YYYY|DD\/MM\/YYYY/i)?.[0].toUpperCase();
+        })(),
         focused:el.getRootNode().activeElement===el,
         invalid:
           el.getAttribute("aria-invalid") === "true" ||
@@ -422,11 +427,32 @@ export async function domTask(task) {
         }) },
       reviewText: !blockers.length && buttons.some(b=>/^submit(?: your)? application$/i.test(b.label.trim())) ? (document.querySelector('main')?.innerText || body).slice(0,16000) : '',
       attachments,
+      indeedTextCoverLetter: indeedApply && (() => {
+        const lines=deepLines(indeedPart('Supporting documents') || document.createElement('div'));
+        return lines.includes('Cover letter') && lines.some(t=>t.length>80 && !/\.(pdf|docx?)$/i.test(t));
+      })(),
     };
   }
   if (task.op === "indeedPart") {
     // Only Indeed's own apply site, only the Edit/Add control of a named part.
     if (!indeedApply) throw new Error("Indeed controls are only used on smartapply.indeed.com.");
+    if (task.part === "Cover letter" && task.action === "PdfOnly") {
+      // This choice disables Indeed's text letter, not the separately uploaded PDF.
+      if (!task.name || !queryAll('*').some(e=>visible(e) && (e.textContent || '').includes(task.name)))
+        throw new Error("Cover-letter PDF must be visible before selecting PDF-only mode.");
+      const control = queryAll('button,label,[role=radio],[role=button],input[type=radio],span,div').find(e =>
+        visible(e) && (e.getAttribute('aria-label') || e.textContent || '').replace(/\s+/g,' ').trim() === 'Apply without a cover letter');
+      if (!control) throw new Error("Indeed PDF-only choice is not on this page.");
+      const input = control.matches('input') ? control : control.querySelector('input[type=radio]');
+      // Clear the saved text as well: some versions retain it even after changing
+      // the card selection. Never touch file inputs or their Remove controls.
+      for(const area of queryAll('textarea').filter(e=>visible(e) && /cover letter/i.test(label(e)))) {
+        Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(area,'');
+        area.dispatchEvent(new Event('input',{bubbles:true}));area.dispatchEvent(new Event('change',{bubbles:true}));
+      }
+      if (control.getAttribute('aria-checked') !== 'true' && !input?.checked) (input || control).click();
+      return { clicked: true };
+    }
     if (!["Resume", "Supporting documents"].includes(task.part) || !["Edit", "Add"].includes(task.action))
       throw new Error("Unsupported Indeed control.");
     const control = indeedControl(indeedPart(task.part), task.action);

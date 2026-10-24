@@ -2699,7 +2699,7 @@ function acSessionCard(s) {
         ${warnings.length ? `<b style="color:var(--warn)">Warnings</b>${acList(warnings)}` : ''}
         ${newAnswers.length ? `<div style="margin-top:10px"><b>New AI-drafted answers — read closely</b>${acList(newAnswers.map(a => `${a.question}: ${a.answer}`))}</div>` : ''}
         ${blanks.length ? `<div style="margin-top:10px"><b>Left blank</b>${acList(blanks.map(b => `${b.label}${b.required ? ' (required)' : ''}: ${b.reason}`))}</div>` : ''}
-        <div style="margin-top:10px"><b>Documents:</b> ${Object.entries(summary.documents || {}).map(([k,v]) => v.url ? `<a href="${esc(v.url)}" target="_blank">${esc(k)}</a>` : esc(`${k}: ${v.error || 'unavailable'}`)).join(' · ') || '<span class="muted">not prepared</span>'}</div>
+        <div style="margin-top:10px"><b>Documents:</b> ${Object.entries(summary.documents || {}).map(([k,v]) => v.url ? `<a class="dl-link" download href="${esc(v.url)}">${esc(k)}</a>` : esc(`${k}: ${v.error || 'unavailable'}`)).join(' · ') || '<span class="muted">not prepared</span>'}</div>
       </div>
     </details>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
@@ -4228,6 +4228,6 @@ $('n8n-verify').onclick = (e) => verifyN8n(e.currentTarget);
 showView(lsGet('view') || 'generate');   // stay on the last tab after refresh
 setInterval(loadHealth, 15000);
 </script>
-<script src="/upgrade.js"></script>
+<script src="/upgrade.js"></script><script src="/subskilling.js"></script>
 </body>
 </html>

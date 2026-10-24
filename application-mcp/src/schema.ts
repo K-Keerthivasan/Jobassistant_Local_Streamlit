@@ -13,11 +13,13 @@ export const Field = z.object({
   accept: z.string().default(""),
   invalid: z.boolean().default(false),
   maxLength: z.number().int().positive().optional(),
+  dateFormat:z.enum(['YYYY-MM-DD','MM/DD/YYYY','DD/MM/YYYY']).optional(),
   focused:z.boolean().default(false),
   history: z.object({ section: z.enum(["experience", "education"]), index: z.number().int().min(0), key: z.string(), orderedBlankRow:z.boolean().optional() }).optional(),
 });
 export type Field = z.infer<typeof Field>;
 export const Snapshot = z.object({
+  indeedTextCoverLetter:z.boolean().default(false),
   educationSection: z.object({text:z.string(),hasRecords:z.boolean()}).optional(),
   url: z.string(),
   title: z.string(),
@@ -118,6 +120,7 @@ export const ApplicationSchema = z.object({
   retryMissingDocumentsRequested:z.boolean().optional(),
   indeedResumeEditAt: z.string().optional(),
   indeedCoverAddAt: z.string().optional(),
+  indeedTextCoverEditAt:z.string().optional(),
   createdAt: z.string(),
   updatedAt: z.string(),
   reviewHash: z.string().optional(),

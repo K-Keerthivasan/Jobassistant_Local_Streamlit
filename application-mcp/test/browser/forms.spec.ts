@@ -8,6 +8,49 @@ import { reviewProblems } from '../../src/adapters.js';
 import { Snapshot } from '../../src/schema.js';
 import { pickFinal, pickNav } from '../../src/adapters.js';
 
+test('availability date format comes from the field validation hint',async({page})=>{
+ await page.setContent('<label>Date Available<input aria-describedby="error" aria-invalid="true" value="11/02/2026"></label><p id="error">Date format is invalid. Please enter dates in the format YYYY-MM-DD.</p>');
+ const scan=await page.evaluate(domTask,{op:'scan'});
+ expect(scan.fields[0].dateFormat).toBe('YYYY-MM-DD');expect(scan.fields[0].invalid).toBe(true);
+});
+
+test('Indeed PDF-only clears saved text and handles a card label with a separate radio',async({page})=>{
+ await page.route('https://smartapply.indeed.com/**',r=>r.fulfill({contentType:'text/html',body:'<textarea aria-label="Cover letter">Old employer letter</textarea><label><input type="radio" name="letter"><span>Apply without a cover letter</span></label><div>letter.pdf<span>Uploaded just now</span></div>'}));
+ await page.goto('https://smartapply.indeed.com/form/documents');
+ await page.evaluate(domTask,{op:'indeedPart',part:'Cover letter',action:'PdfOnly',name:'letter.pdf'});
+ await expect(page.locator('textarea')).toHaveValue('');await expect(page.locator('input')).toBeChecked();
+ await expect(page.getByText('letter.pdf',{exact:false})).toBeVisible();
+});
+
+test('Indeed review detects a stale text letter alongside the correct PDF',async({page})=>{
+ await page.route('https://smartapply.indeed.com/**',r=>r.fulfill({contentType:'text/html',body:'<section><h2>Supporting documents</h2><button>Edit</button><h3>Cover letter</h3><p>Dear WellnessLiving Hiring Team, this old letter belongs to a different application and must not be sent with the current job.</p><span>current_CL.pdf</span></section>'}));
+ await page.goto('https://smartapply.indeed.com/form/review');
+ expect((await page.evaluate(domTask,{op:'scan'})).indeedTextCoverLetter).toBe(true);
+ await page.locator('p').evaluate(e=>e.remove());
+ expect((await page.evaluate(domTask,{op:'scan'})).indeedTextCoverLetter).toBe(false);
+});
+
+test('Indeed PDF-only choice requires the intended uploaded letter and preserves it',async({page})=>{
+  await page.route('https://smartapply.indeed.com/**',r=>r.fulfill({contentType:'text/html',body:'<h2>Add supporting documents</h2><button onclick="this.setAttribute(\'aria-checked\',\'true\')">Apply without a cover letter</button><section><span>letter.pdf</span><button>Remove</button></section>'}));
+  await page.goto('https://smartapply.indeed.com/form/documents');
+  await expect(page.evaluate(domTask,{op:'indeedPart',part:'Cover letter',action:'PdfOnly',name:'other.pdf'})).rejects.toThrow('must be visible');
+  await page.evaluate(domTask,{op:'indeedPart',part:'Cover letter',action:'PdfOnly',name:'letter.pdf'});
+  await expect(page.getByRole('button',{name:'Apply without a cover letter'})).toHaveAttribute('aria-checked','true');
+  await expect(page.getByText('letter.pdf',{exact:true})).toBeVisible();
+});
+
+test('Indeed review inside an opaque inherited frame reports and replaces the old resume',async({page})=>{
+  const content='<section><h2>Resume</h2><span>old-other-job.pdf</span><button id="edit" onclick="this.dataset.clicked=1">Edit</button></section>';
+  await page.route('https://smartapply.indeed.com/**',route=>route.fulfill({contentType:'text/html',body:`<iframe sandbox="allow-scripts" srcdoc="${content.replace(/&/g,'&amp;').replace(/"/g,'&quot;')}"></iframe>`}));
+  await page.goto('https://smartapply.indeed.com/beta/indeedapply/form/review-module');
+  const frame=page.frames().find(f=>f!==page.mainFrame())!;await frame.waitForSelector('#edit');
+  expect((await frame.evaluate(domTask,{op:'scan'})).attachments).toEqual([]);
+  const scan=await frame.evaluate(domTask,{op:'scan',trustedIndeedFrame:true});
+  expect(scan.attachments).toContainEqual({kind:'resume',name:'old-other-job.pdf',frameId:0,shownByIndeed:true});
+  await frame.evaluate(domTask,{op:'indeedPart',part:'Resume',action:'Edit',trustedIndeedFrame:true});
+  expect(await frame.getAttribute('#edit','data-clicked')).toBe('1');
+});
+
 test('document byte upload sends the full file and change event to the designated attachment input',async({page})=>{
   await page.setContent('<input type="file" id="import" aria-label="Attachment:"><input type="file" id="jobPostingApplication_files_resume"><div id="receipt"></div>');
   await page.evaluate(()=>document.querySelector('#jobPostingApplication_files_resume')!.addEventListener('change',event=>{const file=(event.target as HTMLInputElement).files![0];document.querySelector('#receipt')!.textContent=`${file.name}:${file.size}`;}));

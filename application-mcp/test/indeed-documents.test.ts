@@ -63,6 +63,13 @@ test("nothing is clicked when both documents are already this job's, or off Inde
   try { assert.equal(await other.step(), false); assert.equal(other.calls.length, 0); } finally { other.close(); }
 });
 
+test('Indeed edits a stale text letter even when the correct PDFs are attached',async()=>{
+  const snapshot=review('kk_RefugeRoot_Canada_Video_Content_Creator.pdf','kk_RefugeRoot_Canada_Video_Content_Creator_CL.pdf');
+  snapshot.indeedTextCoverLetter=true;
+  const {calls,step,close}=setup(snapshot,{resume:true,cover:true});
+  try{assert.equal(await step(),true);assert.deepEqual(calls.map(c=>[c.part,c.action]),[['Supporting documents','Edit']]);assert.equal(await step(),false);}finally{close();}
+});
+
 test("the service expects the extension version in manifest.json", async () => {
   const { readFile } = await import("node:fs/promises");
   const { EXPECTED_EXTENSION_VERSION } = await import("../src/bridge.js");
